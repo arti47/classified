@@ -110,6 +110,16 @@ export function addRoll(entry) {
 
 export function clearLog() { writeJSON(K_LOG, []); emit("log"); }
 
+/**
+ * Drop a single roll by id. Used when a solo re-roll supersedes the roll it replaced, so the
+ * log shows the reading that was kept rather than every attempt.
+ */
+export function removeRoll(id) {
+  if (!id) return;
+  writeJSON(K_LOG, readJSON(K_LOG, []).filter(r => r.id !== id));
+  emit("log");
+}
+
 /* ---------------------------------------------------------------- combat */
 
 export function combatState() {

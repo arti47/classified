@@ -41,8 +41,16 @@ async function soloD10(label = "d10") {
 
 function journal(adv, kind, text, detail = "") {
   adv.journal = adv.journal || [];
-  adv.journal.unshift({ id: uid("j"), ts: Date.now(), kind, text, detail });
+  const id = uid("j");
+  adv.journal.unshift({ id, ts: Date.now(), kind, text, detail });
   if (adv.journal.length > 200) adv.journal.length = 200;
+  return id;
+}
+
+/** Drop a journal row by id. Used when a re-roll supersedes what it replaced. */
+function unjournal(adv, id) {
+  if (!id || !adv.journal) return;
+  adv.journal = adv.journal.filter(j => j.id !== id);
 }
 
 /**
@@ -51,7 +59,7 @@ function journal(adv, kind, text, detail = "") {
  */
 function logSolo(adv, label, roll, outcome, note) {
   const linked = adv.characterId ? Store.getCharacter(adv.characterId) : null;
-  Store.addRoll({
+  const row = Store.addRoll({
     solo: true,
     by: linked ? (linked.identity.name || "Agent") : (adv.name || "Solo"),
     characterId: adv.characterId || null,
@@ -59,6 +67,7 @@ function logSolo(adv, label, roll, outcome, note) {
     modifiers: []
   });
   announce(`${label}: ${outcome}`);
+  return row ? row.id : null;
 }
 
 /* ---------------------------------------------------------------- screen */
@@ -185,26 +194,36 @@ async function openAdventureMenu(host) {
     desc: `${count(a.threads, "thread")}, ${count(a.characters, "character")} · updated ${fmtDate(a.updatedAt)}`
   }));
   items.push({ key: "__new", label: "+ Start a new adventure", desc: "Chaos Factor 5, scene 1, empty lists." });
+
+  // Switching adventures is a play action and stays one tap. Everything that configures the
+  // adventure rather than plays it sits one level down, so the two never mix.
   const active = Store.activeAdventure();
   if (active) {
     items.push({
-      key: "__mechanic", label: "Fate mechanic",
+      key: "__settings", label: "Adventure settings",
       right: active.fateMode === "check" ? "Fate Check" : "Fate Chart",
-      desc: "The chart rolls d100 under a printed target; the check rolls 2d10 against 11."
+      desc: "Fate mechanic, Chaos Factor correction, linked dossier, rename, delete."
     });
-    items.push({
-      key: "__chaos", label: "Set the Chaos Factor by hand",
-      right: String(active.chaos),
-      desc: "End Scene steps it for you. This is for correcting it, not for playing."
-    });
-    items.push({ key: "__link", label: "Link a dossier", desc: "Point this adventure at a character so PC events name them." });
-    items.push({ key: "__rename", label: "Rename this adventure", desc: "" });
-    items.push({ key: "__delete", label: "Delete this adventure", desc: "Its journal and lists go with it." });
   }
 
-  const key = await chooseModal("Adventures", items);
+  let key = await chooseModal("Adventures", items);
   if (!key) return;
   if (key === "__new") { newAdventure(host); return; }
+
+  if (key === "__settings") {
+    key = await chooseModal("Adventure settings", [
+      { key: "__mechanic", label: "Fate mechanic",
+        right: active.fateMode === "check" ? "Fate Check" : "Fate Chart",
+        desc: "The chart rolls d100 under a printed target; the check rolls 2d10 against 11." },
+      { key: "__chaos", label: "Set the Chaos Factor by hand",
+        right: String(active.chaos),
+        desc: "End Scene steps it for you. This is for correcting it, not for playing." },
+      { key: "__link", label: "Link a dossier", desc: "Point this adventure at a character so PC events name them." },
+      { key: "__rename", label: "Rename this adventure", desc: "" },
+      { key: "__delete", label: "Delete this adventure", desc: "Its journal and lists go with it." }
+    ], { intro: active.name || "Untitled" });
+    if (!key) return;
+  }
   if (key === "__rename") {
     const name = await promptModal("Adventure name", { title: "Rename", value: active.name || "" });
     if (name) { save(a => { a.name = name; }); }
@@ -460,10 +479,12 @@ export async function askFate(adv, oddsKey, question) {
         : "A double at or under the Chaos Factor, so an event fires as well as the answer." })));
   }
 
-  const actions = [{ label: "Done", kind: "primary" }];
-  if (res.event) {
-    actions.unshift({ label: "Roll the event", kind: "ghost", onClick: () => rollRandomEvent(Store.activeAdventure()) });
-  }
+  // A doubles roll inside the Chaos Factor fires an event as well as the answer. That is not
+  // optional, so it becomes the only way out of this dialog.
+  const actions = res.event
+    ? [{ label: "Roll the event", kind: "primary", close: false,
+         onClick: api => { api.close(); rollRandomEvent(Store.activeAdventure()); } }]
+    : [{ label: "Done", kind: "primary" }];
 
   save(a => {
     journal(a, "fate", `${label} — ${res.answer}`,
@@ -474,7 +495,7 @@ export async function askFate(adv, oddsKey, question) {
   logSolo(adv, label, res.mechanic === "check" ? res.total : res.roll, res.answer,
     `${odds.name} · Chaos Factor ${adv.chaos}` + (res.event ? " · Random Event" : ""));
 
-  modal({ title: "Fate", body, actions });
+  modal({ title: "Fate", body, actions, locked: !!res.event });
 }
 
 /* ---------------------------------------------------------------- scenes */
@@ -500,9 +521,11 @@ export async function startScene(adv) {
   const roll = await soloD10("scene test d10");
   const res = S.sceneTest(roll, adv.chaos);
 
+  // The test result is recorded straight away — the dice were rolled — but the scene is NOT
+  // marked in play yet. An altered or interrupted scene owes a further roll first, and the
+  // screen must not claim a scene is running until that has resolved.
   Store.pushSoloUndo(Store.soloSnapshot());
   save(a => {
-    a.scenePhase = "play";
     a.sceneKind = res.key;
     a.sceneExpected = expected;
     journal(a, "scene", `Scene ${a.scene} — ${res.name}` + (expected ? `: ${expected}` : ""),
@@ -521,22 +544,52 @@ export async function startScene(adv) {
       el("b", { text: res.key === "interrupt" ? "You had planned: " : "Your scene: " }), expected));
   }
 
-  const actions = [{ label: "Play it", kind: "primary" }];
-  if (res.key === "altered") {
-    actions.unshift({ label: "Roll the adjustment", kind: "ghost", onClick: () => rollSceneAdjustment(Store.activeAdventure()) });
-  }
-  if (res.key === "interrupt") {
-    // The interrupt IS the scene, so the event is rolled for you rather than left as a
-    // suggestion; the scene you planned is offered as a thread so it is not simply lost.
-    actions.unshift({
-      label: "Roll the interrupt", kind: "primary", close: false,
-      onClick: api => { api.close(); rollRandomEvent(Store.activeAdventure(), { interruptedBy: expected }); }
+  // One forced next step, never a choice between finishing the sequence and walking away.
+  // An expected scene is already complete, so its single action commits it to play. An
+  // altered or interrupted scene owes a roll, and that roll's dialog carries the commit.
+  if (res.key === "expected") {
+    modal({
+      title: `Scene ${adv.scene}`, body: out, locked: true,
+      actions: [{ label: `Play scene ${adv.scene}`, kind: "primary", onClick: () => commitScenePlay() }]
     });
+    return;
   }
-  modal({ title: `Scene ${adv.scene}`, body: out, actions });
+
+  const step = res.key === "altered"
+    ? { label: "Roll the adjustment", run: () => rollSceneAdjustment(Store.activeAdventure(), { chain: true }) }
+    : { label: "Roll the interrupt", run: () => rollRandomEvent(Store.activeAdventure(), { chain: true, interruptedBy: expected }) };
+
+  modal({
+    title: `Scene ${adv.scene}`, body: out, locked: true,
+    actions: [{ label: step.label, kind: "primary", close: false, onClick: api => { api.close(); step.run(); } }]
+  });
 }
 
-export async function rollSceneAdjustment(adv) {
+/**
+ * Flip the adventure into play. Called only at the end of the Start-scene chain, so the
+ * scene card and the primary action never disagree with what has actually been rolled.
+ * `sceneExpected` is overwritten when an interrupt replaced what was planned.
+ */
+function commitScenePlay(replacementScene) {
+  save(a => {
+    a.scenePhase = "play";
+    if (replacementScene) a.sceneExpected = replacementScene;
+  });
+}
+
+/** The action that closes the last dialog of a Start-scene chain. */
+function playSceneAction(replacementScene) {
+  const adv = Store.activeAdventure();
+  return { label: `Play scene ${adv ? adv.scene : ""}`.trim(), kind: "primary",
+    onClick: () => commitScenePlay(replacementScene) };
+}
+
+/**
+ * Roll the Scene Adjustment table for an altered scene.
+ * @param {object} opts chain — this is a step of the Start-scene sequence, so the dialog is
+ *   locked and its single action commits the scene to play.
+ */
+export async function rollSceneAdjustment(adv, opts = {}) {
   const rolls = [];
   const resolved = [];
   let pending = 1;
@@ -571,7 +624,11 @@ export async function rollSceneAdjustment(adv) {
   const names = resolved.map(r => r.name).join(" + ");
   save(a => { journal(a, "scene", `Scene adjustment — ${names}`, `d10 ${rolls.map(r => r.roll).join("/")}`); });
   logSolo(adv, "Scene adjustment", rolls[0].roll, names, resolved.map(r => r.desc).join(" "));
-  modal({ title: "Altered scene", body, actions: [{ label: "Done", kind: "primary" }] });
+
+  modal({
+    title: "Altered scene", body, locked: !!opts.chain,
+    actions: [opts.chain ? playSceneAction() : { label: "Done", kind: "primary" }]
+  });
 }
 
 /* ---------------------------------------------------------------- random events */
@@ -581,7 +638,11 @@ export async function rollSceneAdjustment(adv) {
  * @param {object} opts
  *   tableKey     — force the Meaning Table the words come from (used by "Re-roll the words")
  *   focusRoll    — force the Event Focus roll (used by the interrupt flow and the harness)
- *   interruptedBy — the scene this event is interrupting, offered as a thread so it is not lost
+ *   interruptedBy — the scene this event displaced. The event becomes the scene and the
+ *                   displaced plan is filed to Threads automatically, because in Mythic it
+ *                   is exactly the sort of thing that comes back later.
+ *   chain        — a step of the Start-scene sequence: locked dialog, commit action
+ *   supersedes   — { journalId, rollId } from the roll this one replaces (re-roll)
  */
 export async function rollRandomEvent(adv, opts = {}) {
   const focusRoll = opts.focusRoll || await soloD100("Event Focus d100");
@@ -627,15 +688,50 @@ export async function rollRandomEvent(adv, opts = {}) {
     "Read it loosely and quickly. The words are a prompt, not a puzzle with one answer." }));
 
   const detail = [focus.name, subject, pair.words.join(" ")].filter(Boolean).join(" — ");
-  save(a => { journal(a, "event", `Random Event: ${detail}`, `focus ${focusRoll} · ${pair.label} ${pair.rolls.join("/")}`); });
-  logSolo(adv, "Random Event", focusRoll, focus.name, detail);
+
+  // A re-roll replaces what it supersedes rather than stacking beside it, so the journal and
+  // the roll log show the reading that was actually kept.
+  if (opts.supersedes) {
+    save(a => unjournal(a, opts.supersedes.journalId));
+    Store.removeRoll(opts.supersedes.rollId);
+  }
+
+  let journalId = null;
+  save(a => { journalId = journal(a, "event", `Random Event: ${detail}`, `focus ${focusRoll} · ${pair.label} ${pair.rolls.join("/")}`); });
+  const rollId = logSolo(adv, "Random Event", focusRoll, focus.name, detail);
+
+  // An interrupt displaces the scene that was planned. File it as a thread now rather than
+  // leaving a button the player can forget, and note it in the dialog.
+  if (opts.interruptedBy) {
+    const room = (adv.threads || []).length < S.LIST_SLOTS;
+    if (room) {
+      save(a => {
+        (a.threads = a.threads || []).push({ id: uid("li"), text: opts.interruptedBy, weight: 1 });
+        journal(a, "note", `Displaced by the interrupt, kept as a thread: ${opts.interruptedBy}`);
+      });
+    }
+    body.appendChild(el("div", { class: "banner" + (room ? "" : " warn") },
+      el("b", { text: room ? "Your planned scene is now a thread" : "Threads list is full" }),
+      el("div", { class: "small", text: room
+        ? `"${opts.interruptedBy}" was displaced by this event and has been added to Threads.`
+        : `"${opts.interruptedBy}" was displaced but the Threads list is at ${S.LIST_SLOTS} entries, so it was not filed.` })));
+  }
 
   // The event usually tells you to change a list. Offer that here rather than making the
   // player leave the flow and remember to do it.
-  const actions = [{ label: "Done", kind: "primary" }];
+  const actions = [opts.chain
+    ? playSceneAction(`${focus.name} — ${pair.words.join(" · ")}`)
+    : { label: "Done", kind: "primary" }];
   actions.unshift({
     label: "Re-roll the words", kind: "ghost", close: false,
-    onClick: api => { api.close(); rollRandomEvent(Store.activeAdventure(), { tableKey, focusRoll }); }
+    onClick: api => {
+      api.close();
+      // interruptedBy is dropped: the displaced scene was filed on the first roll and must
+      // not be filed again just because the words were re-read.
+      rollRandomEvent(Store.activeAdventure(), {
+        ...opts, interruptedBy: null, tableKey, focusRoll, supersedes: { journalId, rollId }
+      });
+    }
   });
 
   if (focus.key === "newnpc") {
@@ -662,14 +758,7 @@ export async function rollRandomEvent(adv, opts = {}) {
       onClick: () => addToList("threads", "Threads", pair.words.join(" "))
     });
   }
-  if (opts.interruptedBy) {
-    actions.unshift({
-      label: "Keep the planned scene", kind: "ghost", close: false,
-      onClick: () => addToList("threads", "Threads", opts.interruptedBy)
-    });
-  }
-
-  modal({ title: "Random Event", body, actions });
+  modal({ title: "Random Event", body, actions, locked: !!opts.chain });
 }
 
 /** Add to an Adventure List, letting the player edit the suggested wording first. */

@@ -31,9 +31,12 @@ export function modal(opts = {}) {
   }
 
   const titleEl = el("h2", { id: "modalTitle_" + openModals.length, text: opts.title || "" });
+  // A locked modal is one step of a sequence the player must finish: no close button, no
+  // Escape, no backdrop dismissal. Only its own actions move it on.
+  const locked = opts.locked === true;
   const closeBtn = el("button", { class: "icon-btn", "aria-label": "Close", type: "button" }, "✕");
 
-  const head = el("div", { class: "modal-head" }, titleEl, closeBtn);
+  const head = el("div", { class: "modal-head" }, titleEl, locked ? null : closeBtn);
   const parts = [head, bodyEl];
 
   let footEl = null;
@@ -61,11 +64,11 @@ export function modal(opts = {}) {
   const backdrop = el("div", { class: "modal-backdrop" }, dialog);
 
   function onKey(e) {
-    if (e.key === "Escape") { e.preventDefault(); api.close(); }
+    if (e.key === "Escape") { e.preventDefault(); if (!locked) api.close(); }
     else if (e.key === "Tab") trapFocus(dialog, e);
   }
 
-  backdrop.addEventListener("mousedown", e => { if (e.target === backdrop) api.close(); });
+  backdrop.addEventListener("mousedown", e => { if (e.target === backdrop && !locked) api.close(); });
   closeBtn.addEventListener("click", () => api.close());
   document.addEventListener("keydown", onKey, true);
 
@@ -100,7 +103,8 @@ export function modal(opts = {}) {
   openModals.push(api);
   root.appendChild(backdrop);
 
-  const target = dialog.querySelector("input, select, textarea, button:not(.icon-btn)") || closeBtn;
+  const target = dialog.querySelector("input, select, textarea, button:not(.icon-btn)") ||
+    dialog.querySelector(".modal-foot .btn") || closeBtn;
   window.setTimeout(() => target.focus(), 20);
 
   return api;

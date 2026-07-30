@@ -274,7 +274,9 @@ export async function browserTests(t, { chromium, executablePath, baseURL }) {
       t.ok(!loop.quietDuring, "and the tools come forward once it is running");
       t.ok(loop.showsScene, "the scene you said you expected is shown while it runs");
 
-      // Start scene: one flow that captures the expectation, tests it, and marks the phase.
+      // Start scene: one chain that captures the expectation, tests it, forces whatever the
+      // test owes, and only then puts the adventure in play. The phase must not flip early,
+      // and no dialog in the chain may be dismissable.
       const started = await page.evaluate(async () => {
         const Store = await import("./src/store.js");
         const Solo = await import("./src/solo.js");
@@ -284,19 +286,44 @@ export async function browserTests(t, { chromium, executablePath, baseURL }) {
         document.querySelector(".modal input").value = "Meet the courier";
         [...document.querySelectorAll(".modal-foot .btn")].find(b => b.textContent === "Test the scene").click();
         await p;
-        const adv = Store.activeAdventure();
-        const modalText = (document.querySelector(".modal") || {}).textContent || "";
-        return {
-          phase: adv.scenePhase, kind: adv.sceneKind, expected: adv.sceneExpected,
-          journal: adv.journal[0].text, modalText
+
+        const out = {
+          kind: Store.activeAdventure().sceneKind,
+          phaseAfterTest: Store.activeAdventure().scenePhase,
+          steps: [], everyStepLocked: true, everyStepOnePrimary: true
         };
+
+        // Walk the chain: each dialog offers exactly one primary, and that is the only exit.
+        for (let i = 0; i < 6 && Store.activeAdventure().scenePhase !== "play"; i++) {
+          const m = document.querySelector(".modal");
+          if (!m) break;
+          if (m.querySelector(".modal-head .icon-btn")) out.everyStepLocked = false;
+          const primaries = [...m.querySelectorAll(".modal-foot .btn.primary")];
+          if (primaries.length !== 1) out.everyStepOnePrimary = false;
+          out.steps.push(primaries[0] ? primaries[0].textContent : "(none)");
+          primaries[0].click();
+          await new Promise(r => setTimeout(r, 120));
+        }
+
+        const adv = Store.activeAdventure();
+        return { ...out, phase: adv.scenePhase, expected: adv.sceneExpected,
+          journalText: adv.journal.map(j => j.text).join(" | ") };
       });
-      t.eq(started.phase, "play", "starting a scene puts the adventure in play");
+      t.eq(started.phaseAfterTest, "setup",
+        "the scene test alone does not put the adventure in play — the chain has to finish first");
+      t.ok(started.everyStepLocked, "no step of the Start scene chain can be dismissed");
+      t.ok(started.everyStepOnePrimary, "each step of the chain offers exactly one primary action");
+      t.eq(started.phase, "play", "finishing the chain puts the adventure in play");
+      t.ok(/^Play scene \d+$/.test(started.steps[started.steps.length - 1]),
+        `the chain ends on the action that commits the scene (${started.steps.join(" → ")})`);
       t.ok(["expected", "altered", "interrupt"].includes(started.kind), "and records how the test resolved");
-      t.eq(started.expected, "Meet the courier", "and keeps what you said you expected");
-      t.ok(started.journal.includes("Meet the courier"), "the journal records the scene and its outcome");
-      t.ok(/Expected scene|Altered scene|Interrupt scene/.test(started.modalText), "the outcome is reported in the same flow");
-      await page.evaluate(() => document.querySelectorAll(".modal-head .icon-btn").forEach(b => b.click()));
+      t.ok(started.journalText.includes("Meet the courier"), "the journal records the scene and its outcome");
+      if (started.kind === "interrupt") {
+        t.ok(started.expected !== "Meet the courier",
+          "an interrupt relabels the scene card with the event that displaced the plan");
+      } else {
+        t.eq(started.expected, "Meet the courier", "a scene you got to play keeps what you expected");
+      }
 
       // End scene: control question, Chaos step, list upkeep and the phase reset, in one commit.
       const ended = await page.evaluate(async () => {
@@ -364,6 +391,110 @@ export async function browserTests(t, { chromium, executablePath, baseURL }) {
       t.ok(eventActions.newNpc.includes("Add to Characters"), "a New NPC event offers to add them to the Characters list");
       t.ok(eventActions.closeThread.includes("Strike that thread off"), "Close A Thread offers to strike off the thread it drew");
       t.ok(!eventActions.context.includes("Add to Characters"), "an event that names no list carries no list action");
+      t.ok(!eventActions.newNpc.includes("Keep the planned scene"),
+        "an ordinary event carries no interrupt action");
+
+      // An interrupt files the displaced scene as a thread by itself, and ends on the commit.
+      const interrupt = await page.evaluate(async () => {
+        const Store = await import("./src/store.js");
+        const Solo = await import("./src/solo.js");
+        Store.updateAdventure(a => { a.threads = []; a.scenePhase = "setup"; a.sceneExpected = ""; });
+        await Solo.rollRandomEvent(Store.activeAdventure(), {
+          focusRoll: 95, chain: true, interruptedBy: "Meet the courier at the docks"
+        });
+        const m = document.querySelector(".modal");
+        const out = {
+          locked: !m.querySelector(".modal-head .icon-btn"),
+          primaries: [...m.querySelectorAll(".modal-foot .btn.primary")].map(b => b.textContent),
+          threads: Store.activeAdventure().threads.map(x => x.text),
+          phaseBefore: Store.activeAdventure().scenePhase
+        };
+        m.querySelector(".modal-foot .btn.primary").click();
+        await new Promise(r => setTimeout(r, 60));
+        const adv = Store.activeAdventure();
+        out.phaseAfter = adv.scenePhase;
+        out.sceneLabel = adv.sceneExpected;
+        return out;
+      });
+      t.deep(interrupt.threads, ["Meet the courier at the docks"],
+        "an interrupt files the scene it displaced as a thread with no button to forget");
+      t.ok(interrupt.locked, "the interrupt dialog cannot be dismissed past the commit");
+      t.eq(interrupt.primaries.length, 1, "and offers exactly one primary action");
+      t.eq(interrupt.phaseBefore, "setup", "the scene is not in play until that action is taken");
+      t.eq(interrupt.phaseAfter, "play", "taking it puts the scene in play");
+      t.ok(interrupt.sceneLabel && interrupt.sceneLabel !== "Meet the courier at the docks",
+        "and the scene card now names the event rather than the displaced plan");
+
+      // The altered-scene branch of the chain, driven directly so it is covered whatever the
+      // scene test happened to roll above.
+      const altered = await page.evaluate(async () => {
+        const Store = await import("./src/store.js");
+        const Solo = await import("./src/solo.js");
+        Store.updateAdventure(a => { a.scenePhase = "setup"; });
+        await Solo.rollSceneAdjustment(Store.activeAdventure(), { chain: true });
+        const m = document.querySelector(".modal");
+        const out = {
+          locked: !m.querySelector(".modal-head .icon-btn"),
+          primaries: [...m.querySelectorAll(".modal-foot .btn.primary")].map(b => b.textContent),
+          phaseBefore: Store.activeAdventure().scenePhase
+        };
+        m.querySelector(".modal-foot .btn.primary").click();
+        await new Promise(r => setTimeout(r, 60));
+        out.phaseAfter = Store.activeAdventure().scenePhase;
+        return out;
+      });
+      t.ok(altered.locked, "the Scene Adjustment dialog cannot be dismissed past the commit");
+      t.ok(/^Play scene \d+$/.test(altered.primaries[0] || ""),
+        "and its single primary action is the one that commits the scene");
+      t.eq(altered.phaseBefore, "setup", "an altered scene is not in play until the adjustment is read");
+      t.eq(altered.phaseAfter, "play", "and is once it has been");
+
+      // Settings sit one level below the adventure switcher, not beside it.
+      const advMenu = await page.evaluate(async () => {
+        [...document.querySelectorAll("button")].find(b => b.textContent.trim() === "Adventures").click();
+        await new Promise(r => setTimeout(r, 80));
+        const top = [...document.querySelectorAll(".modal .opt-btn")].map(b => b.textContent);
+        const settings = [...document.querySelectorAll(".modal .opt-btn")]
+          .find(b => b.textContent.includes("Adventure settings"));
+        settings.click();
+        await new Promise(r => setTimeout(r, 80));
+        const inner = [...document.querySelectorAll(".modal .opt-btn")].map(b => b.textContent);
+        document.querySelectorAll(".modal-head .icon-btn").forEach(b => b.click());
+        return { top, inner };
+      });
+      t.ok(advMenu.top.some(x => x.includes("Start a new adventure")),
+        "the Adventures menu keeps the play actions at the top level");
+      t.ok(!advMenu.top.some(x => x.includes("Delete this adventure")),
+        "and no longer mixes destructive settings in beside them");
+      t.ok(advMenu.inner.some(x => x.includes("Fate mechanic")) &&
+        advMenu.inner.some(x => x.includes("Delete this adventure")),
+        "Adventure settings gathers the configuration one level down");
+
+      // Re-rolling the words replaces the record instead of stacking beside it.
+      const reroll = await page.evaluate(async () => {
+        const Store = await import("./src/store.js");
+        const Solo = await import("./src/solo.js");
+        Store.clearLog();
+        Store.updateAdventure(a => { a.journal = []; });
+        await Solo.rollRandomEvent(Store.activeAdventure(), { focusRoll: 95 });
+        const before = {
+          journal: Store.activeAdventure().journal.filter(j => j.kind === "event").length,
+          log: Store.rollLog().filter(r => r.label === "Random Event").length
+        };
+        [...document.querySelectorAll(".modal-foot .btn")].find(b => b.textContent === "Re-roll the words").click();
+        await new Promise(r => setTimeout(r, 140));
+        [...document.querySelectorAll(".modal-foot .btn")].find(b => b.textContent === "Re-roll the words").click();
+        await new Promise(r => setTimeout(r, 140));
+        const after = {
+          journal: Store.activeAdventure().journal.filter(j => j.kind === "event").length,
+          log: Store.rollLog().filter(r => r.label === "Random Event").length
+        };
+        document.querySelectorAll(".modal-head .icon-btn").forEach(b => b.click());
+        return { before, after };
+      });
+      t.eq(reroll.before.journal, 1, "an event writes one journal row");
+      t.eq(reroll.after.journal, 1, "and two re-rolls still leave one, not three");
+      t.eq(reroll.after.log, 1, "the roll log keeps only the reading that was kept");
 
       // The solo roll log row renders without the Classified Quality columns.
       await page.evaluate(() => { location.hash = "#/log"; });

@@ -512,20 +512,25 @@ Adventure Lists, the journal, and the reference. Nothing is gated: an oracle que
 scenes is legitimate, so the in-play block stays usable and is merely quietened when no scene
 is open (ruling S9).
 
-**Start scene** is one flow: it asks what you expect, rolls the scene test, and chains
-straight into whatever the test says happens instead — the Scene Adjustment table on an
-altered scene, a Random Event on an interrupt. The expectation is stored on the adventure so
-the screen can show what this scene is while you play it, and on an interrupt the planned
-scene is offered as a thread rather than lost.
+**Start scene** is one *locked chain*, not a dialog with options. It asks what you expect,
+rolls the scene test, and then forces whatever the test owes: the Scene Adjustment table on
+an altered scene, a Random Event on an interrupt. Every dialog in the chain carries exactly
+one primary action and cannot be dismissed — no close button, no Escape, no backdrop click
+(ruling S10). The chain always ends on `Play scene N`, and **that** is the only thing that
+sets `scenePhase` to `play`, so the screen never claims a scene is running before the rolls
+behind it have happened. On an interrupt the event becomes the scene, the scene card is
+relabelled to name it, and the displaced plan is filed to Threads automatically (ruling S11).
 
 **End scene** is the other boundary and carries all of its bookkeeping in one dialog: the
 control question that steps the Chaos Factor, a summary line, and the Threads and Characters
 upkeep — add what opened, strike off what closed. It commits as one change under one undo
 snapshot, and resets the phase so the next primary action is `Start scene N+1`.
 
-Per-adventure settings are not play actions and live behind the **Adventures** button: the
-Fate mechanic, a manual Chaos Factor override for correcting the number, the linked dossier,
-rename and delete.
+The **Adventures** button is the switcher: your adventures, and starting a new one. Those
+are play actions and stay one tap. Everything that configures an adventure rather than plays
+it — the Fate mechanic, a manual Chaos Factor override for correcting the number, the linked
+dossier, rename and delete — sits one level down behind **Adventure settings**, so a
+destructive control is never adjacent to the thing you tap to change adventure (ruling S13).
 
 #### 3.20.5 Scene boundaries, and how they differ from R9
 
@@ -576,6 +581,10 @@ layer carries the flag rather than the UI.
 | S5 | Two different things called a scene | Kept separate and separately labelled. R9's End Scene stays the Classified combat-flag house aid on the Combat screen; Mythic's End Scene is its own bundle on the Solo screen. Neither calls the other. |
 | S6 | The 13 authored tables are not extracted from anything | Marked `authored: true`, listed apart from the `source: "mm38"` baselines, and described on screen as written for this app. They are not presented as Mythic Magazine content. |
 | S7 | Whether a Fate answer should be spendable with Hero Points | **No.** Hero Points shift a Classified Success Quality; nothing in either book connects them to an oracle. Left alone rather than invented. |
+| S10 | Whether a mandatory follow-up roll — the Scene Adjustment on an altered scene, the interrupt event, the event a Fate doubles fires — may be walked away from | **No.** Each was a ghost button beside a primary that dismissed the dialog, so the sequence could be abandoned halfway and the screen would still claim a scene was running. They are now the single primary action of a `locked: true` modal: no close button, no Escape, no backdrop dismissal. `scenePhase` flips to `play` only when the last step of the chain is taken, so the scene card and the primary action can never disagree with what has been rolled. |
+| S11 | What an interrupt does with the scene that was planned | The event **becomes** the scene and the displaced plan is filed to Threads automatically, with a journal line. It was previously a ghost button that was easy to miss, and the scene card went on naming the plan that had just been overwritten. |
+| S13 | The Adventures button mixed switching adventures with configuring and deleting them | Split. Top level is the switcher plus *Start a new adventure*; a single **Adventure settings** row opens the Fate mechanic, the Chaos override, the dossier link, rename and delete. |
+| S12 | Whether re-rolling a Random Event's words should leave a trail | **No.** A re-roll supersedes: it deletes the journal row and roll-log row it replaces, so the record shows the reading that was kept. The Event Focus is held fixed across a re-roll — only the words change. |
 | S9 | Whether the in-scene tools should be locked while no scene is open | **No.** A solo player legitimately asks Fate a question between scenes — often to decide what the next scene even is. The tools stay live and the screen leans on emphasis instead: the primary action is the next boundary, and the in-play block is quietened until a scene is running. |
 | S8 | The supplied report's Objects column prints Information and Intriguing twice, at 49-50 and again at 51-52 | **Reproduced as supplied.** The report is the source of record, and silently repairing a source table is how transcription damage gets laundered — the same reasoning as R3, where the app multiplies rather than trusting the printed 8 × 7 = 46. Two regression checks pin the repeat in place so it cannot be tidied away by accident. |
 
@@ -601,6 +610,9 @@ layer carries the flag rather than the UI.
 - **Roles from day one:** `members/{uid}.role: "player" | "gm"` in the schema *and* in
   `database.rules.json`.
 - **Campaigns:** memorable three-word join codes (`red-dragon-sword`).
+- **Locked modals:** a dialog that is one step of a sequence the player must finish takes
+  `locked: true` — no close button, no Escape, no backdrop dismissal, and only its own
+  actions move it on. Used by the Start-scene chain (§3.20.4).
 - **Themed UI primitives:** no native `alert`/`confirm`/`prompt`. A shared `modal()` plus
   `showToast`/`confirmModal`/`promptModal`/`chooseModal`, with focus trap, Escape, and
   focus restore.
@@ -1067,3 +1079,4 @@ tables are this app's own work and are marked as such (S6).
 | 2026-07-30 | Every accordion now starts closed: the sheet's skill groups, the wizard's skill groups, and the Solo screen's Meaning Table groups | The user asked for it, and the defaults had drifted per screen — the sheet opened all of them, the wizard opened Combat and Covert, Solo opened Espionage. A phone screen that opens as a list of headings is navigable; one that opens expanded is a wall. The gear catalogue keeps opening groups that match a live search, which is a result and not a default | 518 checks green, including a sweep of the sheet, wizard, Solo and gear screens asserting no `details.acc` renders open, and a check that a closed accordion still holds its rows in the DOM so counts and search keep working | `classified-v11` |
 | 2026-07-30 | Turned off zoom for the installed app: `maximum-scale=1, user-scalable=no` on the viewport, `touch-action: manipulation` on the root and body, iOS pinch-gesture handlers in `main.js`, 16px text fields, and the standalone/apple-mobile-web-app meta tags | Reported: a home-screen copy still pinched and double-tapped to zoom. The viewport meta carried no scale limit, so nothing stopped it; `touch-action` was unset, so double-tap zoom was live; iOS ignores `user-scalable` in a Safari tab, hence the gesture handlers; and fields under 16px make iOS zoom to a focused input, which is the other route to a scaled view. The multi-touch guard cancels nothing single-fingered, so panning and taps are untouched | 534 checks green, including the viewport contents, computed `touch-action` on root and body, no field under 16px, the standalone declaration, and that the page still scrolls with zoom disabled | `classified-v12` |
 | 2026-07-30 | Audited the Solo screen against Mythic's sequence of play and rebuilt it as that loop (SA9–SA13, ruling S9): `scenePhase` on the adventure at `SCHEMA_VERSION` 5, one phase-driven primary action, a Start Scene flow that captures the expected scene and chains the adjustment or interrupt, an End Scene that carries the Threads and Characters upkeep it always claimed to, contextual list actions on Random Events, and the Fate mechanic and manual Chaos override moved out of the header into the Adventures menu | Reported: the buttons did not follow the sequence of play. They did not — the screen was a feature menu. Ask Fate sat above the scene boundary that opens a scene; one button row mixed opening, mid-scene and closing actions; nothing tracked the phase, so no control could say what came next; End Scene promised list upkeep and delivered a reminder; the expected scene was never captured, so the screen could not say what the current scene was; and manual Chaos ±1 sat directly above the End Scene that steps it | 588 checks green. Driven headless at 360px: three scenes played start to finish through the UI, plus a forced high-chaos run that exercised altered scenes, the 7–10 adjustment recursion, an interrupt that rolled its own event and kept the planned scene as a thread, and the event list actions. Zero console errors, zero overflow | `classified-v13` |
+| 2026-07-30 | Audited every Solo button against the sequence of play and closed six breaks (S10-S13) | Root cause: the mandatory follow-up rolls were ghost buttons beside a dismissing primary, and `scenePhase` flipped to `play` on the scene test rather than at the end of the chain, so a scene could be reported as running with its adjustment or interrupt never rolled. | 628 checks green, including a chain walk asserting every step is locked, carries one primary, and ends on the commit | `classified-v14` |
