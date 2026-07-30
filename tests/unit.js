@@ -855,8 +855,11 @@ function soloTests(t) {
   t.eq(fresh.chaos, 5, "a new adventure starts at Chaos Factor 5");
   t.eq(fresh.scene, 1, "a new adventure starts at scene 1");
   t.eq(fresh.fateMode, "chart", "the Fate Chart is the default mechanic");
-  t.eq(fresh.schema, 4, "an adventure records SCHEMA_VERSION 4");
+  t.eq(fresh.schema, 5, "an adventure records SCHEMA_VERSION 5");
   t.deep(fresh.threads, [], "the Threads list starts empty");
+  t.eq(fresh.scenePhase, "setup", "a new adventure has no scene open yet");
+  t.eq(fresh.sceneKind, null, "and no scene outcome recorded");
+  t.eq(fresh.sceneExpected, "", "and no expected scene");
 
   const dirty = normalizeAdventure({
     chaos: 99, scene: -3, fateMode: "nonsense",
@@ -866,6 +869,10 @@ function soloTests(t) {
   t.eq(dirty.chaos, 9, "an out-of-range Chaos Factor is clamped on load");
   t.eq(dirty.scene, 1, "a nonsense scene number falls back to 1");
   t.eq(dirty.fateMode, "chart", "an unknown Fate mode falls back to the chart");
+  t.eq(normalizeAdventure({ scenePhase: "nonsense" }).scenePhase, "setup", "an unknown scene phase falls back to setup");
+  t.eq(normalizeAdventure({ scenePhase: "play" }).scenePhase, "play", "a scene in play survives a reload");
+  t.eq(normalizeAdventure({ sceneKind: "wat" }).sceneKind, null, "an unknown scene outcome is dropped");
+  t.eq(normalizeAdventure({ sceneKind: "interrupt" }).sceneKind, "interrupt", "a real one is kept");
   t.eq(dirty.threads.length, 25, "a list longer than 25 slots is truncated on load");
   t.eq(dirty.threads[0].weight, 1, "a weight below 1 is corrected on load");
   t.ok(!!dirty.journal[0].id && !!dirty.journal[0].ts, "journal entries are back-filled with an id and a timestamp");
@@ -873,4 +880,10 @@ function soloTests(t) {
   const v3 = normalizeAdventure(undefined);
   t.ok(!!v3.id && v3.threads.length === 0 && v3.journal.length === 0,
     "a missing record normalizes into a legal empty adventure, so a version-3 backup imports cleanly");
+
+  // A version-4 adventure predates the scene phase and must open at setup, not mid-scene.
+  const v4 = normalizeAdventure({ id: "adv_old", schema: 4, chaos: 7, scene: 5, journal: [] });
+  t.eq(v4.scenePhase, "setup", "a version-4 adventure loads with no scene open");
+  t.eq(v4.chaos, 7, "and keeps its Chaos Factor");
+  t.eq(v4.scene, 5, "and its scene count");
 }

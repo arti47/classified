@@ -162,6 +162,11 @@ export function normalizeAdventure(a) {
     fateMode: src.fateMode === "check" ? "check" : "chart",
     chaos: clampChaos(src.chaos),
     scene: Math.max(1, Number(src.scene) || 1),
+    // Where the current scene stands, so the screen can offer the next step in the loop
+    // rather than every step at once. A version-4 record has no phase and starts at setup.
+    scenePhase: src.scenePhase === "play" ? "play" : "setup",
+    sceneExpected: typeof src.sceneExpected === "string" ? src.sceneExpected : "",
+    sceneKind: ["expected", "altered", "interrupt"].includes(src.sceneKind) ? src.sceneKind : null,
     threads: normalizeList(src.threads),
     characters: normalizeList(src.characters),
     journal: Array.isArray(src.journal)

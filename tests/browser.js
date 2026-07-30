@@ -248,6 +248,123 @@ export async function browserTests(t, { chromium, executablePath, baseURL }) {
       await page.keyboard.press("Escape");
       await page.waitForTimeout(120);
 
+      // The sequence of play: the primary action is the next boundary, and nothing else.
+      const loop = await page.evaluate(async () => {
+        const Store = await import("./src/store.js");
+        const out = {};
+        const primary = () => [...document.querySelectorAll("#screen .solo-primary")].map(b => b.textContent);
+        location.hash = "#/solo";
+        await new Promise(r => setTimeout(r, 220));
+        out.setupPrimary = primary();
+        out.quietBefore = !!document.querySelector(".solo-inplay.is-quiet");
+        out.phaseBefore = Store.activeAdventure().scenePhase;
+
+        // Start the scene through the store, the same state the dialog commits.
+        Store.updateAdventure(a => { a.scenePhase = "play"; a.sceneKind = "expected"; a.sceneExpected = "The safe house"; });
+        document.dispatchEvent(new CustomEvent("app:rerender"));
+        await new Promise(r => setTimeout(r, 220));
+        out.playPrimary = primary();
+        out.quietDuring = !!document.querySelector(".solo-inplay.is-quiet");
+        out.showsScene = document.getElementById("screen").textContent.includes("The safe house");
+        return out;
+      });
+      t.deep(loop.setupPrimary, ["Start scene 1"], "with no scene open the only primary action is Start scene");
+      t.ok(loop.quietBefore, "the in-scene tools are quietened before the scene starts");
+      t.deep(loop.playPrimary, ["End scene 1"], "with a scene in play the only primary action is End scene");
+      t.ok(!loop.quietDuring, "and the tools come forward once it is running");
+      t.ok(loop.showsScene, "the scene you said you expected is shown while it runs");
+
+      // Start scene: one flow that captures the expectation, tests it, and marks the phase.
+      const started = await page.evaluate(async () => {
+        const Store = await import("./src/store.js");
+        const Solo = await import("./src/solo.js");
+        Store.updateAdventure(a => { a.scenePhase = "setup"; a.sceneKind = null; a.sceneExpected = ""; });
+        const p = Solo.startScene(Store.activeAdventure());
+        await new Promise(r => setTimeout(r, 60));
+        document.querySelector(".modal input").value = "Meet the courier";
+        [...document.querySelectorAll(".modal-foot .btn")].find(b => b.textContent === "Test the scene").click();
+        await p;
+        const adv = Store.activeAdventure();
+        const modalText = (document.querySelector(".modal") || {}).textContent || "";
+        return {
+          phase: adv.scenePhase, kind: adv.sceneKind, expected: adv.sceneExpected,
+          journal: adv.journal[0].text, modalText
+        };
+      });
+      t.eq(started.phase, "play", "starting a scene puts the adventure in play");
+      t.ok(["expected", "altered", "interrupt"].includes(started.kind), "and records how the test resolved");
+      t.eq(started.expected, "Meet the courier", "and keeps what you said you expected");
+      t.ok(started.journal.includes("Meet the courier"), "the journal records the scene and its outcome");
+      t.ok(/Expected scene|Altered scene|Interrupt scene/.test(started.modalText), "the outcome is reported in the same flow");
+      await page.evaluate(() => document.querySelectorAll(".modal-head .icon-btn").forEach(b => b.click()));
+
+      // End scene: control question, Chaos step, list upkeep and the phase reset, in one commit.
+      const ended = await page.evaluate(async () => {
+        const Store = await import("./src/store.js");
+        const Solo = await import("./src/solo.js");
+        Store.updateAdventure(a => {
+          a.chaos = 5; a.scene = 1; a.scenePhase = "play";
+          a.threads = [{ id: "t_old", text: "Old thread", weight: 1 }];
+          a.characters = [];
+        });
+        const p = Solo.endScene(Store.activeAdventure());
+        await new Promise(r => setTimeout(r, 60));
+        const modal = document.querySelector(".modal");
+        [...modal.querySelectorAll(".chip")].find(c => c.textContent.includes("No —")).click();
+        modal.querySelector("input[placeholder='What happened?']").value = "The meet went badly";
+        // Strike the old thread off and add one of each.
+        [...modal.querySelectorAll("button")].find(b => b.textContent === "Strike off").click();
+        const inputs = [...modal.querySelectorAll("input[type='text']")];
+        const threadInput = inputs.find(i => /goal that opened/.test(i.placeholder));
+        const charInput = inputs.find(i => /now matters/.test(i.placeholder));
+        threadInput.value = "Warn the station chief";
+        [...modal.querySelectorAll("button")].filter(b => b.textContent === "Add")[0].click();
+        charInput.value = "The courier";
+        [...modal.querySelectorAll("button")].filter(b => b.textContent === "Add")[1].click();
+        [...modal.querySelectorAll(".modal-foot .btn")].find(b => b.textContent === "End scene").click();
+        await p;
+        const adv = Store.activeAdventure();
+        return {
+          chaos: adv.chaos, scene: adv.scene, phase: adv.scenePhase, kind: adv.sceneKind,
+          expected: adv.sceneExpected,
+          threads: adv.threads.map(x => x.text), characters: adv.characters.map(x => x.text),
+          undo: !!Store.peekSoloUndo(),
+          summary: (document.querySelector(".modal") || {}).textContent || ""
+        };
+      });
+      t.eq(ended.chaos, 6, "a scene the character did not control raises the Chaos Factor");
+      t.eq(ended.scene, 2, "and advances the scene counter");
+      t.eq(ended.phase, "setup", "and closes the scene, so the next primary action is Start scene");
+      t.eq(ended.kind, null, "the scene outcome is cleared with the scene");
+      t.eq(ended.expected, "", "as is the expectation");
+      t.deep(ended.threads, ["Warn the station chief"], "the struck thread is gone and the new one is added");
+      t.deep(ended.characters, ["The courier"], "the new character is added");
+      t.ok(ended.undo, "the whole boundary sits under one undo snapshot");
+      t.ok(/Chaos Factor 5 → 6/.test(ended.summary), "the summary reports what changed");
+      await page.evaluate(() => document.querySelectorAll(".modal-head .icon-btn").forEach(b => b.click()));
+
+      // A Random Event that names a list offers to update it.
+      const eventActions = await page.evaluate(async () => {
+        const Store = await import("./src/store.js");
+        const Solo = await import("./src/solo.js");
+        const labels = async focusRoll => {
+          await Solo.rollRandomEvent(Store.activeAdventure(), { focusRoll });
+          const out = [...document.querySelectorAll(".modal-foot .btn")].map(b => b.textContent);
+          document.querySelectorAll(".modal-head .icon-btn").forEach(b => b.click());
+          await new Promise(r => setTimeout(r, 40));
+          return out;
+        };
+        Store.updateAdventure(a => { a.threads = [{ id: "t1", text: "Find the courier", weight: 1 }]; });
+        return {
+          newNpc: await labels(15),
+          closeThread: await labels(68),
+          context: await labels(95)
+        };
+      });
+      t.ok(eventActions.newNpc.includes("Add to Characters"), "a New NPC event offers to add them to the Characters list");
+      t.ok(eventActions.closeThread.includes("Strike that thread off"), "Close A Thread offers to strike off the thread it drew");
+      t.ok(!eventActions.context.includes("Add to Characters"), "an event that names no list carries no list action");
+
       // The solo roll log row renders without the Classified Quality columns.
       await page.evaluate(() => { location.hash = "#/log"; });
       await page.waitForTimeout(160);
@@ -276,15 +393,17 @@ export async function browserTests(t, { chromium, executablePath, baseURL }) {
       // Scene boundaries store a solo-specific undo snapshot.
       const undo = await page.evaluate(async () => {
         const Store = await import("./src/store.js");
+        const before = Store.activeAdventure();
+        const was = { chaos: before.chaos, scene: before.scene };
         Store.pushSoloUndo(Store.soloSnapshot());
         Store.updateAdventure(a => { a.chaos = 9; a.scene = 7; });
         const dirty = Store.activeAdventure();
         const applied = Store.applySoloUndo();
         const back = Store.activeAdventure();
-        return { dirtyChaos: dirty.chaos, applied, chaos: back.chaos, scene: back.scene };
+        return { was, dirtyChaos: dirty.chaos, applied, chaos: back.chaos, scene: back.scene };
       });
       t.eq(undo.dirtyChaos, 9, "the Chaos Factor can be driven to the top of its range");
-      t.ok(undo.applied && undo.chaos === 5 && undo.scene === 1,
+      t.ok(undo.applied && undo.chaos === undo.was.chaos && undo.scene === undo.was.scene,
         "the solo undo snapshot restores the Chaos Factor and scene count");
 
       // The solo state rides along in the backup.
