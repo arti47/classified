@@ -873,7 +873,7 @@ are flagged rather than presented as extracted (S1).
       - [x] Roll-log integration through `Store.addRoll()`.
       - [x] Regression checks: chart monotonicity, derived thresholds, event trigger,
             chaos clamping, list weighting, and every table exactly 100 entries.
-- [x] **Hardening.** Committed regression harness (495 checks); accessibility pass;
+- [x] **Hardening.** Committed regression harness (501 checks); accessibility pass;
       rules-accuracy audit with every finding closed (§11).
 
 ---
@@ -972,6 +972,13 @@ publishing or distributing it makes licensing the user's responsibility, and tha
 licensed material is the safe basis for anything public. The OGL notice appears in the
 About screen.
 
+**Provenance lives in the data layer, not on screen.** `data-solo.js` marks every table
+`source: "mm38"` or `authored: true`, `SOLO_TOPICS` carry a `source`, and `RULES_TOPICS` carry
+a `chapter`; the harness asserts against those fields and this file records them. The screens
+show none of it — no "Vol. 38", "authored", "as printed" or chapter tags on rows, and no
+attribution line in a topic modal. A player at the table wants the table, not its footnote.
+The fields stay in the data so the record survives and the labels can come back in one edit.
+
 **Two systems, two provenances.** The Classified layer is OGL 1.0a and paraphrased
 throughout. The Mythic layer is not: `data-solo.js` reproduces nine 100-word Meaning Tables
 verbatim from the supplied report, because a word list cannot be paraphrased and still be
@@ -1002,3 +1009,4 @@ tables are this app's own work and are marked as such (S6).
 | 2026-07-30 | Replaced the reconstructed Fate Chart and Scene Adjustment table with the printed originals, supplied as images (S1 resolved; SA3, SA4); confirmed the Event Focus table and the Exceptional Yes/No derivation | Root cause of SA3: the reconstruction guessed at two things and got both wrong — it weighted the odds axis four times as heavily as the chaos axis, where the printed chart is a plain diagonal, and its middle column put Certain at 99 where the printing says 90. Root cause of SA4: the reconstruction invented ten results where the printing has six plus a 7–10 "Make 2 Adjustments" band. S2 needed rounding rather than truncation, and the printed **x** cells mean a band that cannot occur, now `null` rather than a fabricated 1 | 456 checks green, including all 81 printed cells against a new committed fixture, the diagonal property, every d100 reading as exactly one answer at all 81 cells, and every printed Scene Adjustment and Event Focus row. Driven headless at 360px: both mechanics, the 7–10 recursion, and the chart reference view | `classified-v6` |
 | 2026-07-30 | Made the app notice a deploy: `main.js` polls `registration.update()` on foreground, focus, reconnect and a 15-minute heartbeat, and raises a persistent Reload/Later toast when a new worker installs behind the current one. The service worker answers `SKIP_WAITING` so a waiting worker takes over before the reload | The update toast only fired on `updatefound`, which the browser raises on a hard navigation — an installed PWA can sit for days on stale code after a push. A worker already waiting from a previous visit was missed entirely, and the old toast auto-dismissed after 2.6 seconds, so the one thing it existed to offer could vanish before it was read | 474 checks green, plus an end-to-end deploy simulation: load, edit the served `CACHE_VERSION` and a module, force a check, toast appears, Reload brings up the new code with the old cache purged and no toast left behind. Zero console errors | `classified-v7` |
 | 2026-07-30 | Transcribed the printed Fate Check page, closing the last unsourced piece of the solo layer (S1 fully resolved; SA5–SA8) | Root causes, all from reasoning by analogy with the chart instead of from a source: the Chaos Factor adjustment was linear where the printing reuses the uneven Roll Modifier column (+5 at Chaos Factor 9, no −3 at all); Exceptional results were a margin of 5 where the printing uses fixed totals of 18 and 4; the Random Event trigger ignored the "within CF" half of "Double Digits Within CF"; and the check's own odds labels — Has To Be, Sure Thing, No Way — were not carried at all | 495 checks green against a new committed fixture: every printed odds label and Roll Modifier, the whole Chaos Factor column, the Answers bands, the doubles trigger at three Chaos Factors, and the chart's diagonal still intact beside the check's separate ladder | `classified-v8` |
+| 2026-07-30 | Removed every source-attribution label from the UI: the "Vol. 38" and "authored" tags and the `d100` column on Meaning Table rows, the "as printed" tags on the solo reference list, the source line in a solo topic modal, the provenance banners in the Fate Chart and Fate Check views, and the Classified chapter tags in the rules library rows, search results and topic modals | The user asked for these labels gone, and for any like them. They were shelf-provenance, not play information — the same four words repeated down a column, squeezing the table names into a narrow gutter on a phone. Provenance is still recorded where it belongs: the `source`/`authored`/`chapter` fields in the data layer, the ledger, and §12 | 501 checks green, including a new sweep that walks the Solo and Rules screens and their modals and asserts none of the attribution strings render, and that no Solo row carries a trailing label column | `classified-v9` |

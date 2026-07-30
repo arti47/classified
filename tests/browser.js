@@ -301,6 +301,54 @@ export async function browserTests(t, { chromium, executablePath, baseURL }) {
         document.documentElement.scrollWidth - document.documentElement.clientWidth);
       t.ok(soloOverflow <= 1, `the Solo screen with an adventure open does not overflow horizontally (${soloOverflow}px)`);
 
+      // No provenance or source-attribution labels anywhere in the UI: the data layer keeps
+      // that record, the screens do not show it.
+      const labels = await page.evaluate(async () => {
+        const found = [];
+        const scan = () => {
+          const text = document.getElementById("screen").textContent +
+            [...document.querySelectorAll(".modal")].map(m => m.textContent).join(" ");
+          for (const needle of ["Vol. 38", "authored", "as printed", "reconstructed", "Chapter One", "Chapter Seven"]) {
+            if (text.includes(needle)) found.push(needle);
+          }
+        };
+        location.hash = "#/solo";
+        await new Promise(r => setTimeout(r, 200));
+        scan();
+        const Store = await import("./src/store.js");
+        const Solo = await import("./src/solo.js");
+        if (!Store.activeAdventure()) Store.createAdventure({ name: "Label sweep" });
+        location.hash = "#/home";
+        await new Promise(r => setTimeout(r, 120));
+        location.hash = "#/solo";
+        await new Promise(r => setTimeout(r, 220));
+        scan();
+        Solo.openTopic("fate");
+        await new Promise(r => setTimeout(r, 80));
+        scan();
+        document.querySelectorAll(".modal-head .icon-btn").forEach(b => b.click());
+        location.hash = "#/rules";
+        await new Promise(r => setTimeout(r, 220));
+        scan();
+        const proc = [...document.querySelectorAll(".skill-row")].find(x => x.textContent.includes("Core Resolution"));
+        if (proc) proc.click();
+        await new Promise(r => setTimeout(r, 120));
+        scan();
+        document.querySelectorAll(".modal-head .icon-btn").forEach(b => b.click());
+        return [...new Set(found)];
+      });
+      t.deep(labels, [], "no source-attribution labels render on the Solo or Rules screens" +
+        (labels.length ? ` (found ${labels.join(", ")})` : ""));
+
+      const rowShape = await page.evaluate(async () => {
+        location.hash = "#/solo";
+        await new Promise(r => setTimeout(r, 220));
+        const rows = [...document.querySelectorAll(".skill-row")];
+        return { rows: rows.length, tagged: rows.filter(r => r.querySelector(".r") || r.querySelector(".b")).length };
+      });
+      t.ok(rowShape.rows > 20, "the Solo screen still lists every Meaning Table and reference entry");
+      t.eq(rowShape.tagged, 0, "no Solo row carries a trailing label column");
+
       // The update toast: persistent, one at a time, and offering a reload.
       const toast = await page.evaluate(async () => {
         const main = await import("./src/main.js");
