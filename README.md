@@ -28,7 +28,8 @@ fully offline after the first load.
 - **Creation wizard** — point-buy across rank, physical traits, characteristics, skills,
   profession years, Fields of Experience, Weaknesses and Abilities, with the Creation Point
   budget always on screen and every legality rule enforced (skill rank caps, the Base
-  Chance ceiling, profession year limits, the two starting skills).
+  Chance ceiling, profession year limits, the two starting skills). The five published
+  sample characters instantiate in one tap.
 - **Dice engine** — the Base Chance × Difficulty Factor procedure with the full Difficulty
   Factor ladder, live Success Quality bands, and Hero Point spends offered after every
   roll. It also runs the game's opposed procedures end to end: Reaction, Persuasion, the
@@ -58,6 +59,7 @@ fully offline after the first load.
 | `data.js` | Core rules: resolution, characteristics, skills, creation, combat, chases, interactions, healing, experience, and the full equipment and vehicle catalogues |
 | `data-monsters.js` | The book's five animals |
 | `data-npcs.js` | NPC stereotypes and generation tables, the OSIRIS antagonists, and the random encounter system |
+| `data-pregens.js` | The five published pre-generated characters |
 
 No rules value is hardcoded anywhere in `src/`. If a number is wrong, it is wrong in a data
 file and nowhere else.

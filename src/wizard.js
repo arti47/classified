@@ -8,6 +8,7 @@ import * as R from "./rules.js";
 import * as Store from "./store.js";
 import { blankCharacter, creationSpend, validate, derived, normalize } from "./derived.js";
 import { navigate } from "./router.js";
+import { PREGENS } from "../data-pregens.js";
 import { renderResourceHeader } from "./sheet.js";
 
 const STEPS = [
@@ -553,6 +554,71 @@ async function finish(host) {
 
 /* ---------------------------------------------------------------- entry screen */
 
+/* ---------------------------------------------------------------- pregens */
+
+/** Build a full character from a published sample sheet. */
+export function instantiatePregen(p) {
+  const c = normalize(blankCharacter(p.rank));
+  c.identity.name = p.name;
+  c.identity.gender = p.gender;
+  c.identity.age = p.age;
+  c.identity.height = p.height;
+  c.identity.weight = p.weight;
+  c.identity.heightBand = p.heightBand;
+  c.identity.weightBand = p.weightBand;
+  c.identity.appearance = p.appearance;
+  c.identity.profession = p.profession;
+  c.identity.professionYears = p.professionYears;
+  c.identity.nativeLanguage = p.nativeLanguage;
+  c.identity.notes = [p.blurb, "", ...p.sheetNotes.map(n => "• " + n)].join("\n");
+  c.attributes = { ...p.attributes };
+  c.skills = { ...c.skills, ...p.skills };
+  c.languages = (p.languages || []).map(l => ({ ...l }));
+  c.abilities.chosen = p.ability;
+  if (p.abilityLanguage) c.identity.abilityLanguage = p.abilityLanguage;
+  c.foe = [...p.foe];
+  c.weaknesses = [...p.weaknesses];
+  c.reputation = p.reputation;
+  c.state.heroPoints = p.heroPoints;
+  c.xp.total = p.xp || 0;
+  c.inventory.items = [];
+  const w = R.WEAPON_BY_KEY[p.weapon];
+  if (w) c.inventory.items.push({ id: uid("item"), key: w.key, kind: "weapon", name: w.name, qty: 1, weight: 0, equipped: true, price: w.price });
+  const v = R.VEHICLE_BY_KEY[p.vehicle];
+  if (v) c.vehicles.push({ key: v.key, name: v.name });
+  return normalize(c);
+}
+
+function renderPregens(host) {
+  const sec = el("div", { class: "section", style: "margin-top:20px" },
+    el("div", { class: "section-title", text: "Published sample characters" }));
+  sec.appendChild(el("p", { class: "small muted", text:
+    "The five pre-generated operatives from the Character Sheets supplement. Tap one to open it as a playable dossier — skill ranks come from the sheet, and Base Chances are derived so the sheets' few arithmetic slips are corrected." }));
+
+  for (const p of PREGENS) {
+    sec.appendChild(el("button", {
+      class: "opt-btn", type: "button",
+      onclick: async () => {
+        const c = instantiatePregen(p);
+        const saved = Store.saveCharacter(c);
+        Store.setActive(saved.id);
+        renderResourceHeader();
+        showToast(`${p.name} opened`, "ok");
+        navigate("sheet");
+      }
+    },
+      el("span", { class: "on-name" },
+        el("span", { text: p.name }),
+        el("span", { class: "mono small", text: `${R.RANK_BY_KEY[p.rank].name} · Rep ${p.reputation}` })),
+      el("span", { class: "on-desc", text: p.blurb }),
+      el("span", { class: "on-desc", text:
+        `STR ${p.attributes.str} · DEX ${p.attributes.dex} · WIL ${p.attributes.wil} · PER ${p.attributes.per} · INT ${p.attributes.int}` +
+        ` · Speed ${R.speedValue(p.attributes.per, p.attributes.dex)}` })
+    ));
+  }
+  host.appendChild(sec);
+}
+
 export function renderCreate(host) {
   clear(host);
 
@@ -575,6 +641,8 @@ export function renderCreate(host) {
       el("span", { class: "on-desc", text: `${r.heroPoints} Hero Points · recommended for ${r.key === "rookie" ? "new players" : r.key === "agent" ? "experienced players" : "a heroic or cinematic table"}` })
     ));
   }
+
+  renderPregens(host);
 
   const existing = Store.allCharacters();
   if (existing.length) {

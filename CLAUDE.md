@@ -353,21 +353,20 @@ modifiers when a *player character uses that skill on the NPC*, never the revers
 The seven **OSIRIS** antagonists are published as full stat blocks and are extracted
 complete. They run on NPC rules (Villain/Criminal ranks with Villain Points).
 
-### 3.19 Pre-generated characters — **PUBLISHED, NOT YET SHIPPED**
+### 3.19 Pre-generated characters — **SHIPPED**
 
 The core book points at downloadable pregens rather than printing them. The supplementary
 *Character Sheets & Sample PCs* PDF supplies **five**: Michelle Jackson, Johnathan Sawyer,
 Godwin Georges and Emily Steele (Rookies) and Aidan Hunter (Special Agent). They run on PC
 rules, unlike the OSIRIS seven, which are NPCs.
 
-Their identity, characteristics, derived statistics, Abilities, Weaknesses, Fields of
-Experience, languages, weapon and vehicle all extract cleanly and are used as regression
-fixtures (§11). **Their skill ranks do not.** The sheets are filled PDF forms whose Skill
-Rank column is drawn at inconsistent offsets, and untrained rows are blank, so rows
-misalign against the 25-skill list — recovering all 125 ranks would mean guessing.
+`data-pregens.js` stores only their **skill ranks**. Formula Totals and Base Chances are
+derived by the app from the characteristics, so the handful of arithmetic slips on the
+printed sheets are corrected rather than reproduced. Each pregen carries a `sheetNotes`
+list recording exactly what its sheet gets wrong. One-tap instantiation lives on the Create
+screen.
 
-`data-pregens.js` is therefore **not shipped**. It needs the five sheets as images, from
-which the skill columns can be read directly.
+All 114 printed Base Chances across the five sheets are regression fixtures (§11).
 
 ### 3.20 Solo rules — **ABSENT**
 
@@ -431,6 +430,7 @@ Recorded inline where they bite. Each is a case where the printing was unclear o
 | `data.js` | **Core rules library** — every §3 list, table and formula from the core book |
 | `data-monsters.js` | The book's five animals (there is no monster bestiary — see §3.18) |
 | `data-npcs.js` | NPC stereotypes and generation tables, OSIRIS, the encounter system |
+| `data-pregens.js` | The five published pre-generated characters |
 | `firebase-config.js` | Placeholder config + `FIREBASE_ENABLED` flag |
 | `database.rules.json` | RTDB security rules with player/GM roles |
 | `manifest.json`, `service-worker.js`, `icon.svg` | PWA |
@@ -438,8 +438,7 @@ Recorded inline where they bite. Each is a case where the printing was unclear o
 | `README.md` | Setup, Firebase steps, the two printed-table corrections, licensing |
 | `CLAUDE.md` | This file |
 
-No `data-<expansion>.js` (no expansions supplied), no `data-pregens.js` (§3.19), no
-`data-solo.js` (§3.20).
+No `data-<expansion>.js` (no expansions supplied) and no `data-solo.js` (§3.20).
 
 ### 5.1 `src/` module map
 
@@ -601,6 +600,11 @@ unticked table.**
 - [x] **T58** Hot and Cold encounter tables — 2 × 10 × 10
 - [x] **T59** Encounter definitions — 40, with sub-tables and Hero Point variants
 
+### `data-pregens.js`
+
+- [x] **T60** Five published sample characters: identity, characteristics, skill ranks, Abilities, Weaknesses, Fields of Experience, languages, weapon and vehicle
+- [x] **T61** Per-sheet arithmetic-slip notes and the Creation Point audit
+
 **Every box is ticked.** The core book is fully represented.
 
 ---
@@ -610,7 +614,8 @@ unticked table.**
 - [x] **Phase 0 — Foundations.** All files scaffolded; the complete core data library
       extracted and verified per the ledger; theme; PWA shell; router and local storage.
 - [x] **Phase 1 — Creation Wizard.** Eight steps, honest point-buy, all derived values,
-      legality validated at every step. No group wizard (§3.8), no pregens (§3.19).
+      legality validated at every step, plus one-tap instantiation of the five published
+      pregens. No group wizard (§3.8).
 - [x] **Phase 2 — Core Tracker.** Live sheet with clamped steppers, wounds, conditions,
       inventory and encumbrance, abilities, languages, Fields of Experience, Weaknesses,
       scars, notes; persistent resource header on every in-play screen; JSON export/import;
@@ -685,6 +690,7 @@ sequencing and gating, not numbers.
 | A8 | Difficulty Factor modifiers were applied arithmetically rather than as ladder steps | `stepDF()` walks the legal ladder and clamps at ½ and 10 | Large modifiers bottom out at ½, top out at 10 |
 | A9 | Untrained Language rolls were offered; Language cannot be used untrained | Language is excluded from the untrained skill list | Language never appears in the rollable list |
 | A10 | The one-advance-per-mission gate was not enforced on characteristics, only skills | `advancedThisMission.attributes` gates both, and the advancement UI disables a second raise | The gate tracks both arrays and survives normalization |
+| A12 | Choosing Language as the fourth Ability turned the *generic* Language skill into a Base Chance 20 Ability. It grants one **named** tongue at 20; the generic skill stays at Intelligence. | `baseChanceFor()` and `isTrained()` exempt `language`; the Ability is displayed by its language name | Aidan Hunter's sheet shows French as an Ability alongside Language at INT 12 — his printed row is now reproduced |
 | A11 | Height and weight were treated as a single frame purchase: Creation Points were charged twice but Reputation was credited only once, and the wizard forced both into the same row | Split into `identity.heightBand` and `identity.weightBand`. Each charges its own cost and credits its own Reputation; the wizard picks them separately and warns past a one-row gap. Old dossiers migrate from `bandIndex`. | Four published sample characters reproduce their printed Reputation exactly, two of them with height and weight in different rows |
 
 **Verified against scans supplied after the first build:** the Physical Traits Table (nine bands, both columns), the Wound Rank Accumulation grid, the Characteristics and Skills cost tables, the Potential Abilities list, the Ch.6 experience modifiers and expenditures, and the Skill Rank cap note in both chapters. The Multiplication Table error survives into the official character-sheet PDF.
@@ -721,3 +727,5 @@ About screen.
 | 2026-07-30 | Seeded Charisma and Driving in `blankCharacter()` (A2) | Root cause: the factory produced an illegal character, and a draft that never triggered `normalize()` reached Review with an unactionable validation error | Browser creation flow now completes and saves | `classified-v1` |
 | 2026-07-30 | Closed audit findings A3–A10 | Engine behaviours deviating from the book | Each has a dedicated regression check | `classified-v1` |
 | 2026-07-30 | Split height and weight into independent purchases (A11); confirmed R1, R3, R4, R5 against supplied scans | Root cause: the Physical Traits Table pairs Height and Weight as separate columns and the book permits them to differ by a row, so each is its own purchase. Reputation was being under-counted and the wizard was over-constrained. | 298 checks green, including four published sample characters whose printed Reputation now reproduces exactly | `classified-v2` |
+| 2026-07-30 | Shipped `data-pregens.js` with the five published sample characters and one-tap instantiation (T60, T61) | The Character Sheets supplement was supplied as page images, from which the skill columns are readable | All 114 printed Base Chances reproduce; the Creation Point audit clears four of five sheets, with Emily Steele 12 points over on the printed sheet | `classified-v3` |
+| 2026-07-30 | Language as the fourth Ability grants a named tongue, not the generic skill (A12) | Root cause: `baseChanceFor()` matched the Ability key against the skill key without exempting Language. Found by Aidan Hunter's sheet, which prints French as an Ability and Language at INT 12. | 325 checks green | `classified-v3` |

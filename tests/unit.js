@@ -6,6 +6,7 @@ import * as R from "../src/rules.js";
 import { blankCharacter, normalize, derived, skillList, validate, creationSpend, baseChanceFor, conditionDFMod } from "../src/derived.js";
 import { ANIMALS } from "../data-monsters.js";
 import { OSIRIS_NPCS, ENCOUNTER_TABLES, ENCOUNTERS, NPC_CHARACTERISTIC_TABLES, NPC_SKILL_TABLES } from "../data-npcs.js";
+import { PREGENS, PREGEN_BUDGET_AUDIT } from "../data-pregens.js";
 
 export function unitTests(t) {
 
@@ -264,6 +265,87 @@ export function unitTests(t) {
   t.eq(Math.min(D.MAX_BASE_CHANCE, 7 + 15), 22, "sample character Michelle Jackson: Russian at INT 7 plus rank 15 gives Base Chance 22");
   // Emily Steele's Seduction total is (WIL 10 + Charisma rank 4) / 2 = 7.
   t.eq(R.baseChance("seduction", { wil: 10 }, 0, 4), 7, "sample character Emily Steele: Seduction formula total is 7");
+
+  /* ---------------- published pre-generated characters ---------------- */
+
+  t.group("Published sample characters");
+
+  t.eq(PREGENS.length, 5, "all five published sample characters are present");
+
+  // Every Base Chance printed on the five sheets, keyed by skill. Sourced from the
+  // sheets themselves; each must fall out of the characteristics and ranks we store.
+  const PRINTED_BASE = {
+    jackson: { boating: 12, charisma: 9, cryptography: 7, demolitions: 7, disguise: 7, diving: 8,
+      driving: 15, electronics: 7, evasion: 10, firecombat: 15, gambling: 9, handtohand: 12,
+      interrogation: 7, localcustoms: 9, lockpicking: 9, pickpocket: 9, piloting: 15, riding: 10,
+      science: 7, seduction: 4, sixthsense: 10, stealth: 10, torture: 7 },
+    sawyer: { boating: 8, charisma: 10, cryptography: 7, demolitions: 7, disguise: 7, diving: 8,
+      driving: 13, electronics: 7, evasion: 8, firecombat: 15, gambling: 8, handtohand: 13,
+      interrogation: 7, localcustoms: 8, lockpicking: 8, mountaineering: 8, pickpocket: 8,
+      piloting: 8, riding: 8, science: 9, seduction: 8, sixthsense: 10, stealth: 12, torture: 7 },
+    georges: { boating: 7, charisma: 8, cryptography: 13, demolitions: 12, disguise: 12, diving: 8,
+      driving: 9, evasion: 8, firecombat: 11, gambling: 11, handtohand: 13, interrogation: 13,
+      language: 11, localcustoms: 7, lockpicking: 7, mountaineering: 8, pickpocket: 7, riding: 7,
+      science: 12, seduction: 4, stealth: 9, torture: 9 },
+    steele: { boating: 9, charisma: 14, cryptography: 8, demolitions: 8, disguise: 8, diving: 8,
+      driving: 11, electronics: 8, evasion: 10, firecombat: 12, gambling: 9, handtohand: 10,
+      interrogation: 8, language: 8, localcustoms: 9, lockpicking: 16, mountaineering: 8,
+      piloting: 9, riding: 9, science: 8, seduction: 7, sixthsense: 12, stealth: 17, torture: 9 },
+    hunter: { boating: 21, charisma: 26, cryptography: 12, demolitions: 12, disguise: 15,
+      driving: 24, evasion: 21, firecombat: 24, gambling: 26, handtohand: 20, interrogation: 12,
+      language: 12, localcustoms: 25, lockpicking: 17, mountaineering: 19, pickpocket: 12,
+      piloting: 21, riding: 19, science: 17, seduction: 25, sixthsense: 25, stealth: 25, torture: 12 }
+  };
+
+  for (const p of PREGENS) {
+    const c = normalize({
+      ...blankCharacter(p.rank),
+      identity: { ...blankCharacter(p.rank).identity, heightBand: p.heightBand, weightBand: p.weightBand,
+        appearance: p.appearance, profession: p.profession, professionYears: p.professionYears },
+      attributes: { ...p.attributes },
+      skills: { ...p.skills },
+      abilities: { chosen: p.ability },
+      weaknesses: [...p.weaknesses]
+    });
+
+    t.eq(R.startingReputation({ heightBand: p.heightBand, weightBand: p.weightBand,
+      appearance: p.appearance, professionYears: p.professionYears }),
+      p.key === "hunter" ? 76 : p.reputation,
+      `${p.name}: creation Reputation derives correctly`);
+
+    t.eq(R.speedValue(p.attributes.per, p.attributes.dex),
+      { jackson: 2, sawyer: 2, georges: 1, steele: 2, hunter: 3 }[p.key],
+      `${p.name}: printed Speed matches PER + DEX`);
+
+    // Every printed Base Chance must fall out of our stored ranks.
+    let mismatch = null;
+    for (const [skill, printed] of Object.entries(PRINTED_BASE[p.key] || {})) {
+      const got = baseChanceFor(c, skill);
+      if (got !== printed) { mismatch = `${skill}: sheet ${printed}, derived ${got}`; break; }
+    }
+    t.ok(!mismatch, `${p.name}: every printed Base Chance is reproduced${mismatch ? " — " + mismatch : ""}`);
+
+    // Ranks must be legal.
+    let illegal = null;
+    for (const [skill, rank] of Object.entries(p.skills)) {
+      const cap = R.maxSkillRank(skill, p.attributes);
+      if (rank > cap) { illegal = `${skill} rank ${rank} over the cap of ${cap}`; break; }
+    }
+    t.ok(!illegal, `${p.name}: every skill rank is within the cap${illegal ? " — " + illegal : ""}`);
+
+    // The chosen Ability always reads Base Chance 20.
+    // Language as the fourth Ability grants one named tongue at 20, not the generic skill.
+    if (p.ability === "language") {
+      t.eq(baseChanceFor(c, "language"), p.attributes.int,
+        `${p.name}: the generic Language skill stays at INT, with ${p.abilityLanguage} the Ability`);
+    } else {
+      t.eq(baseChanceFor(c, p.ability), D.ABILITY_BASE_CHANCE, `${p.name}: the chosen Ability reads Base Chance 20`);
+    }
+  }
+
+  // Aidan Hunter's Hand-to-Hand rank sits exactly at the cap, which is what confirms
+  // the "+2 over the highest underlying characteristic" reading of the rank cap.
+  t.eq(R.maxSkillRank("handtohand", { str: 9 }), 11, "Aidan Hunter's Hand-to-Hand rank 11 on Strength 9 is exactly at the cap");
   t.eq(D.PROFESSION_RULES.repPerYear, 6, "each profession year adds 6 Reputation");
   t.eq(D.PROFESSION_RULES.maxYears, 6, "a profession is capped at 6 years");
 

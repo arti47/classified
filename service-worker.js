@@ -1,7 +1,7 @@
 /* service-worker.js — network-first with an offline app-shell fallback.
  * Bump CACHE_VERSION whenever any shipped file changes. */
 
-const CACHE_VERSION = "classified-v2";
+const CACHE_VERSION = "classified-v3";
 
 const APP_SHELL = [
   "./",
@@ -12,6 +12,7 @@ const APP_SHELL = [
   "./data.js",
   "./data-monsters.js",
   "./data-npcs.js",
+  "./data-pregens.js",
   "./firebase-config.js",
   "./src/main.js",
   "./src/core.js",

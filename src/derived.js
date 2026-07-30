@@ -185,9 +185,12 @@ export function abilityList(c) {
   }));
   if (c.abilities.chosen) {
     const s = R.SKILL_BY_KEY[c.abilities.chosen];
+    const isLang = c.abilities.chosen === "language";
     rows.push({
       key: c.abilities.chosen,
-      name: (s ? s.name : c.abilities.chosen) + " (Ability)",
+      name: isLang
+        ? (c.identity.abilityLanguage || "A second language") + " (Ability)"
+        : (s ? s.name : c.abilities.chosen) + " (Ability)",
       base: D.ABILITY_BASE_CHANCE,
       desc: s ? s.desc : "",
       fixed: true, chosen: true
@@ -196,9 +199,12 @@ export function abilityList(c) {
   return rows;
 }
 
-/** Base Chance for any roll target, honouring Abilities. */
+/** Base Chance for any roll target, honouring Abilities.
+ * Choosing Language as the fourth Ability grants ONE named language at Base Chance 20;
+ * it does not turn the generic Language skill into an Ability. Aidan Hunter's published
+ * sheet shows exactly this: French as an Ability alongside Language at INT 12. */
 export function baseChanceFor(c, skillKey) {
-  if (c.abilities.chosen === skillKey) return D.ABILITY_BASE_CHANCE;
+  if (c.abilities.chosen === skillKey && skillKey !== "language") return D.ABILITY_BASE_CHANCE;
   const rank = c.skills[skillKey];
   const charismaRank = c.skills.charisma || 0;
   if (rank === undefined || rank === null) {
@@ -208,7 +214,8 @@ export function baseChanceFor(c, skillKey) {
 }
 
 export function isTrained(c, skillKey) {
-  return c.abilities.chosen === skillKey || c.skills[skillKey] !== undefined;
+  if (c.abilities.chosen === skillKey && skillKey !== "language") return true;
+  return c.skills[skillKey] !== undefined;
 }
 
 /* ---------------------------------------------------------------- creation budget */
