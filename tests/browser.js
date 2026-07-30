@@ -255,6 +255,14 @@ export async function browserTests(t, { chromium, executablePath, baseURL }) {
         const primary = () => [...document.querySelectorAll("#screen .solo-primary")].map(b => b.textContent);
         location.hash = "#/solo";
         await new Promise(r => setTimeout(r, 220));
+
+        // A new adventure opens on the briefing, before scene 1 exists.
+        out.briefingPrimary = primary();
+        out.phaseAtBirth = Store.activeAdventure().scenePhase;
+
+        Store.updateAdventure(a => { a.scenePhase = "setup"; });
+        document.dispatchEvent(new CustomEvent("app:rerender"));
+        await new Promise(r => setTimeout(r, 220));
         out.setupPrimary = primary();
         out.quietBefore = !!document.querySelector(".solo-inplay.is-quiet");
         out.phaseBefore = Store.activeAdventure().scenePhase;
@@ -268,6 +276,9 @@ export async function browserTests(t, { chromium, executablePath, baseURL }) {
         out.showsScene = document.getElementById("screen").textContent.includes("The safe house");
         return out;
       });
+      t.eq(loop.phaseAtBirth, "briefing", "a new adventure opens on the briefing, not on scene 1");
+      t.deep(loop.briefingPrimary, ["Write the mission briefing"],
+        "and its only primary action is the briefing");
       t.deep(loop.setupPrimary, ["Start scene 1"], "with no scene open the only primary action is Start scene");
       t.ok(loop.quietBefore, "the in-scene tools are quietened before the scene starts");
       t.deep(loop.playPrimary, ["End scene 1"], "with a scene in play the only primary action is End scene");
@@ -469,6 +480,69 @@ export async function browserTests(t, { chromium, executablePath, baseURL }) {
       t.ok(advMenu.inner.some(x => x.includes("Fate mechanic")) &&
         advMenu.inner.some(x => x.includes("Delete this adventure")),
         "Adventure settings gathers the configuration one level down");
+
+      // The mission briefing: roll every row, edit one, commit, and check it seeded the lists.
+      const briefed = await page.evaluate(async () => {
+        const Store = await import("./src/store.js");
+        const Solo = await import("./src/solo.js");
+        const S = await import("./data-solo.js");
+        Store.updateAdventure(a => {
+          a.scenePhase = "briefing"; a.briefing = null;
+          a.threads = []; a.characters = []; a.name = "Untitled adventure";
+        });
+
+        const p = Solo.openBriefing(Store.activeAdventure());
+        await new Promise(r => setTimeout(r, 120));
+
+        const modalEl = document.querySelector(".modal");
+        const rollBtns = [...modalEl.querySelectorAll(".btn.sm")];
+        for (const b of rollBtns) { b.click(); await new Promise(r => setTimeout(r, 60)); }
+
+        const fields = [...modalEl.querySelectorAll('input[type="text"]')];
+        const filledBefore = fields.filter(f => f.value.trim()).length;
+
+        // Write over the objective the way a player would.
+        const objIdx = S.BRIEFING_ROWS.findIndex(r => r.key === "objective");
+        fields[objIdx].value = "Recover the case before the handover";
+        fields[objIdx].dispatchEvent(new Event("input", { bubbles: true }));
+
+        const seedNote = modalEl.textContent.includes("Recover the case before the handover → threads");
+
+        [...modalEl.querySelectorAll(".modal-foot .btn")].find(b => /Commit|Save/.test(b.textContent)).click();
+        await p;
+        await new Promise(r => setTimeout(r, 150));
+        [...document.querySelectorAll(".modal-foot .btn")].forEach(b => { if (b.textContent === "OK") b.click(); });
+        await new Promise(r => setTimeout(r, 200));
+
+        const adv = Store.activeAdventure();
+        const screen = document.getElementById("screen");
+        return {
+          filledBefore, seedNote,
+          rows: Object.keys(adv.briefing.rows).length,
+          objective: adv.briefing.rows.objective.text,
+          words: adv.briefing.rows.objective.words.length,
+          hasNpc: !!(adv.briefing.npc && adv.briefing.npc.attrs),
+          threads: adv.threads.map(x => x.text),
+          characters: adv.characters.length,
+          phase: adv.scenePhase,
+          named: adv.name !== "Untitled adventure",
+          pinnedClosed: !!screen.querySelector("details.acc:not([open]) summary"),
+          pinnedText: screen.textContent.includes("Mission briefing")
+        };
+      });
+      t.eq(briefed.filledBefore, 7, "every briefing row rolls itself into an editable field");
+      t.ok(briefed.seedNote, "the dialog says which lists the finished lines will seed");
+      t.eq(briefed.objective, "Recover the case before the handover", "what you write over the words is what is kept");
+      t.ok(briefed.words >= 2, "and the words that prompted it are kept underneath");
+      t.ok(briefed.hasNpc, "the opponent is a real generated NPC with characteristics");
+      t.ok(briefed.threads.includes("Recover the case before the handover"),
+        "the objective is seeded into Threads");
+      t.eq(briefed.threads.length, 2, "along with the complication");
+      t.eq(briefed.characters, 1, "and the opponent into Characters");
+      t.eq(briefed.phase, "setup", "committing the briefing moves the adventure on to scene 1");
+      t.ok(briefed.named, "an untitled adventure takes its codename as its name");
+      t.ok(briefed.pinnedText, "the briefing is pinned on the Solo screen");
+      t.ok(briefed.pinnedClosed, "in an accordion that starts closed");
 
       // Journal rows can be copied and deleted one at a time.
       const journalRow = await page.evaluate(async () => {

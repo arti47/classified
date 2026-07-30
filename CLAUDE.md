@@ -502,15 +502,27 @@ Mythic is a loop, and the Solo screen is ordered as that loop rather than as a m
 Mythic feature:
 
 ```
-setup ──Start scene──▶ play ──End scene──▶ setup (next scene)
+briefing ──Commit──▶ setup ──Start scene──▶ play ──End scene──▶ setup (next scene)
 ```
 
 `scenePhase` (§6) is what makes the screen know where it stands, and only one control changes
-with it: the **primary action**, which reads `Start scene N` at setup and `End scene N` in
-play. Under it sit the in-scene tools — Ask Fate, Random Events, the Meaning Tables — then the
+with it: the **primary action**, which reads `Write the mission briefing` at briefing,
+`Start scene N` at setup and `End scene N` in play. Under it sit the in-scene tools — Ask Fate, Random Events, the Meaning Tables — then the
 Adventure Lists, the journal, and the reference. Nothing is gated: an oracle question between
 scenes is legitimate, so the in-play block stays usable and is merely quietened when no scene
 is open (ruling S9).
+
+**The mission briefing** is the phase a new adventure opens in. Mythic assumes you arrive
+with a premise; Classified missions are briefed, and an adventure that opens on an empty
+Threads list gives the first Random Event nothing to point at. Seven rows — codename, genre
+and tone, objective, complication, cover identity, intel, and a Primary Opponent — each roll
+their words straight into an editable field, because the words are the prompt and the field
+is the answer. Committing writes the objective and the complication into Threads and the
+opponent into Characters, names an untitled adventure from its codename, and moves the phase
+to setup. It is skippable, and editable afterwards from Adventure settings — an edit never
+re-seeds the lists, so nothing you struck off comes back. The committed briefing is pinned
+under the primary action in an accordion that starts closed: it is reference, not a step
+(rulings S14, S15).
 
 **Start scene** is one *locked chain*, not a dialog with options. It asks what you expect,
 rolls the scene test, and then forces whatever the test owes: the Scene Adjustment table on
@@ -589,6 +601,8 @@ layer carries the flag rather than the UI.
 | S7 | Whether a Fate answer should be spendable with Hero Points | **No.** Hero Points shift a Classified Success Quality; nothing in either book connects them to an oracle. Left alone rather than invented. |
 | S10 | Whether a mandatory follow-up roll — the Scene Adjustment on an altered scene, the interrupt event, the event a Fate doubles fires — may be walked away from | **No.** Each was a ghost button beside a primary that dismissed the dialog, so the sequence could be abandoned halfway and the screen would still claim a scene was running. They are now the single primary action of a `locked: true` modal: no close button, no Escape, no backdrop dismissal. `scenePhase` flips to `play` only when the last step of the chain is taken, so the scene card and the primary action can never disagree with what has been rolled. |
 | S11 | What an interrupt does with the scene that was planned | The event **becomes** the scene and the displaced plan is filed to Threads automatically, with a journal line. It was previously a ghost button that was easy to miss, and the scene card went on naming the plan that had just been overwritten. |
+| S14 | The briefing is not a Mythic procedure | Correct — Mythic starts from a premise you already have. The briefing is the app's own scaffolding for the first beat, built from the authored espionage tables plus the two mm38 baselines that had no other job. Marked as this app's own in its rules-library topic, like End Scene under R9. |
+| S15 | The briefing's Primary Opponent needs Classified's NPC generator, which `solo.js` is forbidden to import | Resolved by **dynamic** import at the moment the button is tapped. The rule tightens rather than loosens: `solo.js` still has no *static* dependency on `rules.js` or `data.js`, so the Mythic layer cannot reach Classified's resolution mechanic, and the one place it borrows a generator is explicit and lazy. |
 | S13 | The Adventures button mixed switching adventures with configuring and deleting them | Split. Top level is the switcher plus *Start a new adventure*; a single **Adventure settings** row opens the Fate mechanic, the Chaos override, the dossier link, rename and delete. |
 | S12 | Whether re-rolling a Random Event's words should leave a trail | **No.** A re-roll supersedes: it deletes the journal row and roll-log row it replaces, so the record shows the reading that was kept. The Event Focus is held fixed across a re-roll — only the words change. |
 | S9 | Whether the in-scene tools should be locked while no scene is open | **No.** A solo player legitimately asks Fate a question between scenes — often to decide what the next scene even is. The tools stay live and the screen leans on emphasis instead: the primary action is the next boundary, and the in-play block is quietened until a scene is running. |
@@ -684,7 +698,9 @@ No `data-<expansion>.js` — no expansions were supplied.
 No `power-automation.js` (§3.14).
 
 `solo.js` may import `core.js`, `ui.js`, `store.js`, `settings.js` and `data-solo.js`. It
-must **not** import `rules.js` or `data.js`: the Mythic layer never reaches into the
+must **not** *statically* import `rules.js` or `data.js`. The one exception is the briefing's
+Primary Opponent, which dynamically imports `combat.js`'s generator at the moment it is asked
+for (ruling S15). The Mythic layer never reaches into the
 Classified rules engine, which is what keeps the two systems from bleeding together. Its one
 crossing point is `Store.addRoll()` for the shared log.
 
@@ -744,7 +760,11 @@ classified.soloAdventures: [ {
   fateMode: "chart" | "check",                  // §1.2, default "chart"
   chaos: 1..9,                                  // Chaos Factor, starts at 5
   scene: number,                                // scene counter, starts at 1
-  scenePhase: "setup" | "play",                 // where the loop stands (§3.20.4)
+  scenePhase: "briefing" | "setup" | "play",    // where the loop stands (§3.20.4)
+  briefing: null | {                            // the mission, or null if skipped
+    rows: { <rowKey>: { text, words[], rolls[] } },
+    npc,                                        // the generated Primary Opponent
+    writtenAt },
   sceneExpected: string,                        // what you said this scene would be
   sceneKind: "expected" | "altered" | "interrupt" | null,   // how the scene test resolved
   threads:    [ { id, text, weight } ],         // Adventure List, 25 slots
@@ -756,7 +776,7 @@ classified.soloUndo:   <one-step End Scene snapshot>
 ```
 
 Every schema addition ships with a back-fill in `normalize()` and is documented here in the
-same change. `SCHEMA_VERSION` is 5. The pre-A11 single `bandIndex` field is migrated to `heightBand` and `weightBand` on load. Version 4 added the solo keys above and version 5 the three scene-phase
+same change. `SCHEMA_VERSION` is 6. The pre-A11 single `bandIndex` field is migrated to `heightBand` and `weightBand` on load. Version 4 added the solo keys above, version 5 the three scene-phase fields and version 6 the briefing. Version 5 records load with `briefing: null` and keep the phase they were in, so an adventure under way is never sent back to a briefing it never had. Version 5 also added the three scene-phase
 fields; characters are untouched by both, and `normalizeAdventure()` — in `store.js`, beside the rest of the
 persistence layer, so `derived.js` stays free of Mythic — back-fills every field, clamps the
 Chaos Factor, truncates a list past 25 slots and corrects a weight below 1. A version-3
@@ -1087,3 +1107,4 @@ tables are this app's own work and are marked as such (S6).
 | 2026-07-30 | Audited the Solo screen against Mythic's sequence of play and rebuilt it as that loop (SA9–SA13, ruling S9): `scenePhase` on the adventure at `SCHEMA_VERSION` 5, one phase-driven primary action, a Start Scene flow that captures the expected scene and chains the adjustment or interrupt, an End Scene that carries the Threads and Characters upkeep it always claimed to, contextual list actions on Random Events, and the Fate mechanic and manual Chaos override moved out of the header into the Adventures menu | Reported: the buttons did not follow the sequence of play. They did not — the screen was a feature menu. Ask Fate sat above the scene boundary that opens a scene; one button row mixed opening, mid-scene and closing actions; nothing tracked the phase, so no control could say what came next; End Scene promised list upkeep and delivered a reminder; the expected scene was never captured, so the screen could not say what the current scene was; and manual Chaos ±1 sat directly above the End Scene that steps it | 588 checks green. Driven headless at 360px: three scenes played start to finish through the UI, plus a forced high-chaos run that exercised altered scenes, the 7–10 adjustment recursion, an interrupt that rolled its own event and kept the planned scene as a thread, and the event list actions. Zero console errors, zero overflow | `classified-v13` |
 | 2026-07-30 | Audited every Solo button against the sequence of play and closed six breaks (S10-S13) | Root cause: the mandatory follow-up rolls were ghost buttons beside a dismissing primary, and `scenePhase` flipped to `play` on the scene test rather than at the end of the chain, so a scene could be reported as running with its adjustment or interrupt never rolled. | 628 checks green, including a chain walk asserting every step is locked, carries one primary, and ends on the commit | `classified-v14` |
 | 2026-07-30 | Individual journal entries can be copied and deleted, and the journal gained a Copy all | Asked for. A journal you cannot prune or quote is a log file rather than a record of play. | 636 checks green, including both clipboard paths and a delete that leaves the rest of the journal alone | `classified-v15` |
+| 2026-07-30 | Added the mission briefing as a phase before scene 1 (S14, S15) | A new adventure opened on scene 1 with empty lists, so the first Random Event had nothing to draw and the player had no premise to test a scene against. Seven rolled-and-editable rows now seed Threads and Characters, and `espCover` and `espIntel` finally have a job outside the manual roller. | 664 checks green, including a run that rolls every row, writes over one, commits, and asserts the seeding, the generated opponent, the phase move and the closed pinned accordion | `classified-v16` |

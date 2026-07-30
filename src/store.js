@@ -174,9 +174,14 @@ export function normalizeAdventure(a) {
     scene: Math.max(1, Number(src.scene) || 1),
     // Where the current scene stands, so the screen can offer the next step in the loop
     // rather than every step at once. A version-4 record has no phase and starts at setup.
-    scenePhase: src.scenePhase === "play" ? "play" : "setup",
+    // "briefing" is the state a new adventure opens in, before scene 1 exists; a version-5
+    // record has no briefing and is already under way, so it is never sent back to it.
+    scenePhase: ["play", "briefing"].includes(src.scenePhase) ? src.scenePhase : "setup",
     sceneExpected: typeof src.sceneExpected === "string" ? src.sceneExpected : "",
     sceneKind: ["expected", "altered", "interrupt"].includes(src.sceneKind) ? src.sceneKind : null,
+    // The mission briefing, or null for an adventure that has none — which is every
+    // version-5 record and any adventure whose player skipped it.
+    briefing: normalizeBriefing(src.briefing),
     threads: normalizeList(src.threads),
     characters: normalizeList(src.characters),
     journal: Array.isArray(src.journal)
@@ -188,6 +193,29 @@ export function normalizeAdventure(a) {
           detail: e.detail || ""
         }))
       : []
+  };
+}
+
+/**
+ * The briefing is free text per row plus the words that prompted it, so nothing here is
+ * validated against a table — the player is allowed to write whatever the roll suggested to
+ * them, or something else entirely.
+ */
+function normalizeBriefing(b) {
+  if (!b || typeof b !== "object") return null;
+  const rows = {};
+  for (const [key, row] of Object.entries(b.rows || {})) {
+    if (!row || typeof row !== "object") continue;
+    rows[key] = {
+      text: typeof row.text === "string" ? row.text : "",
+      words: Array.isArray(row.words) ? row.words.map(String) : [],
+      rolls: Array.isArray(row.rolls) ? row.rolls.map(Number) : []
+    };
+  }
+  return {
+    rows,
+    npc: b.npc && typeof b.npc === "object" ? b.npc : null,
+    writtenAt: Number(b.writtenAt) || Date.now()
   };
 }
 
@@ -235,7 +263,9 @@ export function saveAdventure(adv) {
 }
 
 export function createAdventure({ name = "Untitled adventure", characterId = null } = {}) {
-  const adv = normalizeAdventure({ name, characterId });
+  // A new adventure opens on the briefing, not on scene 1: the oracle needs a premise and
+  // two non-empty lists before it can say anything useful.
+  const adv = normalizeAdventure({ name, characterId, scenePhase: "briefing" });
   saveAdventure(adv);
   setActiveAdventure(adv.id);
   return adv;

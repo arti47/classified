@@ -92,6 +92,7 @@ export function renderSolo(host) {
 
   appendHeader(host, adv);
   appendPrimary(host, adv);
+  appendBriefing(host, adv);
   appendInPlay(host, adv);
   appendLists(host, adv);
   appendJournal(host, adv);
@@ -107,6 +108,7 @@ export function renderSolo(host) {
  * is next, the in-play tools sit under it, and the lists and journal — which you touch at the
  * boundaries — sit below them. */
 const PHASES = {
+  briefing: { key: "briefing", label: "No mission yet", next: "Write the mission briefing" },
   setup: { key: "setup", label: "No scene open", next: "Start scene" },
   play: { key: "play", label: "Scene in play", next: "End scene" }
 };
@@ -218,12 +220,15 @@ async function openAdventureMenu(host) {
       { key: "__chaos", label: "Set the Chaos Factor by hand",
         right: String(active.chaos),
         desc: "End Scene steps it for you. This is for correcting it, not for playing." },
+      { key: "__briefing", label: active.briefing ? "Edit the mission briefing" : "Write the mission briefing",
+        desc: active.briefing ? "Rewrite any row. Editing never re-seeds your lists." : "Roll a mission and seed the Adventure Lists from it." },
       { key: "__link", label: "Link a dossier", desc: "Point this adventure at a character so PC events name them." },
       { key: "__rename", label: "Rename this adventure", desc: "" },
       { key: "__delete", label: "Delete this adventure", desc: "Its journal and lists go with it." }
     ], { intro: active.name || "Untitled" });
     if (!key) return;
   }
+  if (key === "__briefing") { openBriefing(Store.activeAdventure()); return; }
   if (key === "__rename") {
     const name = await promptModal("Adventure name", { title: "Rename", value: active.name || "" });
     if (name) { save(a => { a.name = name; }); }
@@ -294,6 +299,30 @@ function appendPrimary(host, adv) {
   const phase = phaseOf(adv);
   const card = el("div", { class: "card" });
 
+  if (phase.key === "briefing") {
+    card.appendChild(el("p", { class: "small muted", text:
+      "Before scene one there is a mission. Roll the briefing and write it in your own words — the objective and the complication become your first threads, and the opponent your first character, so the oracle has something to point at." }));
+    card.appendChild(el("button", {
+      class: "btn primary block solo-primary", type: "button", style: "margin-top:10px",
+      onclick: () => openBriefing(adv)
+    }, "Write the mission briefing"));
+    card.appendChild(el("button", {
+      class: "btn ghost block", style: "margin-top:6px", type: "button",
+      onclick: async () => {
+        if (await confirmModal("Start scene 1 with no briefing? The Threads and Characters lists stay empty, so early Random Events will have nothing to draw.",
+          { title: "Skip the briefing", okLabel: "Skip it" })) {
+          save(a => { a.scenePhase = "setup"; journal(a, "note", "Briefing skipped."); });
+        }
+      }
+    }, "Skip it — I know the mission"));
+    card.appendChild(el("button", {
+      class: "btn ghost block", style: "margin-top:6px", type: "button",
+      onclick: () => openTopic("briefing")
+    }, "What the briefing is for"));
+    host.appendChild(card);
+    return;
+  }
+
   if (phase.key === "setup") {
     card.appendChild(el("p", { class: "small muted", text:
       "Say what you expect to happen next, then test it against the Chaos Factor. Over it, you get the scene you planned; at or under, it is altered or interrupted." }));
@@ -324,6 +353,183 @@ function appendPrimary(host, adv) {
     onclick: () => openTopic("scenes")
   }, "How scenes work"));
   host.appendChild(card);
+}
+
+/* ---------------------------------------------------------------- mission briefing */
+
+/**
+ * The briefing, pinned under the primary action and closed by default. It is reference, not
+ * a step — the step is the primary action above it — so it never competes for the eye.
+ */
+function appendBriefing(host, adv) {
+  if (!adv.briefing) return;
+  const rows = S.BRIEFING_ROWS
+    .map(r => ({ row: r, val: adv.briefing.rows[r.key] }))
+    .filter(x => x.val && x.val.text);
+  if (!rows.length) return;
+
+  const acc = el("details", { class: "acc" },
+    el("summary", {},
+      el("span", { text: "Mission briefing" }),
+      el("span", { class: "small muted", text: briefingHeadline(adv) })));
+  const body = el("div", { class: "acc-body", style: "padding:0" });
+
+  const card = el("div", { class: "card flush" });
+  for (const { row, val } of rows) {
+    card.appendChild(el("div", { class: "card-row" },
+      el("div", { class: "grow" },
+        el("div", { class: "small muted", text: row.name }),
+        el("div", { text: val.text }),
+        val.words && val.words.length
+          ? el("div", { class: "lm", text: val.words.join(" · ") })
+          : null)));
+  }
+  body.appendChild(card);
+
+  body.appendChild(el("div", { class: "btn-row", style: "padding:10px 14px" },
+    el("button", { class: "btn sm", type: "button", onclick: () => openBriefing(adv) }, "Edit"),
+    el("button", { class: "btn sm ghost", type: "button",
+      onclick: () => copyText(briefingText(adv), "Briefing copied") }, "Copy"),
+    adv.briefing.npc
+      ? el("button", { class: "btn sm ghost", type: "button",
+          onclick: () => import("./combat.js").then(m => m.showNPC(adv.briefing.npc)) }, "Opponent")
+      : null));
+
+  acc.appendChild(body);
+  host.appendChild(acc);
+}
+
+/** The one-line summary on the closed accordion: the objective, or the codename. */
+function briefingHeadline(adv) {
+  const r = adv.briefing ? adv.briefing.rows : {};
+  const obj = r.objective && r.objective.text;
+  const code = r.codename && r.codename.text;
+  return obj || code || "written";
+}
+
+function briefingText(adv) {
+  const lines = [];
+  for (const row of S.BRIEFING_ROWS) {
+    const val = adv.briefing.rows[row.key];
+    if (!val || !val.text) continue;
+    lines.push(`${row.name}: ${val.text}` + (val.words && val.words.length ? `  (${val.words.join(" · ")})` : ""));
+  }
+  return `${adv.name}\n\n${lines.join("\n")}`;
+}
+
+/**
+ * Write or rewrite the briefing. Each row rolls its words straight into an editable field —
+ * the words are the prompt, the field is the answer, and leaving the words as written is a
+ * legitimate answer. Committing seeds the Adventure Lists.
+ */
+export async function openBriefing(adv) {
+  const existing = adv.briefing ? adv.briefing.rows : {};
+  const state = {};
+  for (const row of S.BRIEFING_ROWS) {
+    const prev = existing[row.key];
+    state[row.key] = { text: prev ? prev.text : "", words: prev ? prev.words : [], rolls: prev ? prev.rolls : [] };
+  }
+  let npc = adv.briefing ? adv.briefing.npc : null;
+
+  const body = el("div", {});
+  body.appendChild(el("p", { class: "small muted", text:
+    "Roll a row to fill it, then write over it if the words suggest something better. Blank rows are simply left out." }));
+
+  for (const row of S.BRIEFING_ROWS) {
+    const field = el("input", { type: "text", value: state[row.key].text, placeholder: row.placeholder });
+    field.addEventListener("input", () => { state[row.key].text = field.value; });
+
+    const wordsEl = el("div", { class: "lm", text: state[row.key].words.join(" · ") });
+
+    const rollBtn = el("button", { class: "btn sm", type: "button" }, row.npc ? "Generate" : "Roll");
+    rollBtn.addEventListener("click", async () => {
+      if (row.npc) {
+        // The Classified generator lives on the combat screen. Loaded on demand so the
+        // Mythic layer keeps no static dependency on Classified's rules (ruling S15).
+        const { generateNPC } = await import("./combat.js");
+        npc = generateNPC(S.BRIEFING_OPPONENT.stereotype, S.BRIEFING_OPPONENT.rank);
+        state[row.key].words = [npc.stereotype, npc.rankLabel];
+        state[row.key].text = npc.name;
+        field.value = npc.name;
+        wordsEl.textContent = `${npc.rankLabel} ${npc.stereotype} · Speed ${npc.speed} · ${npc.points} Villain Points`;
+        return;
+      }
+      const pair = await rollPair(row.table);
+      state[row.key].words = pair.words;
+      state[row.key].rolls = pair.rolls;
+      state[row.key].text = pair.words.join(row.join || " · ");
+      field.value = state[row.key].text;
+      wordsEl.textContent = `${pair.label} · rolled ${pair.rolls.join(" and ")}`;
+    });
+
+    body.appendChild(el("div", { style: "margin-bottom:14px" },
+      el("div", { class: "row tight" },
+        el("span", { class: "field-label", style: "margin:0;flex:1 1 auto", text: row.name }),
+        rollBtn),
+      field,
+      wordsEl,
+      el("div", { class: "lm", text: row.hint })));
+  }
+
+  const seedNote = el("p", { class: "small muted" });
+  const seedText = () => {
+    const t = [];
+    for (const row of S.BRIEFING_ROWS) {
+      if (row.seeds && state[row.key].text) t.push(`${state[row.key].text} → ${row.seeds}`);
+    }
+    return t.length ? "On saving: " + t.join("; ") + "." : "Nothing will be added to your lists yet.";
+  };
+  seedNote.textContent = seedText();
+  body.addEventListener("input", () => { seedNote.textContent = seedText(); });
+  body.appendChild(seedNote);
+
+  const ok = await confirmModal(body, {
+    title: adv.briefing ? "Edit the briefing" : "Mission briefing",
+    okLabel: adv.briefing ? "Save" : "Commit the briefing"
+  });
+  if (!ok) return;
+
+  const first = !adv.briefing;
+  save(a => {
+    a.briefing = { rows: state, npc, writtenAt: Date.now() };
+
+    // Name the adventure from its codename if it never got one.
+    if (state.codename.text && /^untitled/i.test(a.name || "")) a.name = state.codename.text;
+
+    // Seed the lists once, on the first commit. An edit does not re-add what you may have
+    // already struck off.
+    if (first) {
+      for (const row of S.BRIEFING_ROWS) {
+        const text = state[row.key].text;
+        if (!row.seeds || !text) continue;
+        const list = (a[row.seeds] = a[row.seeds] || []);
+        if (list.length >= S.LIST_SLOTS) continue;
+        if (list.some(i => i.text === text)) continue;
+        list.push({ id: uid("li"), text, weight: 1 });
+      }
+      a.scenePhase = "setup";
+      journal(a, "note", `Mission briefing: ${state.objective.text || state.codename.text || "written"}`,
+        [state.genre.text, state.cover.text].filter(Boolean).join(" · "));
+    } else {
+      journal(a, "note", "Mission briefing revised.");
+    }
+  });
+
+  if (first) {
+    const seeded = S.BRIEFING_ROWS.filter(r => r.seeds && state[r.key].text).map(r => `${r.name}: ${state[r.key].text}`);
+    modal({
+      title: "Briefing committed",
+      body: el("div", {},
+        seeded.length
+          ? el("div", {}, el("p", { class: "small", text: "Added to your Adventure Lists:" }),
+              ...seeded.map(t => el("p", { class: "small", text: "• " + t })))
+          : el("p", { class: "small muted", text: "Nothing was added to your lists — you can add threads and characters by hand." }),
+        el("p", { class: "small muted", style: "margin-top:10px", text: "Scene 1 is next. The briefing stays pinned under the primary action." })),
+      actions: [{ label: "OK", kind: "primary" }]
+    });
+  } else {
+    showToast("Briefing saved", "ok");
+  }
 }
 
 /* ---------------------------------------------------------------- in play */

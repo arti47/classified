@@ -913,9 +913,58 @@ export const EVENT_MEANING_BY_FOCUS = {
   context: "espScene"
 };
 
+/* ================================================================ T83 mission briefing */
+
+/**
+ * The briefing rows, in the order they are asked. Each names the Meaning Table its words
+ * come from; `pair` rolls two words from that table (or its `pairWith` partner) and
+ * `seeds` says which Adventure List the finished line is written to.
+ *
+ * This is not a Mythic procedure. Mythic starts an adventure from a premise you already
+ * have; Classified missions are briefed. The rows are the app's own scaffolding for that
+ * first beat, built from the authored espionage tables — ruling S14.
+ */
+export const BRIEFING_ROWS = [
+  { key: "codename", name: "Codename", table: "espCodename", pair: true, join: " ",
+    placeholder: "Operation Nightjar",
+    hint: "Two words joined. Names the adventure as well, if it is still untitled." },
+  { key: "genre", name: "Genre and tone", table: "genre", pair: true, join: " / ",
+    placeholder: "Espionage, grim",
+    hint: "The register of the whole adventure. Espionage and grim plays very differently from espionage and cozy." },
+  { key: "objective", name: "Objective", table: "espObjective", pair: true, seeds: "threads",
+    placeholder: "Recover the courier's case before it reaches the buyer",
+    hint: "What the mission actually asks for. Becomes your first thread." },
+  { key: "complication", name: "Complication", table: "espComplication", pair: true, seeds: "threads",
+    placeholder: "The station chief is already compromised",
+    hint: "What is in the way from the start. Also a thread — it is something you will have to deal with." },
+  { key: "cover", name: "Cover identity", table: "espCover", pair: true,
+    placeholder: "A freight insurance assessor",
+    hint: "Who you are pretending to be while you do it." },
+  { key: "intel", name: "Intel", table: "espIntel", pair: true,
+    placeholder: "A partial manifest, source unverified",
+    hint: "What you were told before you went in, and how far it can be trusted." },
+  { key: "opponent", name: "Primary opponent", npc: true, seeds: "characters",
+    placeholder: "Villain Primary Opponent",
+    hint: "Generated from the Classified stereotype tables, stats and all. Goes into Characters." }
+];
+
+/** Which stereotype and rank the briefing's opponent is generated at. */
+export const BRIEFING_OPPONENT = { stereotype: "opponent", rank: "special" };
+
 /* ================================================================ T79 topics */
 
 export const SOLO_TOPICS = [
+  {
+    key: "briefing",
+    title: "The mission briefing",
+    source: "This app",
+    body: [
+      "Mythic assumes you arrive with a premise. Classified missions are briefed, and an adventure that opens on an empty Threads list gives the first Random Event nothing to point at.",
+      "The briefing rolls a codename, a genre and tone, an objective, a complication, a cover identity and a line of intel, then generates a Primary Opponent off the Classified stereotype tables. Every row drops its words into a field you can write over — the words are the prompt, not the answer.",
+      "Committing it writes the objective and the complication into Threads and the opponent into Characters, so the oracle has something real to draw from scene one.",
+      "It is skippable. If you already know what the mission is, say so and start scene 1."
+    ]
+  },
   {
     key: "fate",
     title: "Asking Fate a question",
