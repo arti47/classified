@@ -340,6 +340,43 @@ export async function browserTests(t, { chromium, executablePath, baseURL }) {
       t.deep(labels, [], "no source-attribution labels render on the Solo or Rules screens" +
         (labels.length ? ` (found ${labels.join(", ")})` : ""));
 
+      // Zoom is off: an installed copy must not pinch or double-tap scale.
+      const zoom = await page.evaluate(() => {
+        const meta = document.querySelector('meta[name="viewport"]').getAttribute("content");
+        const inputs = [...document.querySelectorAll("input, select, textarea")];
+        const small = inputs.filter(i => {
+          if (i.type === "checkbox" || i.type === "radio" || i.type === "file") return false;
+          return parseFloat(getComputedStyle(i).fontSize) < 16;
+        }).length;
+        return {
+          meta,
+          htmlTouch: getComputedStyle(document.documentElement).touchAction,
+          bodyTouch: getComputedStyle(document.body).touchAction,
+          smallFields: small,
+          standalone: !!document.querySelector('meta[name="apple-mobile-web-app-capable"]')
+        };
+      });
+      t.ok(/user-scalable=no/.test(zoom.meta), "the viewport refuses user scaling");
+      t.ok(/maximum-scale=1/.test(zoom.meta), "the viewport pins the maximum scale");
+      t.ok(/width=device-width/.test(zoom.meta) && /viewport-fit=cover/.test(zoom.meta),
+        "and still fits the device width and the safe area");
+      t.eq(zoom.htmlTouch, "manipulation", "double-tap zoom is off at the root");
+      t.eq(zoom.bodyTouch, "manipulation", "and on the body");
+      t.eq(zoom.smallFields, 0, "no text field is under 16px, which is what makes iOS zoom to a focused field");
+      t.ok(zoom.standalone, "the app declares itself installable as a standalone copy");
+
+      // Single-finger scrolling still works — the gesture handlers only cancel multi-touch.
+      const scrolls = await page.evaluate(async () => {
+        location.hash = "#/rules";
+        await new Promise(r => setTimeout(r, 220));
+        window.scrollTo(0, 400);
+        await new Promise(r => setTimeout(r, 80));
+        const moved = window.scrollY > 0;
+        window.scrollTo(0, 0);
+        return moved;
+      });
+      t.ok(scrolls, "the page still scrolls with zoom disabled");
+
       // Every accordion starts closed, on every screen that has one.
       const accordions = await page.evaluate(async () => {
         const out = {};
