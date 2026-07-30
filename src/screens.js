@@ -766,6 +766,26 @@ export function renderSettings(host) {
     el("button", { class: "btn", type: "button", onclick: () => openImport(host) }, "Import JSON")
   ));
 
+  /* Wiping is one tap away from the export that makes it safe, on purpose: the two belong
+   * to the same decision. Each wipe names what it will destroy and how much of it, and
+   * neither touches the other's data. */
+  const chars = Store.allCharacters().length;
+  const missions = Store.soloAdventures().length;
+
+  host.appendChild(el("div", { class: "section", style: "margin-top:18px" }, el("div", { class: "section-title", text: "Wipe data" })));
+  host.appendChild(el("p", { class: "small muted", text:
+    "There is no undo for these, and no copy anywhere else. Export a backup first if there is any chance you want it back." }));
+  host.appendChild(el("div", { class: "btn-row" },
+    el("button", {
+      class: "btn danger", type: "button", disabled: !missions,
+      onclick: () => wipeMissions(host)
+    }, missions ? `Wipe all missions (${missions})` : "No missions"),
+    el("button", {
+      class: "btn danger", type: "button", disabled: !chars,
+      onclick: () => wipeCharacters(host)
+    }, chars ? `Wipe all characters (${chars})` : "No characters")
+  ));
+
   host.appendChild(el("div", { class: "section", style: "margin-top:18px" }, el("div", { class: "section-title", text: "Multiplayer" })));
   host.appendChild(el("div", { class: "card" },
     el("p", { class: "small", text: Sync.statusLabel() }),
@@ -788,6 +808,29 @@ export function renderSettings(host) {
       ...val.errors.map(e => el("div", { class: "small", text: "• " + e })),
       ...val.warnings.map(e => el("div", { class: "small", text: "• " + e }))));
   }
+}
+
+async function wipeMissions(host) {
+  const n = Store.soloAdventures().length;
+  const ok = await confirmModal(
+    `Delete ${n} solo mission${n === 1 ? "" : "s"}? Every Chaos Factor, scene count, thread, character list and journal goes with them. Your dossiers are not touched.`,
+    { title: "Wipe all missions", danger: true, okLabel: `Delete ${n === 1 ? "it" : "them all"}` });
+  if (!ok) return;
+  const gone = Store.wipeAdventures();
+  showToast(`${gone} mission${gone === 1 ? "" : "s"} deleted`, "ok");
+  renderSettings(host);
+}
+
+async function wipeCharacters(host) {
+  const n = Store.allCharacters().length;
+  const ok = await confirmModal(
+    `Delete ${n} dossier${n === 1 ? "" : "s"}? Characters, gear, wounds, experience and scars all go. The roll log and your solo missions are not touched.`,
+    { title: "Wipe all characters", danger: true, okLabel: `Delete ${n === 1 ? "it" : "them all"}` });
+  if (!ok) return;
+  const gone = Store.wipeCharacters();
+  showToast(`${gone} dossier${gone === 1 ? "" : "s"} deleted`, "ok");
+  import("./sheet.js").then(m => m.renderResourceHeader());
+  renderSettings(host);
 }
 
 function openImport(host) {
