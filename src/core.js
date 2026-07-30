@@ -2,7 +2,7 @@
 
 export const APP_NAME = "Classified Player";
 export const STORAGE_PREFIX = "classified.";
-export const SCHEMA_VERSION = 4;   // 4 adds the solo adventure records (CLAUDE.md §6)
+export const SCHEMA_VERSION = 5;   // 4 added solo adventures, 5 their scene phase (§6)
 
 /* ---------------------------------------------------------------- DOM */
 

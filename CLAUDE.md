@@ -496,7 +496,38 @@ never presented as one provenance (ruling S6).
 - Solo is **not synced**. Mythic replaces the GM; a shared campaign has one, so there is no
   `solo` node in the Firebase shape.
 
-#### 3.20.4 Scene boundaries, and how they differ from R9
+#### 3.20.4 The sequence of play, and how the screen follows it
+
+Mythic is a loop, and the Solo screen is ordered as that loop rather than as a menu of every
+Mythic feature:
+
+```
+setup ──Start scene──▶ play ──End scene──▶ setup (next scene)
+```
+
+`scenePhase` (§6) is what makes the screen know where it stands, and only one control changes
+with it: the **primary action**, which reads `Start scene N` at setup and `End scene N` in
+play. Under it sit the in-scene tools — Ask Fate, Random Events, the Meaning Tables — then the
+Adventure Lists, the journal, and the reference. Nothing is gated: an oracle question between
+scenes is legitimate, so the in-play block stays usable and is merely quietened when no scene
+is open (ruling S9).
+
+**Start scene** is one flow: it asks what you expect, rolls the scene test, and chains
+straight into whatever the test says happens instead — the Scene Adjustment table on an
+altered scene, a Random Event on an interrupt. The expectation is stored on the adventure so
+the screen can show what this scene is while you play it, and on an interrupt the planned
+scene is offered as a thread rather than lost.
+
+**End scene** is the other boundary and carries all of its bookkeeping in one dialog: the
+control question that steps the Chaos Factor, a summary line, and the Threads and Characters
+upkeep — add what opened, strike off what closed. It commits as one change under one undo
+snapshot, and resets the phase so the next primary action is `Start scene N+1`.
+
+Per-adventure settings are not play actions and live behind the **Adventures** button: the
+Fate mechanic, a manual Chaos Factor override for correcting the number, the linked dossier,
+rename and delete.
+
+#### 3.20.5 Scene boundaries, and how they differ from R9
 
 Two things called a scene now exist and they are deliberately separate:
 
@@ -545,6 +576,7 @@ layer carries the flag rather than the UI.
 | S5 | Two different things called a scene | Kept separate and separately labelled. R9's End Scene stays the Classified combat-flag house aid on the Combat screen; Mythic's End Scene is its own bundle on the Solo screen. Neither calls the other. |
 | S6 | The 13 authored tables are not extracted from anything | Marked `authored: true`, listed apart from the `source: "mm38"` baselines, and described on screen as written for this app. They are not presented as Mythic Magazine content. |
 | S7 | Whether a Fate answer should be spendable with Hero Points | **No.** Hero Points shift a Classified Success Quality; nothing in either book connects them to an oracle. Left alone rather than invented. |
+| S9 | Whether the in-scene tools should be locked while no scene is open | **No.** A solo player legitimately asks Fate a question between scenes — often to decide what the next scene even is. The tools stay live and the screen leans on emphasis instead: the primary action is the next boundary, and the in-play block is quietened until a scene is running. |
 | S8 | The supplied report's Objects column prints Information and Intriguing twice, at 49-50 and again at 51-52 | **Reproduced as supplied.** The report is the source of record, and silently repairing a source table is how transcription damage gets laundered — the same reasoning as R3, where the app multiplies rather than trusting the printed 8 × 7 = 46. Two regression checks pin the repeat in place so it cannot be tidied away by accident. |
 
 ---
@@ -694,6 +726,9 @@ classified.soloAdventures: [ {
   fateMode: "chart" | "check",                  // §1.2, default "chart"
   chaos: 1..9,                                  // Chaos Factor, starts at 5
   scene: number,                                // scene counter, starts at 1
+  scenePhase: "setup" | "play",                 // where the loop stands (§3.20.4)
+  sceneExpected: string,                        // what you said this scene would be
+  sceneKind: "expected" | "altered" | "interrupt" | null,   // how the scene test resolved
   threads:    [ { id, text, weight } ],         // Adventure List, 25 slots
   characters: [ { id, text, weight } ],         // Adventure List, 25 slots
   journal:    [ { id, ts, kind, text, detail } ]  // kind: scene|fate|event|meaning|note
@@ -703,11 +738,12 @@ classified.soloUndo:   <one-step End Scene snapshot>
 ```
 
 Every schema addition ships with a back-fill in `normalize()` and is documented here in the
-same change. `SCHEMA_VERSION` is 4. The pre-A11 single `bandIndex` field is migrated to `heightBand` and `weightBand` on load. Version 4 adds the solo keys above; characters are
-untouched by it, and `normalizeAdventure()` — in `store.js`, beside the rest of the
+same change. `SCHEMA_VERSION` is 5. The pre-A11 single `bandIndex` field is migrated to `heightBand` and `weightBand` on load. Version 4 added the solo keys above and version 5 the three scene-phase
+fields; characters are untouched by both, and `normalizeAdventure()` — in `store.js`, beside the rest of the
 persistence layer, so `derived.js` stays free of Mythic — back-fills every field, clamps the
 Chaos Factor, truncates a list past 25 slots and corrects a weight below 1. A version-3
-backup carries no solo section and imports cleanly. Solo rolls are written to the shared log
+backup carries no solo section and imports cleanly, and a version-4 adventure loads with no
+scene open rather than mid-scene. Solo rolls are written to the shared log
 with `solo: true` and a Mythic `outcome` instead of a Success Quality.
 
 ---
@@ -885,7 +921,7 @@ are flagged rather than presented as extracted (S1).
       - [x] Roll-log integration through `Store.addRoll()`.
       - [x] Regression checks: chart monotonicity, derived thresholds, event trigger,
             chaos clamping, list weighting, and every table exactly 100 entries.
-- [x] **Hardening.** Committed regression harness (534 checks); accessibility pass;
+- [x] **Hardening.** Committed regression harness (588 checks); accessibility pass;
       rules-accuracy audit with every finding closed (§11).
 
 ---
@@ -952,6 +988,11 @@ either one.
 | SA5 | The Fate Check's Chaos Factor adjustment was implemented as one step per point, `CF − 5`, by analogy with the chart. The printing reuses the Roll Modifier column for it, so it is the same uneven ladder as the odds: Chaos Factor 9 is worth **+5**, and it skips −3 entirely between Chaos Factor 3 and 2 | Split into `chartChaosStep()` for the chart's diagonal and `chaosMod()` for the printed check column | The printed Chaos Factor column reproduces; Chaos Factor 9 is +5 on the check and +4 ladder positions on the chart |
 | SA6 | Exceptional results on the Fate Check were treated as a **margin** of 5 from the threshold, so a total of 16 read as an Exceptional Yes. The printed Answers table uses **fixed totals**: 18 or more, and 4 or less | `fateCheckAnswer()` reads the printed bands | A total of 16 is a plain Yes and 6 a plain No; 18 and 4 are the Exceptional bands |
 | SA7 | The Fate Check fired a Random Event on **any** matching dice. The printing says "Double Digits **Within CF**" — the number showing must also be at or under the Chaos Factor, exactly as the chart requires of its doubles | The trigger checks both conditions | Double 8s fire at Chaos Factor 9 but not at 5; double 2s do not fire at Chaos Factor 1 |
+| SA9 | The Solo screen was ordered as a feature menu, not as the sequence of play: **Ask Fate sat above the Scene box**, so the mid-scene oracle came before the boundary that opens a scene, and nothing recorded which phase the adventure was in — no button could say what came next | `scenePhase` on the adventure, a single primary action that reads `Start scene N` or `End scene N`, and loop order down the screen: boundary → in-scene tools → lists → journal → reference | With no scene open the only primary action is Start scene; with one running it is End scene, and the in-play block is quietened in the first case |
+| SA10 | One button row mixed three phases — **Test the scene** (opens), **Random Event** (mid-scene), **End scene** (closes) — so all three read as equally available at any moment | Start and End became the phase-driven primary action; Random Event moved into the in-scene block where it belongs | The scene box no longer exists; the primary action is asserted per phase |
+| SA11 | End Scene's own dialog promised it would "offer to update your Threads and Characters lists" and then only **printed a reminder** — the upkeep that keeps a solo adventure from wandering was left to the player's memory | Both lists are in the dialog: add a thread or character, strike off what closed, all committed with the boundary under one undo snapshot | Ending a scene strikes off a thread and adds a thread and a character in one commit, and the counter, phase and Chaos Factor all move with it |
+| SA12 | The scene test never captured the **expected scene**, so nothing on screen said what the current scene was, and an altered or interrupted result relied on the player remembering to roll the follow-up | `startScene()` asks, rolls, and chains into the Scene Adjustment or the Random Event; the expectation and outcome are stored and shown while the scene runs; an interrupt offers the planned scene as a thread so it is not lost | Starting a scene stores the phase, kind and expectation, journals both, and reports the outcome in the same flow |
+| SA13 | A Random Event that named a list — New NPC, Close A Thread — had **no way to act on it**, and the header carried manual Chaos ±1 buttons directly above the End Scene that steps the Chaos Factor for you, inviting a double step | Contextual actions in the event modal (add the NPC, strike off the drawn thread, add a first thread); the manual override and the Fate mechanic switch moved into the Adventures menu | A New NPC event offers Add to Characters, Close A Thread offers to strike off the thread it drew, and an event that names no list carries no list action |
 | SA8 | The two mechanics print **different labels for the same nine odds** — the chart reads Certain and Nearly Impossible, the check's table reads Has To Be and No Way — and the app showed the chart's labels in both | `oddsLabel(key, mechanic)` returns the label the active mechanic prints, and the odds chips follow the adventure's `fateMode` | Both label sets resolve for the same rank |
 
 **Verified against scans supplied after the first build:** the Physical Traits Table (nine bands, both columns), the Wound Rank Accumulation grid, the Characteristics and Skills cost tables, the Potential Abilities list, the Ch.6 experience modifiers and expenditures, and the Skill Rank cap note in both chapters. The Multiplication Table error survives into the official character-sheet PDF.
@@ -1025,3 +1066,4 @@ tables are this app's own work and are marked as such (S6).
 | 2026-07-30 | Trimmed the Solo reference list: dropped the "Meaning Tables and building your own" topic and the button that opened it, dropped the "Building a table" entry and its unreachable `showMethod()`, and renamed "Mythic and Classified side by side" to "Mythic and Classified" | The user asked for it. Both removals were how-to-write-tables material rather than how-to-play material, and 37 rollable tables sitting directly above them made the essay redundant. `TABLE_BUILD_METHOD`, `ONE_WORD_NOTE` and `ANYTHING_WORD_NOTES` stay in the data layer — T70 and T71 are extraction rows, not UI rows, and the harness still checks them | 512 checks green: the topic list is asserted key by key, and a browser sweep confirms neither removed entry nor the old title renders on the Solo screen | `classified-v10` |
 | 2026-07-30 | Every accordion now starts closed: the sheet's skill groups, the wizard's skill groups, and the Solo screen's Meaning Table groups | The user asked for it, and the defaults had drifted per screen — the sheet opened all of them, the wizard opened Combat and Covert, Solo opened Espionage. A phone screen that opens as a list of headings is navigable; one that opens expanded is a wall. The gear catalogue keeps opening groups that match a live search, which is a result and not a default | 518 checks green, including a sweep of the sheet, wizard, Solo and gear screens asserting no `details.acc` renders open, and a check that a closed accordion still holds its rows in the DOM so counts and search keep working | `classified-v11` |
 | 2026-07-30 | Turned off zoom for the installed app: `maximum-scale=1, user-scalable=no` on the viewport, `touch-action: manipulation` on the root and body, iOS pinch-gesture handlers in `main.js`, 16px text fields, and the standalone/apple-mobile-web-app meta tags | Reported: a home-screen copy still pinched and double-tapped to zoom. The viewport meta carried no scale limit, so nothing stopped it; `touch-action` was unset, so double-tap zoom was live; iOS ignores `user-scalable` in a Safari tab, hence the gesture handlers; and fields under 16px make iOS zoom to a focused input, which is the other route to a scaled view. The multi-touch guard cancels nothing single-fingered, so panning and taps are untouched | 534 checks green, including the viewport contents, computed `touch-action` on root and body, no field under 16px, the standalone declaration, and that the page still scrolls with zoom disabled | `classified-v12` |
+| 2026-07-30 | Audited the Solo screen against Mythic's sequence of play and rebuilt it as that loop (SA9–SA13, ruling S9): `scenePhase` on the adventure at `SCHEMA_VERSION` 5, one phase-driven primary action, a Start Scene flow that captures the expected scene and chains the adjustment or interrupt, an End Scene that carries the Threads and Characters upkeep it always claimed to, contextual list actions on Random Events, and the Fate mechanic and manual Chaos override moved out of the header into the Adventures menu | Reported: the buttons did not follow the sequence of play. They did not — the screen was a feature menu. Ask Fate sat above the scene boundary that opens a scene; one button row mixed opening, mid-scene and closing actions; nothing tracked the phase, so no control could say what came next; End Scene promised list upkeep and delivered a reminder; the expected scene was never captured, so the screen could not say what the current scene was; and manual Chaos ±1 sat directly above the End Scene that steps it | 588 checks green. Driven headless at 360px: three scenes played start to finish through the UI, plus a forced high-chaos run that exercised altered scenes, the 7–10 adjustment recursion, an interrupt that rolled its own event and kept the planned scene as a thread, and the event list actions. Zero console errors, zero overflow | `classified-v13` |

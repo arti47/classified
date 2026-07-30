@@ -371,6 +371,10 @@ input[type="checkbox"], input[type="radio"] { width: 18px; height: 18px; accent-
 }
 .toast.err { background: var(--danger); color: #fff; }
 .toast.ok { background: var(--ok); color: #fff; }
+/* The in-scene tools, quietened between scenes: still usable, visibly not the next step. */
+.solo-inplay.is-quiet { opacity: .68; }
+.solo-inplay.is-quiet .section-title { color: var(--ink-3); }
+
 .toast.update {
   pointer-events: auto; display: flex; align-items: center; gap: 10px; flex-wrap: wrap;
   padding: 12px 14px;

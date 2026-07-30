@@ -82,13 +82,27 @@ export function renderSolo(host) {
   }
 
   appendHeader(host, adv);
-  appendFate(host, adv);
-  appendScene(host, adv);
-  appendMeaning(host, adv);
+  appendPrimary(host, adv);
+  appendInPlay(host, adv);
   appendLists(host, adv);
   appendJournal(host, adv);
   appendTopics(host);
 }
+
+/* The sequence of play, and the whole reason the screen is ordered the way it is:
+ *
+ *   setup ──Start scene──▶ play ──End scene──▶ setup (next scene)
+ *
+ * At setup the only thing to decide is what scene comes next. In play, the oracle and the
+ * tables are what you reach for. So the primary action is whichever of those two boundaries
+ * is next, the in-play tools sit under it, and the lists and journal — which you touch at the
+ * boundaries — sit below them. */
+const PHASES = {
+  setup: { key: "setup", label: "No scene open", next: "Start scene" },
+  play: { key: "play", label: "Scene in play", next: "End scene" }
+};
+
+function phaseOf(adv) { return PHASES[adv.scenePhase] || PHASES.setup; }
 
 function rerender() {
   document.dispatchEvent(new CustomEvent("app:rerender"));
@@ -129,35 +143,15 @@ function appendHeader(host, adv) {
   grid.appendChild(el("div", { class: "stat-box" },
     el("div", { class: "k", text: "Scene" }),
     el("div", { class: "v", text: String(adv.scene) }),
-    el("div", { class: "s", text: `${count(adv.threads, "thread")} · ${count(adv.characters, "character")}` })));
+    el("div", { class: "s", text: adv.sceneKind
+      ? S.SCENE_KINDS[adv.sceneKind].name.toLowerCase()
+      : `${count(adv.threads, "thread")} · ${count(adv.characters, "character")}` })));
   card.appendChild(grid);
 
-  const chaosRow = el("div", { class: "btn-row", style: "margin-top:10px" });
-  chaosRow.appendChild(el("button", {
-    class: "btn sm", type: "button", disabled: adv.chaos <= S.CHAOS_MIN,
-    onclick: () => save(a => { a.chaos = S.stepChaos(a.chaos, -1); })
-  }, "Chaos −1"));
-  chaosRow.appendChild(el("button", {
-    class: "btn sm", type: "button", disabled: adv.chaos >= S.CHAOS_MAX,
-    onclick: () => save(a => { a.chaos = S.stepChaos(a.chaos, 1); })
-  }, "Chaos +1"));
-  chaosRow.appendChild(el("button", {
-    class: "btn sm ghost", type: "button",
-    onclick: () => openTopic("chaos")
-  }, "What this does"));
-  card.appendChild(chaosRow);
-
-  const modeRow = el("div", { class: "chip-wrap", style: "margin-top:10px" });
-  for (const m of [
-    { key: "chart", label: "Fate Chart (d100)" },
-    { key: "check", label: "Fate Check (2d10)" }
-  ]) {
-    modeRow.appendChild(el("button", {
-      class: "chip" + (adv.fateMode === m.key ? " on" : ""), type: "button",
-      onclick: () => save(a => { a.fateMode = m.key; })
-    }, m.label));
-  }
-  card.appendChild(modeRow);
+  card.appendChild(el("div", { class: "row tight", style: "margin-top:10px" },
+    el("span", { class: "pill neutral", text: phaseOf(adv).label }),
+    el("span", { class: "spacer" }),
+    el("button", { class: "btn sm ghost", type: "button", onclick: () => openTopic("chaos") }, "What Chaos does")));
   host.appendChild(card);
 
 
@@ -192,9 +186,21 @@ async function openAdventureMenu(host) {
   }));
   items.push({ key: "__new", label: "+ Start a new adventure", desc: "Chaos Factor 5, scene 1, empty lists." });
   const active = Store.activeAdventure();
-  if (active) items.push({ key: "__link", label: "Link a dossier", desc: "Point this adventure at a character so PC events name them." });
-  if (active) items.push({ key: "__rename", label: "Rename this adventure", desc: "" });
-  if (active) items.push({ key: "__delete", label: "Delete this adventure", desc: "Its journal and lists go with it." });
+  if (active) {
+    items.push({
+      key: "__mechanic", label: "Fate mechanic",
+      right: active.fateMode === "check" ? "Fate Check" : "Fate Chart",
+      desc: "The chart rolls d100 under a printed target; the check rolls 2d10 against 11."
+    });
+    items.push({
+      key: "__chaos", label: "Set the Chaos Factor by hand",
+      right: String(active.chaos),
+      desc: "End Scene steps it for you. This is for correcting it, not for playing."
+    });
+    items.push({ key: "__link", label: "Link a dossier", desc: "Point this adventure at a character so PC events name them." });
+    items.push({ key: "__rename", label: "Rename this adventure", desc: "" });
+    items.push({ key: "__delete", label: "Delete this adventure", desc: "Its journal and lists go with it." });
+  }
 
   const key = await chooseModal("Adventures", items);
   if (!key) return;
@@ -202,6 +208,24 @@ async function openAdventureMenu(host) {
   if (key === "__rename") {
     const name = await promptModal("Adventure name", { title: "Rename", value: active.name || "" });
     if (name) { save(a => { a.name = name; }); }
+    return;
+  }
+  if (key === "__mechanic") {
+    const pick = await chooseModal("Fate mechanic", [
+      { key: "chart", label: "Fate Chart", desc: "Roll d100 at or under the printed target for the odds and Chaos Factor." },
+      { key: "check", label: "Fate Check", desc: "Roll 2d10, add the odds and Chaos Factor modifiers, 11 or more is a Yes." }
+    ]);
+    if (pick) save(a => { a.fateMode = pick; });
+    return;
+  }
+  if (key === "__chaos") {
+    const v = await promptModal(`Chaos Factor (${S.CHAOS_MIN}-${S.CHAOS_MAX})`, {
+      title: "Set the Chaos Factor", type: "number", value: String(active.chaos)
+    });
+    const n = parseInt(v, 10);
+    if (Number.isFinite(n)) {
+      save(a => { a.chaos = Math.max(S.CHAOS_MIN, Math.min(S.CHAOS_MAX, n)); });
+    }
     return;
   }
   if (key === "__delete") {
@@ -239,6 +263,82 @@ async function newAdventure(host) {
   }
   const adv = Store.createAdventure({ name: name || "Untitled adventure", characterId });
   save(a => { journal(a, "note", `Adventure opened at Chaos Factor ${adv.chaos}.`); });
+}
+
+/* ---------------------------------------------------------------- the next step */
+
+/**
+ * The primary action: whichever scene boundary comes next. Everything else on the screen is
+ * something you reach for during a scene, so only this one changes with the phase.
+ */
+function appendPrimary(host, adv) {
+  const phase = phaseOf(adv);
+  const card = el("div", { class: "card" });
+
+  if (phase.key === "setup") {
+    card.appendChild(el("p", { class: "small muted", text:
+      "Say what you expect to happen next, then test it against the Chaos Factor. Over it, you get the scene you planned; at or under, it is altered or interrupted." }));
+    card.appendChild(el("button", {
+      class: "btn primary block solo-primary", type: "button", style: "margin-top:10px",
+      onclick: () => startScene(adv)
+    }, `Start scene ${adv.scene}`));
+  } else {
+    const kind = adv.sceneKind ? S.SCENE_KINDS[adv.sceneKind] : null;
+    if (kind) {
+      card.appendChild(el("span", { class: "pill " +
+        (adv.sceneKind === "expected" ? "q1" : adv.sceneKind === "altered" ? "q3" : "q5"), text: kind.name }));
+    }
+    if (adv.sceneExpected) {
+      card.appendChild(el("p", { class: "small", style: "margin-top:6px" },
+        el("b", { text: "This scene: " }), adv.sceneExpected));
+    }
+    card.appendChild(el("p", { class: "small muted", style: "margin-top:6px", text:
+      "Play it out with the tools below. Ending the scene steps the Chaos Factor and takes you through your lists." }));
+    card.appendChild(el("button", {
+      class: "btn primary block solo-primary", type: "button", style: "margin-top:10px",
+      onclick: () => endScene(adv)
+    }, `End scene ${adv.scene}`));
+  }
+
+  card.appendChild(el("button", {
+    class: "btn ghost block", style: "margin-top:6px", type: "button",
+    onclick: () => openTopic("scenes")
+  }, "How scenes work"));
+  host.appendChild(card);
+}
+
+/* ---------------------------------------------------------------- in play */
+
+/**
+ * Everything used inside a scene, in one block: the oracle, the event roller and the Meaning
+ * Tables. Usable between scenes too — sometimes a question needs answering before you know
+ * what the next scene is — but quietened when no scene is open, so the primary action above
+ * stays the obvious next move.
+ */
+function appendInPlay(host, adv) {
+  const open = phaseOf(adv).key === "play";
+  const wrap = el("div", { class: "solo-inplay" + (open ? "" : " is-quiet") });
+
+  if (!open) {
+    wrap.appendChild(el("p", { class: "small muted", text:
+      `The in-scene tools. They still work between scenes, but scene ${adv.scene} has not started yet.` }));
+  }
+
+  appendFate(wrap, adv);
+  appendEvents(wrap, adv);
+  appendMeaning(wrap, adv);
+  host.appendChild(wrap);
+}
+
+function appendEvents(host, adv) {
+  const sec = section("Random Events", "A doubles roll within the Chaos Factor fires one on its own. Roll one here when the fiction needs a push.");
+  sec.appendChild(el("button", {
+    class: "btn block", type: "button", onclick: () => rollRandomEvent(adv)
+  }, "Roll a Random Event"));
+  sec.appendChild(el("button", {
+    class: "btn ghost block", style: "margin-top:6px", type: "button", onclick: () => openTopic("events")
+  }, "How events work"));
+  host.appendChild(sec);
 }
 
 /* ---------------------------------------------------------------- ask fate */
@@ -379,46 +479,63 @@ export async function askFate(adv, oddsKey, question) {
 
 /* ---------------------------------------------------------------- scenes */
 
-function appendScene(host, adv) {
-  const sec = section("Scene", "Say what you expect to happen, then let the Chaos Factor decide whether you get it.");
+/**
+ * Start a scene, the whole boundary in one flow: say what you expect, test it against the
+ * Chaos Factor, and chain straight into whatever the test says happens instead. The scene is
+ * only marked as in play once that has resolved, so the screen never claims a scene is
+ * running before it is.
+ */
+export async function startScene(adv) {
+  const input = el("input", { type: "text", placeholder: "The safe house, to warn the courier" });
+  const body = el("div", {},
+    el("label", { class: "field" },
+      el("span", { text: `What do you expect scene ${adv.scene} to be?` }), input),
+    el("p", { class: "small muted", text:
+      `A d10 over ${adv.chaos} plays it as you expect. At or under, an odd roll alters the scene and an even roll interrupts it with a Random Event.` }));
 
-  sec.appendChild(el("div", { class: "btn-row" },
-    el("button", { class: "btn primary", type: "button", onclick: () => testScene(adv) }, "Test the scene"),
-    el("button", { class: "btn", type: "button", onclick: () => rollRandomEvent(adv) }, "Random Event"),
-    el("button", { class: "btn", type: "button", onclick: () => endScene(adv) }, "End scene")
-  ));
-  sec.appendChild(el("p", { class: "small muted", style: "margin-top:8px", text:
-    `A d10 over ${adv.chaos} plays the scene as expected. At or under, an odd roll alters it and an even roll interrupts it.` }));
-  sec.appendChild(el("button", { class: "btn ghost block", style: "margin-top:6px", type: "button", onclick: () => openTopic("scenes") }, "How scenes work"));
-  host.appendChild(sec);
-}
+  const go = await confirmModal(body, { title: `Start scene ${adv.scene}`, okLabel: "Test the scene" });
+  if (!go) return;
 
-export async function testScene(adv) {
+  const expected = input.value.trim();
   const roll = await soloD10("scene test d10");
   const res = S.sceneTest(roll, adv.chaos);
 
-  const body = el("div", {});
-  body.appendChild(el("div", { class: "roll-result" },
+  Store.pushSoloUndo(Store.soloSnapshot());
+  save(a => {
+    a.scenePhase = "play";
+    a.sceneKind = res.key;
+    a.sceneExpected = expected;
+    journal(a, "scene", `Scene ${a.scene} — ${res.name}` + (expected ? `: ${expected}` : ""),
+      `d10 ${roll} vs Chaos Factor ${res.chaos}`);
+  });
+  logSolo(adv, `Scene ${adv.scene} test`, roll, res.name, `d10 against Chaos Factor ${res.chaos}`);
+
+  const out = el("div", {});
+  out.appendChild(el("div", { class: "roll-result" },
     el("div", { class: "roll-d100", text: String(roll) }),
     el("div", { class: "roll-quality " + (res.key === "expected" ? "q1" : res.key === "altered" ? "q3" : "q5"), text: res.name }),
     el("div", { class: "roll-formula", text: `d10 ${roll} against Chaos Factor ${res.chaos}` })));
-  body.appendChild(el("p", { text: res.desc }));
+  out.appendChild(el("p", { text: res.desc }));
+  if (expected) {
+    out.appendChild(el("p", { class: "small muted" },
+      el("b", { text: res.key === "interrupt" ? "You had planned: " : "Your scene: " }), expected));
+  }
 
-  const actions = [{ label: "Done", kind: "primary" }];
-  if (res.key === "altered") actions.unshift({ label: "Roll the adjustment", kind: "ghost", onClick: () => rollSceneAdjustment(Store.activeAdventure()) });
-  if (res.key === "interrupt") actions.unshift({ label: "Roll the event", kind: "ghost", onClick: () => rollRandomEvent(Store.activeAdventure()) });
-
-  save(a => { journal(a, "scene", `Scene ${a.scene} test — ${res.name}`, `d10 ${roll} vs CF ${res.chaos}`); });
-  logSolo(adv, `Scene ${adv.scene} test`, roll, res.name, `d10 against Chaos Factor ${res.chaos}`);
-
-  modal({ title: "Scene test", body, actions });
+  const actions = [{ label: "Play it", kind: "primary" }];
+  if (res.key === "altered") {
+    actions.unshift({ label: "Roll the adjustment", kind: "ghost", onClick: () => rollSceneAdjustment(Store.activeAdventure()) });
+  }
+  if (res.key === "interrupt") {
+    // The interrupt IS the scene, so the event is rolled for you rather than left as a
+    // suggestion; the scene you planned is offered as a thread so it is not simply lost.
+    actions.unshift({
+      label: "Roll the interrupt", kind: "primary", close: false,
+      onClick: api => { api.close(); rollRandomEvent(Store.activeAdventure(), { interruptedBy: expected }); }
+    });
+  }
+  modal({ title: `Scene ${adv.scene}`, body: out, actions });
 }
 
-/**
- * Roll the Scene Adjustment table. A 7-10 is "Make 2 Adjustments", which is not an
- * adjustment itself — it sends you back to the table twice, and a second 7-10 does it again,
- * so the resolved list is expanded here rather than left for the player to chase.
- */
 export async function rollSceneAdjustment(adv) {
   const rolls = [];
   const resolved = [];
@@ -459,8 +576,15 @@ export async function rollSceneAdjustment(adv) {
 
 /* ---------------------------------------------------------------- random events */
 
+/**
+ * Roll a Random Event.
+ * @param {object} opts
+ *   tableKey     — force the Meaning Table the words come from (used by "Re-roll the words")
+ *   focusRoll    — force the Event Focus roll (used by the interrupt flow and the harness)
+ *   interruptedBy — the scene this event is interrupting, offered as a thread so it is not lost
+ */
 export async function rollRandomEvent(adv, opts = {}) {
-  const focusRoll = await soloD100("Event Focus d100");
+  const focusRoll = opts.focusRoll || await soloD100("Event Focus d100");
   const focus = S.eventFocus(focusRoll);
 
   const tableKey = opts.tableKey || S.EVENT_MEANING_BY_FOCUS[focus.key] || S.EVENT_MEANING_DEFAULT;
@@ -469,9 +593,11 @@ export async function rollRandomEvent(adv, opts = {}) {
   // Focuses that name a thread or a character draw from the Adventure Lists.
   let subject = null;
   let subjectRoll = null;
+  let drawn = null;
   if (focus.list) {
     subjectRoll = await soloD100(`${focus.list === "threads" ? "Threads" : "Characters"} list d100`);
-    subject = drawFromList(adv, focus.list, subjectRoll);
+    drawn = drawFromList(adv, focus.list, subjectRoll, { withItem: true });
+    subject = drawn.text;
   } else if (focus.pc) {
     const linked = adv.characterId ? Store.getCharacter(adv.characterId) : null;
     subject = linked ? (linked.identity.name || "the character") : "the character";
@@ -504,30 +630,83 @@ export async function rollRandomEvent(adv, opts = {}) {
   save(a => { journal(a, "event", `Random Event: ${detail}`, `focus ${focusRoll} · ${pair.label} ${pair.rolls.join("/")}`); });
   logSolo(adv, "Random Event", focusRoll, focus.name, detail);
 
-  modal({
-    title: "Random Event", body,
-    actions: [
-      { label: "Re-roll the words", kind: "ghost", close: false, onClick: api => { api.close(); rollRandomEvent(Store.activeAdventure(), { tableKey }); } },
-      { label: "Done", kind: "primary" }
-    ]
+  // The event usually tells you to change a list. Offer that here rather than making the
+  // player leave the flow and remember to do it.
+  const actions = [{ label: "Done", kind: "primary" }];
+  actions.unshift({
+    label: "Re-roll the words", kind: "ghost", close: false,
+    onClick: api => { api.close(); rollRandomEvent(Store.activeAdventure(), { tableKey, focusRoll }); }
   });
+
+  if (focus.key === "newnpc") {
+    actions.unshift({
+      label: "Add to Characters", kind: "ghost", close: false,
+      onClick: () => addToList("characters", "Characters", pair.words.join(" "))
+    });
+  }
+  if (focus.key === "threadclose" && drawn && drawn.item) {
+    actions.unshift({
+      label: "Strike that thread off", kind: "ghost", close: false,
+      onClick: () => {
+        save(a => {
+          a.threads = a.threads.filter(t => t.id !== drawn.item.id);
+          journal(a, "note", `Closed: ${drawn.item.text}`);
+        });
+        showToast("Thread closed", "ok");
+      }
+    });
+  }
+  if ((focus.key === "threadtoward" || focus.key === "threadaway") && (!adv.threads || !adv.threads.length)) {
+    actions.unshift({
+      label: "Add a thread", kind: "ghost", close: false,
+      onClick: () => addToList("threads", "Threads", pair.words.join(" "))
+    });
+  }
+  if (opts.interruptedBy) {
+    actions.unshift({
+      label: "Keep the planned scene", kind: "ghost", close: false,
+      onClick: () => addToList("threads", "Threads", opts.interruptedBy)
+    });
+  }
+
+  modal({ title: "Random Event", body, actions });
 }
 
-/** Draw an entry from an Adventure List by d100 across its 25 slots. */
-function drawFromList(adv, which, roll) {
+/** Add to an Adventure List, letting the player edit the suggested wording first. */
+async function addToList(which, title, suggested) {
+  const text = await promptModal(which === "threads" ? "The thread to track" : "Who is it?", {
+    title: "Add to " + title, value: suggested || ""
+  });
+  if (!text || !text.trim()) return;
+  const adv = Store.activeAdventure();
+  if ((adv[which] || []).length >= S.LIST_SLOTS) { showToast(`The list holds ${S.LIST_SLOTS} entries`, "err"); return; }
+  save(a => {
+    (a[which] = a[which] || []).push({ id: uid("li"), text: text.trim(), weight: 1 });
+    journal(a, "note", `Added to ${which}: ${text.trim()}`);
+  });
+  showToast("Added to " + title, "ok");
+}
+
+/**
+ * Draw an entry from an Adventure List by d100 across its 25 slots. With `withItem` the row
+ * itself comes back too, so an event that closes a thread can strike off the one it drew.
+ */
+function drawFromList(adv, which, roll, { withItem = false } = {}) {
   const slot = S.listSlot(roll);
   const list = adv[which] || [];
   const expanded = [];
   for (const item of list) {
     const weight = Math.max(1, Number(item.weight) || 1);
-    for (let i = 0; i < weight; i++) expanded.push(item.text);
+    for (let i = 0; i < weight; i++) expanded.push(item);
   }
   if (!expanded.length) {
-    return which === "threads"
+    const text = which === "threads"
       ? "Empty slot — invent a thread and add it to the list"
       : "Empty slot — invent a character and add them to the list";
+    return withItem ? { text, item: null } : text;
   }
-  return expanded[(slot - 1) % expanded.length];
+  const item = expanded[(slot - 1) % expanded.length];
+  return withItem ? { text: item.text, item } : item.text;
 }
 
 /* ---------------------------------------------------------------- meaning tables */
@@ -667,24 +846,25 @@ export async function randomiseList(adv, which, title) {
 
 /* ---------------------------------------------------------------- end scene */
 
+/**
+ * End the scene: the control question that steps the Chaos Factor, a summary line, and the
+ * list upkeep in the same dialog — adding a thread or a character, and striking off what has
+ * closed. Everything commits together under one undo snapshot, because they are one decision
+ * about the scene that just happened, not four errands.
+ */
 export async function endScene(adv) {
-  const preview = el("div", {});
-  preview.appendChild(el("p", { class: "small muted", text: "Ending a scene will:" }));
-  for (const line of [
-    "Step the Chaos Factor by one, in the direction you choose below.",
-    "Advance the scene counter.",
-    "Write the scene to the journal.",
-    "Offer to update your Threads and Characters lists."
-  ]) preview.appendChild(el("div", { class: "small", text: "• " + line }));
+  const pending = {
+    threads: { add: [], remove: new Set() },
+    characters: { add: [], remove: new Set() }
+  };
 
+  const preview = el("div", {});
   let inControl = true;
-  preview.appendChild(el("div", { class: "field-label", style: "margin-top:14px", text: "Was the character in control of how the scene went?" }));
+
+  preview.appendChild(el("div", { class: "field-label", text: "Was the character in control of how the scene went?" }));
   const wrap = el("div", { class: "chip-wrap" });
   const note = el("p", { class: "small muted", style: "margin-top:8px" });
-  const opts = [
-    { key: true, label: "Yes — Chaos −1" },
-    { key: false, label: "No — Chaos +1" }
-  ];
+  const opts = [{ key: true, label: "Yes — Chaos −1" }, { key: false, label: "No — Chaos +1" }];
   function drawOpts() {
     clear(wrap);
     for (const o of opts) {
@@ -704,6 +884,9 @@ export async function endScene(adv) {
   preview.appendChild(el("label", { class: "field", style: "margin-top:12px" },
     el("span", { text: "Scene summary (optional)" }), summary));
 
+  preview.appendChild(upkeepBlock(adv, "threads", "Threads", pending));
+  preview.appendChild(upkeepBlock(adv, "characters", "Characters", pending));
+
   const ok = await confirmModal(preview, { title: `End scene ${adv.scene}`, okLabel: "End scene" });
   if (!ok) return;
 
@@ -716,11 +899,33 @@ export async function endScene(adv) {
     journal(a, "scene", `Scene ${a.scene} ended — ${inControl ? "in control" : "not in control"}` +
       (summary.value.trim() ? `: ${summary.value.trim()}` : ""),
       `Chaos Factor ${before} → ${a.chaos}`);
+
+    for (const which of ["threads", "characters"]) {
+      const p = pending[which];
+      if (p.remove.size) {
+        const gone = a[which].filter(i => p.remove.has(i.id)).map(i => i.text);
+        a[which] = a[which].filter(i => !p.remove.has(i.id));
+        for (const text of gone) journal(a, "note", `Closed: ${text}`);
+        changes.push(`Struck off ${gone.length} ${which === "threads" ? "thread" : "character"}${gone.length === 1 ? "" : "s"}.`);
+      }
+      for (const text of p.add) {
+        if (a[which].length >= S.LIST_SLOTS) break;
+        a[which].push({ id: uid("li"), text, weight: 1 });
+        journal(a, "note", `Added to ${which}: ${text}`);
+      }
+      if (p.add.length) {
+        changes.push(`Added ${p.add.length} ${which === "threads" ? "thread" : "character"}${p.add.length === 1 ? "" : "s"}.`);
+      }
+    }
+
     a.scene = (a.scene || 1) + 1;
+    a.scenePhase = "setup";
+    a.sceneKind = null;
+    a.sceneExpected = "";
   });
-  changes.push(`Chaos Factor ${before} → ${updated.chaos}.`);
-  changes.push(`Scene ${updated.scene} is next.`);
-  changes.push("Check your lists: add any thread that opened, strike off any that closed, and add anyone who now matters.");
+
+  changes.unshift(`Chaos Factor ${before} → ${updated.chaos}.`);
+  changes.push(`Scene ${updated.scene} is next — start it when you know what you expect.`);
 
   modal({
     title: "Scene ended",
@@ -728,6 +933,61 @@ export async function endScene(adv) {
       el("p", { class: "small muted", style: "margin-top:10px", text: "Undo is on the Solo screen if that was not what you meant." })),
     actions: [{ label: "OK", kind: "primary" }]
   });
+}
+
+/** One list's upkeep controls inside the End Scene dialog. */
+function upkeepBlock(adv, which, title, pending) {
+  const box = el("div", { style: "margin-top:14px" });
+  box.appendChild(el("div", { class: "field-label", text: title }));
+
+  const list = adv[which] || [];
+  if (list.length) {
+    const card = el("div", { class: "card flush" });
+    for (const item of list) {
+      const row = el("div", { class: "card-row" });
+      const label = el("span", { class: "grow small", text: item.text });
+      const btn = el("button", { class: "btn sm ghost", type: "button" }, "Strike off");
+      btn.addEventListener("click", () => {
+        if (pending[which].remove.has(item.id)) {
+          pending[which].remove.delete(item.id);
+          label.style.textDecoration = "";
+          btn.textContent = "Strike off";
+        } else {
+          pending[which].remove.add(item.id);
+          label.style.textDecoration = "line-through";
+          btn.textContent = "Keep";
+        }
+      });
+      row.appendChild(label);
+      row.appendChild(btn);
+      card.appendChild(row);
+    }
+    box.appendChild(card);
+  } else {
+    box.appendChild(el("p", { class: "small muted", text: "Nothing listed yet." }));
+  }
+
+  const added = el("div", { class: "chip-wrap", style: "margin-top:6px" });
+  const input = el("input", { type: "text", placeholder: which === "threads" ? "A new goal that opened" : "Someone who now matters" });
+  const addBtn = el("button", { class: "btn sm", type: "button" }, "Add");
+  const commit = () => {
+    const text = input.value.trim();
+    if (!text) return;
+    if ((adv[which] || []).length + pending[which].add.length >= S.LIST_SLOTS) {
+      showToast(`The list holds ${S.LIST_SLOTS} entries`, "err");
+      return;
+    }
+    pending[which].add.push(text);
+    added.appendChild(el("span", { class: "chip static", text }));
+    input.value = "";
+  };
+  addBtn.addEventListener("click", commit);
+  input.addEventListener("keydown", e => { if (e.key === "Enter") { e.preventDefault(); commit(); } });
+
+  box.appendChild(el("div", { class: "row tight", style: "margin-top:6px" },
+    el("span", { class: "grow" }, input), addBtn));
+  box.appendChild(added);
+  return box;
 }
 
 /* ---------------------------------------------------------------- journal */
