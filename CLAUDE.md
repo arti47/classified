@@ -46,7 +46,7 @@ own answers, not template defaults.
 | Fate mechanic | Fate Chart is the default; Fate Check selectable | `fateMode` per adventure, d100 idiom matches Classified |
 | Solo surfaces | One tab carrying the whole adventure engine | Chaos + scene header, Fate box, events, lists, meaning roller, journal |
 | Tables shipped | All 9 word tables from the supplied report | 900 baseline entries; the World History router is a worksheet diagram, not shipped |
-| Custom tables | 13 authored Classified-flavoured tables | 1,300 further entries built by the report's own 5-step method (§3.20.2) |
+| Custom tables | 28 authored Classified-flavoured tables | 2,800 further entries built by the report's own 5-step method (§3.20.2) — one table per subsystem the game actually has |
 | Integration | Full — shared roll log, per-character link, one storage layer | Oracle rolls are ordinary roll-log rows; solo state exports with the backup |
 | Gating | `solo` toggle, off by default | Solo replaces Rules in the bottom nav when on; Rules stays on Home |
 | Persistence | Per-adventure records | Named adventures, switchable and archivable |
@@ -419,7 +419,7 @@ such so the two are never confused at the table.
 | **Chaos Factor** | 1–9, clamped. Starts at 5. Falls one step when the scene went the character's way, rises one step when it did not. | `stepChaos()` |
 | **Scene test** | At scene start, roll d10: over the Chaos Factor the expected scene happens; at or under, an **odd** roll alters it and an **even** roll replaces it with an **interrupt** scene built from a Random Event. | `sceneTest()` |
 | **Adventure Lists** | Threads and Characters, 25 slots each, weighted by repeated entry. Randomising a list rolls d100 across the slots so frequently entered items come up more often. | `rollList()` |
-| **Meaning Tables** | 22 tables of 100 words. Rolled as a **pair** by default; the same word twice is amplification, not a re-roll. | `rollMeaning()` |
+| **Meaning Tables** | 37 tables of 100 words. Rolled as a **pair** by default; the same word twice is amplification, not a re-roll. | `rollMeaning()` |
 
 **How the chart is built.** It is derived from a ladder rather than transcribed, on the A1
 precedent: `score = odds rank × 4 + (Chaos Factor − 5)`, read off `FATE_LADDER`. The middle
@@ -441,15 +441,24 @@ attempts.
 Descriptor 1, Descriptor 2, Locations, Characters, Objects, Genre, Tone. Verbatim, because
 a paraphrased word list is a different table.
 
-**Authored for Classified (13 tables, 1,300 words):** built by the report's own five-step
+**Authored for Classified (28 tables, 2,800 words):** built by the report's own five-step
 method for this app's 1960s-espionage context, seeded with the ten Anything Words and
-finished with neutral filler per Steps 4 and 5.
+finished with neutral filler per Steps 4 and 5. Step 1 of that method is to define the
+subject, so the subjects are the game's own subsystems: every §3 procedure that a solo player
+has to narrate rather than roll has a table pointed at it.
 
-| Set | Tables |
-|---|---|
-| Core espionage | Espionage Action · Espionage Description · Agency & Tradecraft · Adversary · Location · Object & Equipment |
-| Mission-shaped | Mission Objective · Complication · Cover Identity · Intel & Rumour |
-| Flavour | Codename Words · Surveillance & Chase · Gadget Quirk |
+| Set | Tables | Points at |
+|---|---|---|
+| Core espionage | Espionage Action · Espionage Description · Agency & Tradecraft · Adversary · Location · Object & Equipment | the general run of play |
+| Mission-shaped | Mission Objective · Complication · Cover Identity · Intel & Rumour | §3.12 missions, §3.7 cover, the Skill Time and Information table |
+| Flavour | Codename Words · Surveillance & Chase · Gadget Quirk | naming, §3.17 tailing, §3.14 equipment |
+| In play | Combat Action · Wound & Injury · Vehicle & Chase · Reaction & Attitude · Coercion & Pressure · Social & Seduction | §3.17 combat, §3.10 wounds, §3.13 chases, §3.18 Reactions, §3.2 Interrogation and Seduction |
+| World | Weather & Time · Sensory Detail · Terrain & Environment · Organisation & Faction | scene backdrop, and the institutions §3.18 NPCs belong to |
+| Story | Mission Twist · Scene Framing · Motive & Secret · Leverage & Money · Consequence & Aftermath | interrupt scenes, NPC motive, §3.16 money, mission aftermath |
+
+Two tables pair across rather than rolling twice on themselves: Combat Action draws its
+second word from Espionage Description, and Scene Framing draws its second from Location, so
+an interrupt scene arrives with a place attached.
 
 Authored tables carry `authored: true` and baselines carry `source: "mm38"`, so the two are
 never presented as one provenance (ruling S6).
@@ -552,7 +561,7 @@ layer carries the flag rather than the UI.
 | `data-monsters.js` | The book's five animals (there is no monster bestiary — see §3.18) |
 | `data-npcs.js` | NPC stereotypes and generation tables, OSIRIS, the encounter system |
 | `data-pregens.js` | The five published pre-generated characters |
-| `data-solo.js` | **Mythic layer** — Fate, Chaos, scenes, events, and all 22 Meaning Tables (§3.20). No Classified rules in this file. |
+| `data-solo.js` | **Mythic layer** — Fate, Chaos, scenes, events, and all 37 Meaning Tables (§3.20). No Classified rules in this file. |
 | `firebase-config.js` | Placeholder config + `FIREBASE_ENABLED` flag |
 | `database.rules.json` | RTDB security rules with player/GM roles |
 | `manifest.json`, `service-worker.js`, `icon.svg` | PWA |
@@ -787,10 +796,13 @@ carry `verify: true` in the data; authored tables are marked and carry `authored
 - [x] **T77** Authored mission set — Mission Objective, Complication, Cover Identity, Intel & Rumour *(400 words, authored)*
 - [x] **T78** Authored flavour set — Codename Words, Surveillance & Chase, Gadget Quirk *(300 words, authored)*
 - [x] **T79** Solo rules-library topics — Fate, Chaos, scenes, events, lists, table building
+- [x] **T80** Authored in-play set — Combat Action, Wound & Injury, Vehicle & Chase, Reaction & Attitude, Coercion & Pressure, Social & Seduction *(600 words, authored)*
+- [x] **T81** Authored world set — Weather & Time, Sensory Detail, Terrain & Environment, Organisation & Faction *(400 words, authored)*
+- [x] **T82** Authored story set — Mission Twist, Scene Framing, Motive & Secret, Leverage & Money, Consequence & Aftermath *(500 words, authored)*
 
 **Every box is ticked.** The supplied report is fully represented — 900 baseline words
 reproduced cell for cell and checked against a committed fixture extracted from the report
-itself — and the 1,300 authored words are in place. The three reconstructed procedure tables
+itself — and the 2,800 authored words are in place, one table per subsystem (§3.20.2). The three reconstructed procedure tables
 are flagged rather than presented as extracted (S1).
 
 ---
@@ -825,7 +837,7 @@ are flagged rather than presented as extracted (S1).
       NPC generator, OSIRIS roster and reference tables. No expansions, no solo mode, no
       power automation — none exist in this game.
 - [x] **Phase 7 — Solo play (Mythic).** *(§3.20, decided in §1.2.)*
-      - [x] `data-solo.js` extracted and authored per the T62–T79 ledger.
+      - [x] `data-solo.js` extracted and authored per the T62–T82 ledger.
       - [x] `src/solo.js`: Chaos + scene header, Fate question box on both mechanics,
             Random Event generator, Threads and Characters lists, Meaning-table roller,
             adventure journal, guided End Scene with one-step undo.
@@ -834,7 +846,7 @@ are flagged rather than presented as extracted (S1).
       - [x] Roll-log integration through `Store.addRoll()`.
       - [x] Regression checks: chart monotonicity, derived thresholds, event trigger,
             chaos clamping, list weighting, and every table exactly 100 entries.
-- [x] **Hardening.** Committed regression harness (442 checks); accessibility pass;
+- [x] **Hardening.** Committed regression harness (444 checks); accessibility pass;
       rules-accuracy audit with every finding closed (§11).
 
 ---
@@ -950,3 +962,4 @@ tables are this app's own work and are marked as such (S6).
 | 2026-07-30 | Planned Phase 7 — the Mythic solo layer. Recorded the third source (§2), the solo system profile (§3.20), the eleven solo decisions (§1.2), rulings S1–S7, `data-solo.js` and `src/solo.js` in the file tables, the per-adventure schema at `SCHEMA_VERSION` 4 (§6), the `solo` toggle and its nav swap (§7), ledger rows T62–T79, and the two-provenance note (§12) | Spec before code, per process rule 1. The user asked for a solo tab on the Mythic system and for the supplied Elements tables to be rollable; the answers to Q1–Q12 fix the scope. The ledger boxes stay unticked because no data is extracted yet | None yet — this change is documentation only | unchanged |
 | 2026-07-30 | Shipped the Mythic solo layer: `data-solo.js` (T62–T79), `src/solo.js`, the `solo` toggle and its nav swap, per-adventure persistence at `SCHEMA_VERSION` 4, solo rows in the shared roll log, and 22 Meaning Tables — 9 reproduced from the supplied report and 13 authored for this app | Phase 7, per the plan committed earlier today. The Fate Chart, Event Focus and Scene Adjustment tables were not in the supplied source, so they are derived or reconstructed and flagged on screen (S1); the Fate Check ships alongside because it needs no chart | 442 checks green, including all 900 baseline words against a committed fixture extracted from the report, chart monotonicity on both axes, band contiguity at every odds and Chaos Factor, and the event trigger. Driven headless at 360px in light and dark: adventure creation, both Fate mechanics across all nine odds, scene test, scene adjustment, twelve Random Events, list randomisation, seven Meaning Tables, guided End Scene with undo, and the roll log — zero console errors, zero horizontal overflow | `classified-v4` |
 | 2026-07-30 | Closed SA1 and SA2 | Root cause of SA1: `logRow()` read `quality` and `QUALITY_SHORT[quality]` unconditionally, and a Fate answer has no Success Quality, so the pill rendered `undefined`. SA2 was a layout limit, not a bug — six tabs is the maximum at 360px | A solo row renders as Mythic with no `undefined`; the nav carries six tabs with Solo in the Rules slot | `classified-v4` |
+| 2026-07-30 | Extended the authored Meaning Tables from 13 to 28 (T80–T82): an in-play set for combat, wounds, chases, Reactions, coercion and social play; a world set for weather, senses, terrain and institutions; and a story set for twists, scene framing, motive, leverage and aftermath. 37 tables, 3,700 words | The report's Step 1 is to define the subject, and the app's subjects are the game's own subsystems — a solo player narrating a §3.17 fight or a §3.13 chase had no table pointed at it, so every procedure that has to be narrated rather than rolled now has one. Combat Action pairs across to Espionage Description and Scene Framing to Location, so an interrupt scene arrives with a place attached | 444 checks green: every table exactly 100 single capitalised words, no repeats inside an authored table, Anything Words seeded in all but the codename list, every pairWith and Event Focus suggestion resolving, and the group index matching the roller | `classified-v5` |

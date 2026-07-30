@@ -54,10 +54,12 @@ fully offline after the first load.
   as a second system layered on top: Fate questions on either the Fate Chart or the Fate
   Check, the Chaos Factor, scene tests with altered and interrupt scenes, Random Events with
   the Event Focus table, weighted Threads and Characters lists, an adventure journal, a
-  guided End Scene with one-step undo, and 22 Meaning Tables of 100 words each. Nine come
-  from the supplied Mythic Magazine Vol. 38 report; thirteen were written for this app's
-  1960s-espionage context by that report's five-step method. Fate never replaces a Classified
-  roll — it settles what is true, and you still roll skills the ordinary way.
+  guided End Scene with one-step undo, and 37 Meaning Tables of 100 words each. Nine come
+  from the supplied Mythic Magazine Vol. 38 report; twenty-eight were written for this app's
+  1960s-espionage context by that report's five-step method, one per subsystem the game
+  actually has — combat, wounds, chases, reactions, interrogation, social play, the world
+  around them, and the shape of the story. Fate never replaces a Classified roll — it settles
+  what is true, and you still roll skills the ordinary way.
 - **Backup** — JSON export and import in Settings.
 
 ## Data files
@@ -68,7 +70,7 @@ fully offline after the first load.
 | `data-monsters.js` | The book's five animals |
 | `data-npcs.js` | NPC stereotypes and generation tables, the OSIRIS antagonists, and the random encounter system |
 | `data-pregens.js` | The five published pre-generated characters |
-| `data-solo.js` | The Mythic layer: Fate, Chaos Factor, scenes, Random Events, Adventure Lists and all 22 Meaning Tables. No Classified rules live in this file |
+| `data-solo.js` | The Mythic layer: Fate, Chaos Factor, scenes, Random Events, Adventure Lists and all 37 Meaning Tables. No Classified rules live in this file |
 
 No rules value is hardcoded anywhere in `src/`. If a number is wrong, it is wrong in a data
 file and nowhere else.
@@ -131,7 +133,7 @@ Master Emulator and Mythic Magazine are Word Mill Games'. `data-solo.js` reprodu
 100-word Meaning Tables from the supplied Mythic Magazine Vol. 38 material, because a
 paraphrased word list is not the same table, and reconstructs three procedure tables that the
 supplied material does not contain — the app flags those on screen and asks you to check them
-against your own copy. The other thirteen tables were written for this app.
+against your own copy. The other twenty-eight tables were written for this app.
 
 If you publish or distribute this application or anything derived from it, the licensing is
 your responsibility, for both layers. Openly licensed material — an SRD, or ORC/Creative

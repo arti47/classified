@@ -533,15 +533,15 @@ function soloTests(t) {
 
   t.group("Mythic — Meaning Tables");
 
-  t.eq(SOLO.MEANING_TABLES.length, 22, "22 Meaning Tables ship: 9 baseline and 13 authored");
+  t.eq(SOLO.MEANING_TABLES.length, 37, "37 Meaning Tables ship: 9 baseline and 28 authored");
   t.eq(SOLO.MEANING_TABLES.filter(m => m.source === "mm38").length, 9, "nine tables are marked as coming from the supplied report");
-  t.eq(SOLO.MEANING_TABLES.filter(m => m.authored).length, 13, "thirteen tables are marked as authored for this app (S6)");
+  t.eq(SOLO.MEANING_TABLES.filter(m => m.authored).length, 28, "twenty-eight tables are marked as authored for this app (S6)");
 
   let short = null;
   for (const m of SOLO.MEANING_TABLES) if (m.words.length !== 100) short = `${m.key} has ${m.words.length}`;
   t.ok(!short, "every Meaning Table is exactly 100 entries" + (short ? ` (${short})` : ""));
 
-  t.eq(SOLO.MEANING_TABLES.reduce((n, m) => n + m.words.length, 0), 2200, "2,200 words in total");
+  t.eq(SOLO.MEANING_TABLES.reduce((n, m) => n + m.words.length, 0), 3700, "3,700 words in total");
 
   let badToken = null;
   for (const m of SOLO.MEANING_TABLES) {
@@ -584,6 +584,15 @@ function soloTests(t) {
     if (hits < 2 && m.key !== "espCodename") missingAnything = `${m.key} carries ${hits}`;
   }
   t.ok(!missingAnything, "every authored table except the codename list seeds Anything Words" + (missingAnything ? ` (${missingAnything})` : ""));
+
+  const groups = [...new Set(SOLO.MEANING_TABLES.map(m => m.group))];
+  t.deep(groups, ["Baseline", "Espionage", "Mission", "Flavour", "In play", "World", "Story"],
+    "the tables are grouped by what they are for, baseline first");
+  for (const g of groups) {
+    const n = SOLO.MEANING_TABLES.filter(m => m.group === g).length;
+    if (!n) { t.fail(`group ${g} has tables`); break; }
+  }
+  t.pass("every group carries at least one table");
 
   let badPair = null;
   for (const m of SOLO.MEANING_TABLES) {

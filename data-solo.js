@@ -596,6 +596,207 @@ const ESP_GADGET = t(`
   Traceable Unlabelled Unstable Untested Warm Warped Waterlogged Worn Extra Change
 `);
 
+/* --- In play: what happens at the table, in Classified's own subsystems --- */
+
+const ESP_COMBAT = t(`
+  Advance Aim Ambush Attack Beat Block Bludgeon Break Burst Charge
+  Choke Club Cover Crawl Cripple Cut Dash Deflect Disarm Disengage
+  Dive Dodge Draw Drop Duck Elbow Empty Engage Escape Feint
+  Fire Flank Flee Grab Grapple Guard Headbutt Hesitate Hide Hold
+  Hurl Immobilise Jam Kick Kneel Knife Lunge Miss Overwhelm Parry
+  Pin Pistolwhip Press Pull Punch Reload Retreat Rush Scatter Seize
+  Shield Shoot Shove Silence Slam Slash Sprint Stab Stagger Stalk
+  Stand Stow Strangle Strike Stun Subdue Suppress Surrender Sweep Swing
+  Tackle Take Target Throttle Throw Trip Twist Unload Wait Ward
+  Withdraw Wound Wrestle Change Continue Increase Decrease Start Stop Strange
+`);
+
+const ESP_WOUND = t(`
+  Abrasion Aching Bandaged Battered Bleeding Blinded Blistered Bloodied Bruise Burn
+  Bullet Burned Concussed Concussion Contusion Crippled Crushed Cut Dazed Deaf
+  Deep Disfigured Dislocated Dizzy Exhausted Faint Fatal Fever Fracture Fractured
+  Gash Graze Grazed Grievous Gunshot Hairline Haemorrhage Infected Internal Laceration
+  Lame Light Limping Lingering Minor Mortal Numb Old Painful Pale
+  Paralysed Penetrating Poisoned Puncture Ragged Raw Recent Scab Scalded Scar
+  Scarred Sedated Septic Severe Shallow Shattered Shock Sickened Sprain Stab
+  Stabbed Stitched Stunned Superficial Swollen Tender Throbbing Torn Twisted Unconscious
+  Untreated Weak Welt Winded Wound Bandage Blood Bone Splint Tourniquet
+  Fresh Healing Mundane Mysterious Strange Extra Change Increase Decrease Stop
+`);
+
+const ESP_CHASE = t(`
+  Accelerate Alley Armour Ascent Barricade Bearing Bend Blowout Boat Brake
+  Bridge Bumper Bus Cargo Chase Checkpoint Cliff Collide Convoy Corner
+  Crash Crossroads Curve Damage Dash Ditch Dive Dock Drift Drop
+  Engine Escape Exit Ferry Fishtail Flare Fog Ford Fuel Gate
+  Gears Gravel Ground Gutter Handbrake Headlights Helicopter Highway Hill Horn
+  Ice Incline Intersection Jam Jump Junction Ladder Lane Launch Level
+  Lorry Manoeuvre Mirror Motorcycle Mud Narrow Oil Overtake Pursuit Rail
+  Ram Ramp Reverse Rooftop Roadblock Rudder Runway Skid Slalom Slick
+  Speed Spin Steep Swerve Throttle Tow Traffic Train Tunnel Tyre
+  Verge Wake Weave Wreck Change Increase Decrease Start Stop Strange
+`);
+
+const ESP_REACTION = t(`
+  Admiring Afraid Aggressive Aloof Amused Angry Anxious Apologetic Arrogant Attentive
+  Avoidant Bitter Blunt Bored Brusque Calculating Cautious Charmed Cheerful Cold
+  Conciliatory Condescending Confiding Confused Contemptuous Cooperative Cordial Curious Defensive Deferential
+  Defiant Delighted Dismissive Distracted Distrustful Drunk Eager Embarrassed Envious Evasive
+  Excited Fawning Flattering Flirtatious Formal Friendly Frightened Furious Generous Grateful
+  Greedy Grudging Guarded Guilty Helpful Hesitant Hostile Impatient Impressed Indifferent
+  Indignant Insulted Interested Intimidated Jealous Loyal Mocking Nervous Neutral Nostalgic
+  Obliging Obsequious Offended Officious Patronising Pitying Pleased Polite Professional Protective
+  Proud Reluctant Resentful Respectful Scornful Secretive Sceptical Suspicious Sympathetic Talkative
+  Threatening Warm Wary Weary Mundane Mysterious Strange Change Increase Decrease
+`);
+
+const ESP_COERCION = t(`
+  Accusation Admission Alibi Ally Ambiguity Anger Bargain Beating Belief Betrayal
+  Bluff Bravado Break Bribe Chains Clock Coffee Collapse Compliance Confession
+  Contradiction Cooperation Cot Cuffs Deal Defiance Delay Demand Denial Deprivation
+  Detail Diversion Doctor Doubt Drug Exhaustion Fabrication Family Fear File
+  Flattery Friendship Guard Hood Hope Hunger Immunity Impatience Inconsistency Injection
+  Interruption Isolation Lamp Leverage Lie Light Loyalty Manipulation Mercy Mistake
+  Money Name Noise Oath Paperwork Patience Photograph Pity Pressure Promise
+  Question Reassurance Recording Refusal Relief Repetition Resistance Rest Reversal Sedative
+  Shackles Shame Silence Sleep Statement Stubbornness Sympathy Threat Time Truth
+  Water Improvisation Partial Mundane Mysterious Strange Extra Continue Stop Change
+`);
+
+const ESP_SOCIAL = t(`
+  Admiration Affection Anecdote Attention Attraction Ballroom Banter Bar Boast Bouquet
+  Card Champagne Charm Cigarette Coincidence Compliment Confidence Conversation Dance Dinner
+  Discretion Distance Drink Elegance Envy Escort Evening Excuse Eyes Favour
+  Flattery Flirtation Gift Glance Gossip Guest Hand Handkerchief Hesitation Hint
+  Host Humour Insult Interest Introduction Invitation Jealousy Jewellery Kindness Kiss
+  Laughter Letter Lie Longing Marriage Mask Memory Message Mistake Money
+  Music Name Number Offence Party Perfume Photograph Pity Promise Proposition
+  Refusal Regret Rejection Reputation Reserve Rival Romance Room Rumour Scandal
+  Secret Seduction Sincerity Smile Suspicion Sympathy Table Telephone Toast Touch
+  Trust Vanity Whisper Wine Mundane Mysterious Strange Extra Start Stop
+`);
+
+/* --- World: the physical and institutional backdrop --- */
+
+const ESP_WEATHER = t(`
+  Afternoon Autumn Blizzard Breeze Bright Calm Chill Clear Cloudburst Clouds
+  Cold Curfew Damp Dark Dawn Daybreak Deadline December Delay Downpour
+  Drizzle Drought Dry Dusk Early Evening Fog Freezing Frost Gale
+  Glare Gloom Gust Hail Haze Heat Holiday Hour Humid Ice
+  Late Lightning Midday Midnight Minute Mist Moonless Moonlight Morning Muggy
+  Night Noon Overcast Puddles Rain Rainbow Schedule Season Shadow Shower
+  Sleet Slush Smog Snow Spring Squall Stars Storm Sultry Summer
+  Sunday Sunrise Sunset Sunshine Sweltering Thaw Thunder Tide Timetable Tomorrow
+  Tonight Twilight Warm Weekend Wet Wind Windless Winter Yesterday Sudden
+  Brief Endless Mundane Mysterious Strange Extra Change Continue Increase Decrease
+`);
+
+const ESP_SENSORY = t(`
+  Acrid Alarm Ammonia Antiseptic Ash Bells Bitter Bland Blood Bloom
+  Blurred Bright Burning Cigar Cigarettes Citrus Clatter Clean Coffee Cologne
+  Cordite Creak Damp Dazzling Diesel Dim Dust Echo Engine Fetid
+  Flicker Floral Footsteps Fresh Fumes Gasoline Glare Gleam Grit Hiss
+  Hollow Hum Humming Incense Iron Laughter Leather Metallic Mildew Muffled
+  Murmur Music Musty Oily Perfume Polish Quiet Rain Rasp Rattle
+  Ringing Rot Rough Rumble Rustle Salt Scorched Scrape Screech Sharp
+  Shrill Silence Siren Slick Smoke Smooth Solvent Sour Spice Static
+  Sticky Stifling Sweat Sweet Tang Thud Tobacco Varnish Voices Warm
+  Whine Whisper Whistle Mundane Mysterious Strange Extra Increase Decrease Change
+`);
+
+const ESP_TERRAIN = t(`
+  Arid Ash Basin Beach Bog Boulder Bramble Bush Canopy Canyon
+  Cave Chasm Cliff Coast Cobbles Coral Crag Creek Crevice Current
+  Dam Delta Dune Dust Escarpment Estuary Farmland Fen Field Flood
+  Forest Foothills Ford Glacier Glade Gorge Grass Gravel Grove Gully
+  Harbour Heath Hedge Hill Hollow Ice Island Jungle Lagoon Lake
+  Levee Lowland Marsh Meadow Mesa Mire Moor Mountain Mud Oasis
+  Orchard Outcrop Pass Pasture Path Peak Peninsula Pine Plain Plateau
+  Pond Quarry Rapids Ravine Reef Ridge River Rock Sand Savanna
+  Scrub Shoal Shore Slope Snowfield Spring Steppe Stream Summit Swamp
+  Thicket Tundra Valley Vines Waterfall Woods Mundane Mysterious Strange Change
+`);
+
+const ESP_ORGANISATION = t(`
+  Academy Agency Alliance Ally Ambition Archive Army Assembly Authority Bank
+  Board Branch Budget Bureau Cabal Cartel Cell Chain Chairman Charter
+  Client Clique Coalition Codeword Command Committee Company Conglomerate Consortium Corporation
+  Council Coup Court Customs Delegation Department Directorate Discipline Division Doctrine
+  Embargo Faction Feud Finance Firm Foundation Front Guild Headquarters Hierarchy
+  Infighting Influence Inspectorate Institute Interests Junta Leadership League Ledger Legation
+  Leverage Loyalty Mandate Merger Militia Ministry Mission Monopoly Network Office
+  Order Oversight Party Patron Payroll Police Policy Politburo Press Purge
+  Quota Regime Registry Reorganisation Reputation Rivalry Schism Secretariat Section Service
+  Society Sponsor Staff Syndicate Treaty Union Mundane Mysterious Strange Change
+`);
+
+/* --- Story: what the adventure is doing to the character --- */
+
+const ESP_TWIST = t(`
+  Accomplice Alliance Ambush Amnesia Betrayal Blackmail Bluff Bodyguard Bomb Bribe
+  Brother Casualty Coincidence Confession Conspiracy Copy Corpse Countdown Counterfeit Coup
+  Cover Crossfire Deadline Deception Decoy Defection Delay Demand Denial Diversion
+  Double Duplicate Escape Evidence Exchange Explosion Failure Fake Forgery Frame
+  Ghost Hostage Identity Impostor Informant Inheritance Insider Interference Kidnapping Leak
+  Lie Loyalty Mistake Mole Motive Murder Nobody Order Partner Payment
+  Photograph Plant Poison Promotion Ransom Recording Recruitment Relative Rescue Resurrection
+  Reversal Rival Sabotage Sacrifice Scapegoat Secret Sibling Silence Substitution Suicide
+  Superior Survivor Switch Target Testimony Theft Trap Treason Truce Truth
+  Twin Ultimatum Vengeance Warning Witness Mundane Mysterious Strange Change Stop
+`);
+
+const ESP_SCENE = t(`
+  Aftermath Ambush Approach Arrival Arrest Assembly Bargain Blackout Border Break
+  Briefing Cache Capture Celebration Chase Checkpoint Confrontation Contact Conversation Crossing
+  Debriefing Delivery Departure Discovery Disguise Dispute Escape Escort Exchange Exfiltration
+  Fight Flight Funeral Handover Hunt Infiltration Inspection Interception Interrogation Interview
+  Introduction Investigation Journey Loss Meeting Message Negotiation Observation Party Pause
+  Photography Planning Pursuit Quarrel Raid Reconnaissance Recovery Recruitment Rendezvous Repair
+  Report Rescue Rest Retreat Return Reunion Reversal Robbery Sabotage Search
+  Setback Shadowing Signal Smuggling Standoff Stakeout Stalemate Surgery Surveillance Survival
+  Tail Theft Threat Trade Trail Training Transit Trap Trial Waiting
+  Warning Watch Wait Withdrawal Mundane Mysterious Strange Start Stop Continue
+`);
+
+const ESP_MOTIVE = t(`
+  Addiction Advancement Affair Ambition Anger Atonement Belief Betrayal Bitterness Blackmail
+  Boredom Cause Charity Comfort Compulsion Conscience Conviction Cowardice Curiosity Debt
+  Deceit Delusion Desire Despair Devotion Disgrace Doubt Duty Envy Escape
+  Faith Family Fanaticism Fear Freedom Friendship Gambling Glory Grief Grudge
+  Guilt Habit Hatred Heritage Honour Hope Ideology Illness Indifference Inheritance
+  Jealousy Justice Legacy Loneliness Love Loyalty Lust Malice Money Nationalism
+  Nostalgia Oath Obligation Obsession Orders Pain Paranoia Patriotism Pity Pride
+  Principle Profit Promise Protection Rage Rebellion Redemption Regret Rejection Religion
+  Remorse Reputation Resentment Revenge Rivalry Safety Secrecy Shame Spite Status
+  Survival Vanity Weakness Mundane Mysterious Strange Extra Change Increase Decrease
+`);
+
+const ESP_LEVERAGE = t(`
+  Account Advance Allowance Arrears Asset Auction Audit Bank Banknote Bearer
+  Bill Blackmail Bond Bonus Bribe Bullion Cash Certificate Cheque Coin
+  Collateral Commission Contract Counterfeit Coupon Courier Credit Currency Debt Deed
+  Deposit Diamond Discount Dividend Donation Dowry Embezzlement Escrow Estate Exchange
+  Expenses Extortion Favour Fee Fine Forgery Fortune Fraud Fund Gambling
+  Gift Gold Guarantee Hush Inheritance Insurance Interest Inventory Invoice Jewels
+  Kickback Laundering Lease Ledger Lien Loan Loss Markup Mortgage Note
+  Payment Payoff Pension Percentage Premium Price Profit Property Purse Ransom
+  Receipt Reward Salary Savings Scheme Securities Settlement Shares Smuggling Stipend
+  Surety Tax Theft Transfer Trust Vault Wager Wealth Mundane Strange
+`);
+
+const ESP_CONSEQUENCE = t(`
+  Absence Accusation Aftermath Alarm Alliance Anger Apology Arrest Ashes Blame
+  Bloodstain Body Bureaucracy Casualty Censure Chaos Charge Cleanup Closure Compensation
+  Complaint Confession Consequence Cost Coverup Crackdown Credit Crowd Damage Debriefing
+  Debt Defeat Delay Demotion Denial Discipline Disgrace Doubt Escalation Escape
+  Evacuation Evidence Exile Exposure Failure Fallout Fame Fine Funeral Grief
+  Guilt Headline Hearing Hospital Hostility Inquiry Investigation Isolation Journalist Loss
+  Loyalty Medal Memorial Mistrust Notoriety Obituary Panic Paperwork Pardon Payment
+  Penalty Pension Police Praise Precaution Promotion Prosecution Protest Purge Recall
+  Recovery Reform Relief Reorganisation Reprimand Reputation Rescue Retaliation Retirement Revenge
+  Reward Rumour Ruins Scandal Silence Survivor Suspicion Vengeance Mundane Change
+`);
+
 /* ================================================================ the table index */
 
 /**
@@ -630,7 +831,25 @@ export const MEANING_TABLES = [
 
   { key: "espCodename", name: "Codename Words", group: "Flavour", subject: "Operation and asset codenames — roll two and join them", authored: true, words: ESP_CODENAME },
   { key: "espSurveillance", name: "Surveillance & Chase", group: "Flavour", subject: "Watching, being watched, following and losing a tail", authored: true, words: ESP_SURVEILLANCE },
-  { key: "espGadget", name: "Gadget Quirk", group: "Flavour", subject: "The state a piece of equipment turns out to be in", authored: true, words: ESP_GADGET }
+  { key: "espGadget", name: "Gadget Quirk", group: "Flavour", subject: "The state a piece of equipment turns out to be in", authored: true, words: ESP_GADGET },
+
+  { key: "espCombat", name: "Combat Action", group: "In play", subject: "What a body does in a fight, armed or otherwise", authored: true, pairWith: "espDescription", words: ESP_COMBAT },
+  { key: "espWound", name: "Wound & Injury", group: "In play", subject: "What the damage looks like, and what state it is in", authored: true, words: ESP_WOUND },
+  { key: "espChase", name: "Vehicle & Chase", group: "In play", subject: "Roads, water, air, and what the vehicle meets on them", authored: true, words: ESP_CHASE },
+  { key: "espReaction", name: "Reaction & Attitude", group: "In play", subject: "How an NPC takes you — for a Reaction roll you would rather interpret than tabulate", authored: true, words: ESP_REACTION },
+  { key: "espCoercion", name: "Coercion & Pressure", group: "In play", subject: "The furniture of an interrogation: what is applied, and what gives", authored: true, words: ESP_COERCION },
+  { key: "espSocial", name: "Social & Seduction", group: "In play", subject: "Parties, charm, and what passes between two people", authored: true, words: ESP_SOCIAL },
+
+  { key: "espWeather", name: "Weather & Time", group: "World", subject: "When the scene happens and what the sky is doing", authored: true, words: ESP_WEATHER },
+  { key: "espSensory", name: "Sensory Detail", group: "World", subject: "What the place smells, sounds and looks like", authored: true, words: ESP_SENSORY },
+  { key: "espTerrain", name: "Terrain & Environment", group: "World", subject: "The ground itself, for anything outside a city", authored: true, words: ESP_TERRAIN },
+  { key: "espOrganisation", name: "Organisation & Faction", group: "World", subject: "Institutions, their machinery and their politics", authored: true, words: ESP_ORGANISATION },
+
+  { key: "espTwist", name: "Mission Twist", group: "Story", subject: "The thing the mission turns out to really be about", authored: true, words: ESP_TWIST },
+  { key: "espScene", name: "Scene Framing", group: "Story", subject: "What kind of scene this is — useful for an interrupt", authored: true, pairWith: "espLocation", words: ESP_SCENE },
+  { key: "espMotive", name: "Motive & Secret", group: "Story", subject: "Why someone is really doing this, and what they are hiding", authored: true, words: ESP_MOTIVE },
+  { key: "espLeverage", name: "Leverage & Money", group: "Story", subject: "Money, debt and whatever holds someone in place", authored: true, words: ESP_LEVERAGE },
+  { key: "espConsequence", name: "Consequence & Aftermath", group: "Story", subject: "What is left once the shooting stops", authored: true, words: ESP_CONSEQUENCE }
 ];
 
 export const MEANING_BY_KEY = Object.fromEntries(MEANING_TABLES.map(m => [m.key, m]));
@@ -640,18 +859,18 @@ export const EVENT_MEANING_DEFAULT = "espAction";
 
 /** Which table best fits each Event Focus, so the event roller can suggest one. */
 export const EVENT_MEANING_BY_FOCUS = {
-  remote: "espAction",
-  ambiguous: "espAction",
+  remote: "espConsequence",
+  ambiguous: "espSensory",
   newnpc: "espAdversary",
   npcaction: "espAction",
   npcnegative: "espComplication",
   npcpositive: "espAction",
   threadtoward: "espObjective",
   threadaway: "espComplication",
-  threadclose: "espObjective",
+  threadclose: "espTwist",
   pcnegative: "espComplication",
   pcpositive: "espAction",
-  context: "espAction"
+  context: "espScene"
 };
 
 /* ================================================================ T79 topics */
