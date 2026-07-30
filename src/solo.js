@@ -560,17 +560,14 @@ function appendMeaning(host, adv) {
       bodyEl.appendChild(el("button", {
         class: "skill-row", type: "button",
         onclick: () => rollMeaning(adv, m.key)
-      },
-        el("span", { class: "n", text: m.name }),
-        el("span", { class: "r", text: m.authored ? "authored" : "Vol. 38" }),
-        el("span", { class: "b", text: "d100" })));
+      }, el("span", { class: "n", text: m.name })));
     }
     acc.appendChild(bodyEl);
     sec.appendChild(acc);
   }
 
   sec.appendChild(el("p", { class: "small muted", style: "margin-top:8px", text:
-    "The Baseline tables come from the supplied Mythic Magazine Vol. 38 report. The Espionage, Mission and Flavour tables were written for this app by that report's own five-step method." }));
+    "Baseline covers any scene; the rest are pointed at what the game actually asks you to narrate — the run of play, the mission, the world around it, and the shape of the story." }));
   sec.appendChild(el("button", { class: "btn ghost block", style: "margin-top:6px", type: "button", onclick: () => openTopic("meaning") }, "Meaning Tables and building your own"));
   host.appendChild(sec);
 }
@@ -787,9 +784,7 @@ export function openTopic(key) {
   if (!topic) return;
   modal({
     title: topic.title,
-    body: el("div", {},
-      el("p", { class: "small muted", text: topic.source }),
-      ...topic.body.map(t => el("p", { text: t }))),
+    body: el("div", {}, ...topic.body.map(t => el("p", { text: t }))),
     actions: [{ label: "Close", kind: "primary" }]
   });
 }
@@ -799,26 +794,20 @@ function appendTopics(host) {
   const card = el("div", { class: "card flush" });
   for (const t of S.SOLO_TOPICS) {
     card.appendChild(el("button", { class: "skill-row", type: "button", onclick: () => openTopic(t.key) },
-      el("span", { class: "n", text: t.title }),
-      el("span", { class: "r", text: t.source })));
+      el("span", { class: "n", text: t.title })));
   }
   sec.appendChild(card);
 
   card.appendChild(el("button", { class: "skill-row", type: "button", onclick: () => showFateChart() },
-    el("span", { class: "n", text: "The Fate Chart" }),
-    el("span", { class: "r", text: "as printed" })));
+    el("span", { class: "n", text: "The Fate Chart" })));
   card.appendChild(el("button", { class: "skill-row", type: "button", onclick: () => showFateCheck() },
-    el("span", { class: "n", text: "The Fate Check" }),
-    el("span", { class: "r", text: "as printed" })));
+    el("span", { class: "n", text: "The Fate Check" })));
   card.appendChild(el("button", { class: "skill-row", type: "button", onclick: () => showEventFocus() },
-    el("span", { class: "n", text: "Event Focus table" }),
-    el("span", { class: "r", text: "as printed" })));
+    el("span", { class: "n", text: "Event Focus table" })));
   card.appendChild(el("button", { class: "skill-row", type: "button", onclick: () => showSceneAdjustment() },
-    el("span", { class: "n", text: "Scene Adjustment table" }),
-    el("span", { class: "r", text: "as printed" })));
+    el("span", { class: "n", text: "Scene Adjustment table" })));
   card.appendChild(el("button", { class: "skill-row", type: "button", onclick: () => showMethod() },
-    el("span", { class: "n", text: "Building a table" }),
-    el("span", { class: "r", text: "Vol. 38" })));
+    el("span", { class: "n", text: "Building a table" })));
 
   host.appendChild(sec);
 }
@@ -844,7 +833,6 @@ function showFateChart() {
     body: el("div", {},
       el("div", { class: "table-wrap" }, t),
       el("p", { class: "small muted", text: "Each cell reads: Exceptional Yes on that or under, Yes on the bold number or under, Exceptional No on the last number or over. An x means that band cannot occur at those odds." }),
-      el("div", { class: "banner ok", text: S.SOLO_SOURCE.chartNotice }),
       el("p", { class: "small muted", text: "The printing is one ladder read diagonally: every cell equals the cell up and to its left, so a point of Chaos Factor moves exactly as far as a step of odds." })),
     actions: [{ label: "Close", kind: "primary" }]
   });
@@ -880,8 +868,7 @@ function showFateCheck() {
       el("div", { class: "table-wrap" }, mods),
       el("p", { class: "small muted", text: "The Odds and the Chaos Factor read off the same modifier column, so a Chaos Factor of 9 is worth as much as odds of Has To Be." }),
       el("div", { class: "table-wrap" }, answers),
-      el("p", { class: "small muted", text: S.FATE_CHECK.exceptionalDesc }),
-      el("div", { class: "banner ok", text: S.SOLO_SOURCE.checkNotice })),
+      el("p", { class: "small muted", text: S.FATE_CHECK.exceptionalDesc })),
     actions: [{ label: "Close", kind: "primary" }]
   });
 }

@@ -145,9 +145,7 @@ export function openRulesTopic(key) {
   if (!topic) return;
   modal({
     title: topic.title,
-    body: el("div", {},
-      el("p", { class: "small muted", text: topic.chapter }),
-      ...topic.body.map(t => el("p", { text: t }))),
+    body: el("div", {}, ...topic.body.map(t => el("p", { text: t }))),
     actions: [{ label: "Close", kind: "primary" }]
   });
 }
@@ -168,7 +166,7 @@ export function renderRules(host) {
       const hits = [];
       for (const t of D.RULES_TOPICS) {
         if (t.title.toLowerCase().includes(q) || t.body.some(b => b.toLowerCase().includes(q))) {
-          hits.push({ label: t.title, sub: t.chapter, go: () => openRulesTopic(t.key) });
+          hits.push({ label: t.title, sub: "Procedure", go: () => openRulesTopic(t.key) });
         }
       }
       for (const s of D.SKILLS) {
@@ -204,8 +202,7 @@ export function renderRules(host) {
     const tCard = el("div", { class: "card flush" });
     for (const t of D.RULES_TOPICS) {
       tCard.appendChild(el("button", { class: "skill-row", type: "button", onclick: () => openRulesTopic(t.key) },
-        el("span", { class: "n", text: t.title }),
-        el("span", { class: "r", text: t.chapter })));
+        el("span", { class: "n", text: t.title })));
     }
     results.appendChild(tCard);
 
