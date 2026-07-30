@@ -362,6 +362,14 @@ input[type="checkbox"], input[type="radio"] { width: 18px; height: 18px; accent-
 }
 .toast.err { background: var(--danger); color: #fff; }
 .toast.ok { background: var(--ok); color: #fff; }
+.toast.update {
+  pointer-events: auto; display: flex; align-items: center; gap: 10px; flex-wrap: wrap;
+  padding: 12px 14px;
+}
+.toast.update .t-text { flex: 1 1 160px; min-width: 0; }
+.toast.update .t-text .small { color: var(--paper-3); opacity: .8; }
+.toast.update .t-actions { display: flex; gap: 6px; flex: none; }
+.toast.update .btn.ghost { color: var(--paper); border-color: rgba(255,255,255,.35); background: transparent; }
 
 /* ---------------------------------------------------------------- roller */
 

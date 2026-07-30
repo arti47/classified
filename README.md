@@ -61,6 +61,8 @@ fully offline after the first load.
   around them, and the shape of the story. Fate never replaces a Classified roll — it settles
   what is true, and you still roll skills the ordinary way.
 - **Backup** — JSON export and import in Settings.
+- **Update prompt** — the app checks for a new deploy when it comes back to the foreground
+  (and on a slow timer while open), and offers a Reload toast rather than reloading under you.
 
 ## Data files
 
