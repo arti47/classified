@@ -133,10 +133,9 @@ reproduced verbatim, and no setting, adventure or artwork is included.
 The optional solo layer is a **different game by a different publisher**: the Mythic Game
 Master Emulator and Mythic Magazine are Word Mill Games'. `data-solo.js` reproduces nine
 100-word Meaning Tables from the supplied Mythic Magazine Vol. 38 material, because a
-paraphrased word list is not the same table, and transcribes the printed Fate Chart, Random
-Event Focus Table and Scene Adjustment Table from images of the originals. The Fate Check's
-modifiers are the one piece with no supplied source behind them, and the app says so on screen
-when an adventure is set to use it. The other twenty-eight tables were written for this app.
+paraphrased word list is not the same table, and transcribes the printed Fate Chart, Fate Check,
+Random Event Focus Table and Scene Adjustment Table from images of the originals, so no part
+of the solo layer is guesswork. The other twenty-eight tables were written for this app.
 
 If you publish or distribute this application or anything derived from it, the licensing is
 your responsibility, for both layers. Openly licensed material — an SRD, or ORC/Creative

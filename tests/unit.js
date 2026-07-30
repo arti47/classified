@@ -715,13 +715,61 @@ function soloTests(t) {
   t.ok(!SOLO.isRandomEventRoll(100, 9), "100 is not a double and fires nothing");
   t.ok(SOLO.fateChartAnswer(22, "fifty", 5).event, "the chart answer reports the event alongside the answer");
 
-  // Fate Check.
+  // Fate Check, against the printed Modifiers and Answers tables.
+  const check = JSON.parse(readFileSync(new URL("./fixtures/fate-check.json", import.meta.url), "utf8"));
+
+  let modMiss = null;
+  for (const [label, mod] of check.oddsModifiers) {
+    const row = SOLO.FATE_ODDS.find(o => o.checkName === label);
+    if (!row) { modMiss = `no odds row labelled ${label}`; break; }
+    if (row.mod !== mod) { modMiss = `${label}: printed ${mod}, app ${row.mod}`; break; }
+  }
+  t.ok(!modMiss, "every printed Fate Check odds label and Roll Modifier reproduces" + (modMiss ? ` (${modMiss})` : ""));
+
+  let chaosMiss = null;
+  for (const [cf, mod] of Object.entries(check.chaosModifiers)) {
+    if (SOLO.chaosMod(Number(cf)) !== mod) chaosMiss = `CF ${cf}: printed ${mod}, app ${SOLO.chaosMod(Number(cf))}`;
+  }
+  t.ok(!chaosMiss, "the printed Chaos Factor modifier column reproduces" + (chaosMiss ? ` (${chaosMiss})` : ""));
+
+  // The check's chaos column is the uneven Roll Modifier ladder, not one step per point —
+  // and the chart's diagonal is, so the two adjustments must stay separate.
+  t.eq(SOLO.chaosMod(9), 5, "Chaos Factor 9 is worth +5 on a Fate Check, as much as the best odds");
+  t.eq(SOLO.chaosMod(2), -4, "Chaos Factor 2 is worth -4, skipping -3 exactly as the printed column does");
+  t.eq(SOLO.chartChaosStep(9), 4, "the Fate Chart still moves one ladder position per point of Chaos Factor");
+  t.eq(SOLO.chartChaosStep(1), -4, "and four positions down at Chaos Factor 1");
+
+  t.eq(SOLO.FATE_CHECK.threshold, check.thresholds.yes, "a modified total of 11 or more is a Yes");
+  t.eq(SOLO.FATE_CHECK.exceptionalYesFrom, check.thresholds.exceptionalYes, "18 or more is an Exceptional Yes");
+  t.eq(SOLO.FATE_CHECK.exceptionalNoTo, check.thresholds.exceptionalNo, "4 or less is an Exceptional No");
+
   t.eq(SOLO.fateCheckAnswer(6, 5, "fifty", 5).key, "yes", "2d10 totalling 11 at 50/50 is a Yes");
   t.eq(SOLO.fateCheckAnswer(5, 5, "fifty", 5).key, "no", "2d10 totalling 10 at 50/50 is a No");
-  t.eq(SOLO.fateCheckAnswer(9, 9, "certain", 9).key, "exceptionalYes", "a big margin makes the Yes Exceptional");
-  t.eq(SOLO.fateCheckAnswer(1, 1, "impossible", 1).key, "exceptionalNo", "a big miss makes the No Exceptional");
-  t.ok(SOLO.fateCheckAnswer(4, 4, "fifty", 5).event, "matching dice fire an event on a Fate Check");
-  t.ok(!SOLO.fateCheckAnswer(4, 5, "fifty", 5).event, "unmatched dice do not");
+  t.eq(SOLO.fateCheckAnswer(9, 9, "fifty", 5).key, "exceptionalYes", "a total of 18 is an Exceptional Yes");
+  t.eq(SOLO.fateCheckAnswer(9, 8, "fifty", 5).key, "yes", "a total of 17 is still a plain Yes");
+  t.eq(SOLO.fateCheckAnswer(2, 2, "fifty", 5).key, "exceptionalNo", "a total of 4 is an Exceptional No");
+  t.eq(SOLO.fateCheckAnswer(3, 2, "fifty", 5).key, "no", "a total of 5 is a plain No");
+
+  // The bands are fixed totals, not a margin from 11 — that was the reconstruction's error.
+  t.eq(SOLO.fateCheckAnswer(8, 8, "fifty", 5).key, "yes", "a total of 16 is a Yes, not an Exceptional Yes: the band is 18, not a margin of 5");
+  t.eq(SOLO.fateCheckAnswer(3, 3, "fifty", 5).key, "no", "a total of 6 is a No, not an Exceptional No");
+
+  // Odds and chaos both feed the same total.
+  t.eq(SOLO.fateCheckAnswer(5, 5, "certain", 9).total, 20, "odds +5 and Chaos Factor 9 add +10 to the dice");
+  t.eq(SOLO.fateCheckAnswer(5, 5, "impossible", 1).total, 0, "odds -5 and Chaos Factor 1 subtract 10");
+  t.eq(SOLO.fateCheckAnswer(5, 5, "impossible", 1).key, "exceptionalNo", "which drives the answer past Exceptional No");
+
+  // "Double digits within CF": matching dice AND the number within the Chaos Factor.
+  t.ok(SOLO.fateCheckAnswer(4, 4, "fifty", 5).event, "double 4s at Chaos Factor 5 fire an event");
+  t.ok(!SOLO.fateCheckAnswer(8, 8, "fifty", 5).event, "double 8s at Chaos Factor 5 do not: the number is outside the Chaos Factor");
+  t.ok(SOLO.fateCheckAnswer(8, 8, "fifty", 9).event, "double 8s do fire at Chaos Factor 9");
+  t.ok(!SOLO.fateCheckAnswer(4, 5, "fifty", 9).event, "unmatched dice never fire an event");
+  t.ok(!SOLO.fateCheckAnswer(2, 2, "fifty", 1).event, "double 2s at Chaos Factor 1 do not fire");
+  t.ok(SOLO.fateCheckAnswer(1, 1, "fifty", 1).event, "double 1s at Chaos Factor 1 do");
+
+  t.eq(SOLO.oddsLabel("certain", "check"), "Has To Be", "the Fate Check prints its own label for the best odds");
+  t.eq(SOLO.oddsLabel("certain", "chart"), "Certain", "the Fate Chart prints its own");
+  t.eq(SOLO.oddsLabel("nearimp", "check"), "No Way", "Nearly Impossible is No Way on the check's table");
 
   /* ---------------- chaos, scenes, events, lists ---------------- */
 
@@ -732,9 +780,8 @@ function soloTests(t) {
   t.eq(SOLO.stepChaos(9, 1), 9, "the Chaos Factor clamps at 9 (S4)");
   t.eq(SOLO.stepChaos(5, -1), 4, "a scene the character controlled lowers it by one");
   t.eq(SOLO.stepChaos(5, 1), 6, "a scene they did not control raises it by one");
-  t.eq(SOLO.chaosMod(5), 0, "Chaos Factor 5 is the neutral column");
-  t.eq(SOLO.chaosMod(1), -4, "Chaos Factor 1 is four steps of order");
-  t.eq(SOLO.chaosMod(9), 4, "Chaos Factor 9 is four steps of chaos");
+  t.eq(SOLO.chaosMod(5), 0, "Chaos Factor 5 is the neutral column on both mechanics");
+  t.eq(SOLO.chartChaosStep(5), 0, "and the neutral ladder position on the chart");
 
   t.eq(SOLO.sceneTest(9, 5).key, "expected", "a d10 over the Chaos Factor plays the expected scene");
   t.eq(SOLO.sceneTest(3, 5).key, "altered", "an odd roll at or under the Chaos Factor alters the scene");
@@ -790,9 +837,9 @@ function soloTests(t) {
   t.eq(SOLO.ANYTHING_WORDS.length, 10, "the ten Anything Words are present");
   t.eq(SOLO.TABLE_BUILD_METHOD.length, 5, "the five-step table-construction method is recorded");
   t.ok(SOLO.SOLO_TOPICS.length >= 6, "the solo rules library carries a topic per procedure");
-  t.ok(SOLO.FATE_CHECK_VERIFY, "the Fate Check, the one piece with no supplied source, stays flagged (S1)");
-  t.ok(!("FATE_CHART_VERIFY" in SOLO) && !("EVENT_FOCUS_VERIFY" in SOLO) && !("SCENE_ADJUSTMENT_VERIFY" in SOLO),
-    "the verify flags are gone from the three tables now transcribed from the printing");
+  t.ok(!("FATE_CHART_VERIFY" in SOLO) && !("EVENT_FOCUS_VERIFY" in SOLO) &&
+       !("SCENE_ADJUSTMENT_VERIFY" in SOLO) && !("FATE_CHECK_VERIFY" in SOLO),
+    "no verify flags remain: every procedure table is transcribed from a printed original (S1)");
 
   /* ---------------- persistence ---------------- */
 
