@@ -385,9 +385,7 @@ function appendBriefing(host, adv) {
       el("div", { class: "grow" },
         el("div", { class: "small muted", text: row.name }),
         el("div", { text: val.text }),
-        val.words && val.words.length
-          ? el("div", { class: "lm", text: val.words.join(" · ") })
-          : null)));
+        promptedWords(val) ? el("div", { class: "lm", text: promptedWords(val) }) : null)));
   }
   body.appendChild(card);
 
@@ -404,6 +402,22 @@ function appendBriefing(host, adv) {
 
   acc.appendChild(body);
   host.appendChild(acc);
+}
+
+/**
+ * The words that prompted a row, or "" when the row still *is* those words.
+ *
+ * Every row rolls its words straight into the field, so an unedited row's text is the words
+ * joined — printing both underneath each other says the same thing twice. The words are worth
+ * keeping only once the player has written over them, when they show what the line came from.
+ * Compared on letters alone, so the joiner ("·", "/", "—") and case never make an unedited row
+ * look edited.
+ */
+function promptedWords(val) {
+  if (!val.words || !val.words.length) return "";
+  const line = val.words.join(" · ");
+  const bare = s => String(s).toLowerCase().replace(/[^a-z0-9]/g, "");
+  return bare(val.text) === bare(line) ? "" : line;
 }
 
 /** The one-line summary on the closed accordion: the objective, or the codename. */
@@ -487,7 +501,8 @@ function briefingText(adv) {
   for (const row of S.BRIEFING_ROWS) {
     const val = adv.briefing.rows[row.key];
     if (!val || !val.text) continue;
-    lines.push(`${row.name}: ${val.text}` + (val.words && val.words.length ? `  (${val.words.join(" · ")})` : ""));
+    const prompt = promptedWords(val);
+    lines.push(`${row.name}: ${val.text}` + (prompt ? `  (${prompt})` : ""));
   }
   return `${adv.name}\n\n${lines.join("\n")}`;
 }

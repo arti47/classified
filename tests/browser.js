@@ -527,7 +527,14 @@ export async function browserTests(t, { chromium, executablePath, baseURL }) {
           phase: adv.scenePhase,
           named: adv.name !== "Untitled adventure",
           pinnedClosed: !!screen.querySelector("details.acc:not([open]) summary"),
-          pinnedText: screen.textContent.includes("Mission briefing")
+          pinnedText: screen.textContent.includes("Mission briefing"),
+          pinnedRows: (() => {
+            const acc = [...screen.querySelectorAll("details.acc")]
+              .find(d => d.querySelector("summary").textContent.includes("Mission briefing"));
+            return acc
+              ? [...acc.querySelectorAll(".card-row .grow")].map(g => [...g.children].map(c => c.textContent))
+              : [];
+          })()
         };
       });
       t.eq(briefed.filledBefore, 7, "every briefing row rolls itself into an editable field");
@@ -543,6 +550,17 @@ export async function browserTests(t, { chromium, executablePath, baseURL }) {
       t.ok(briefed.named, "an untitled adventure takes its codename as its name");
       t.ok(briefed.pinnedText, "the briefing is pinned on the Solo screen");
       t.ok(briefed.pinnedClosed, "in an accordion that starts closed");
+
+      // An unedited row's text IS the words joined, so printing both says it twice.
+      const bare = s => String(s).toLowerCase().replace(/[^a-z0-9]/g, "");
+      t.eq(briefed.pinnedRows.length, 7, "the pinned briefing lists every row");
+      t.ok(!briefed.pinnedRows.some(r => r.slice(1).length > 1 && bare(r[1]) === bare(r[2])),
+        "no pinned row prints its own words back underneath itself");
+      t.ok(briefed.pinnedRows.every(r => r.length === 2 || r[0] === "Objective"),
+        "a row left as it was rolled shows the line alone");
+      const objRow = briefed.pinnedRows.find(r => r[0] === "Objective");
+      t.eq(objRow.length, 3, "a row that was written over keeps the words that prompted it");
+      t.ok(objRow[2].includes("·"), "and shows them as the word pair they were");
 
       // The opponent used to be named by the Classified generator alone, which names an NPC
       // after its own stereotype and rank — the same three words every press.
