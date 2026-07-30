@@ -609,13 +609,45 @@ function soloTests(t) {
   t.group("Mythic — Fate");
 
   t.eq(SOLO.FATE_ODDS.length, 9, "nine odds from Certain to Impossible");
-  t.eq(SOLO.fateTarget("fifty", 5), 50, "50/50 at Chaos Factor 5 is a target of 50");
-  t.eq(SOLO.fateTarget("likely", 5), 75, "Likely at Chaos Factor 5 is 75");
-  t.eq(SOLO.fateTarget("unlikely", 5), 25, "Unlikely at Chaos Factor 5 is 25");
-  t.eq(SOLO.fateTarget("certain", 5), 99, "Certain at Chaos Factor 5 is 99, never 100");
-  t.eq(SOLO.fateTarget("impossible", 5), 1, "Impossible at Chaos Factor 5 is 1");
 
-  // Monotone along both axes: more chaos never lowers a Yes, better odds never lower it.
+  // The printed chart, supplied as an image after the first solo build, is the fixture.
+  const printed = JSON.parse(readFileSync(new URL("./fixtures/fate-chart.json", import.meta.url), "utf8"));
+
+  let cellMiss = null;
+  for (const oddsKey of printed.odds) {
+    for (let c = 1; c <= 9; c++) {
+      const [exY, target, exN] = printed.chart[oddsKey][c - 1];
+      const got = SOLO.fateTarget(oddsKey, c);
+      if (got !== target) { cellMiss = `${oddsKey}/CF${c} target: printed ${target}, app ${got}`; break; }
+      const gotY = SOLO.exceptionalYes(got);
+      if (gotY !== exY) { cellMiss = `${oddsKey}/CF${c} exceptional yes: printed ${exY}, app ${gotY}`; break; }
+      const gotN = SOLO.exceptionalNo(got);
+      if (gotN !== exN) { cellMiss = `${oddsKey}/CF${c} exceptional no: printed ${exN}, app ${gotN}`; break; }
+    }
+    if (cellMiss) break;
+  }
+  t.ok(!cellMiss, "all 81 printed Fate Chart cells reproduce, targets and both exceptional bands" +
+    (cellMiss ? ` (${cellMiss})` : ""));
+
+  t.eq(SOLO.fateTarget("fifty", 5), 50, "50/50 at Chaos Factor 5 is a target of 50");
+  t.eq(SOLO.fateTarget("certain", 5), 90, "Certain at Chaos Factor 5 is 90, not 99 — the reconstruction had this wrong");
+  t.eq(SOLO.fateTarget("certain", 1), 50, "Certain at Chaos Factor 1 is the same 50 as 50/50 at Chaos Factor 5");
+  t.eq(SOLO.fateTarget("impossible", 9), 50, "Impossible at Chaos Factor 9 is also 50: the printed chart is one ladder read diagonally");
+  t.eq(SOLO.fateTarget("impossible", 1), 1, "Impossible at Chaos Factor 1 bottoms out at 1");
+  t.eq(SOLO.fateTarget("certain", 9), 99, "Certain at Chaos Factor 9 tops out at 99");
+
+  // The diagonal is the chart's defining property: one step of chaos equals one step of odds.
+  let diagonalBreak = null;
+  for (let i = 1; i < SOLO.FATE_ODDS.length; i++) {
+    for (let c = 2; c <= 9; c++) {
+      const up = SOLO.fateTarget(SOLO.FATE_ODDS[i - 1].key, c - 1);
+      const here = SOLO.fateTarget(SOLO.FATE_ODDS[i].key, c);
+      if (up !== here) diagonalBreak = `${SOLO.FATE_ODDS[i].key}/CF${c} is ${here}, up-left is ${up}`;
+    }
+  }
+  t.ok(!diagonalBreak, "every cell equals the cell up and to its left" + (diagonalBreak ? ` (${diagonalBreak})` : ""));
+
+  // Monotone along both axes.
   let nonMono = null;
   for (const o of SOLO.FATE_ODDS) {
     for (let c = 2; c <= 9; c++) {
@@ -634,16 +666,13 @@ function soloTests(t) {
   }
   t.ok(!nonMono, "worse odds never beat better odds at the same Chaos Factor" + (nonMono ? ` (${nonMono})` : ""));
 
-  // The odds axis outweighs the chaos axis, so an Impossible question stays impossible.
-  t.ok(SOLO.fateTarget("impossible", 9) < SOLO.fateTarget("fifty", 1),
-    "Impossible at maximum chaos is still less likely than 50/50 at minimum chaos");
-  t.ok(SOLO.fateTarget("impossible", 9) <= 5, "Impossible tops out at 5 even at Chaos Factor 9");
-
-  // Derived thresholds (S2).
+  // Derived thresholds round rather than truncate, and the printed "x" cases return null [S2].
   t.eq(SOLO.exceptionalYes(50), 10, "Exceptional Yes is the low fifth of the Yes range");
   t.eq(SOLO.exceptionalNo(50), 91, "Exceptional No is the top fifth of the No range");
-  t.eq(SOLO.exceptionalYes(25), 5, "Exceptional Yes at target 25");
-  t.eq(SOLO.exceptionalNo(25), 86, "Exceptional No at target 25");
+  t.eq(SOLO.exceptionalYes(99), 20, "a target of 99 gives Exceptional Yes 20 — rounding, not truncation");
+  t.eq(SOLO.exceptionalNo(99), null, "a target of 99 has no Exceptional No, the printed x");
+  t.eq(SOLO.exceptionalYes(1), null, "a target of 1 has no Exceptional Yes, the printed x");
+  t.eq(SOLO.exceptionalNo(1), 81, "a target of 1 gives Exceptional No 81");
 
   let bandBreak = null;
   for (const o of SOLO.FATE_ODDS) {
@@ -651,17 +680,32 @@ function soloTests(t) {
       const target = SOLO.fateTarget(o.key, c);
       const y = SOLO.exceptionalYes(target);
       const n = SOLO.exceptionalNo(target);
-      if (y < 1 || y > target) bandBreak = `${o.key}/CF${c} exceptional yes ${y} vs target ${target}`;
-      if (n <= target) bandBreak = `${o.key}/CF${c} exceptional no ${n} overlaps target ${target}`;
+      if (y !== null && (y < 1 || y > target)) bandBreak = `${o.key}/CF${c} exceptional yes ${y} vs target ${target}`;
+      if (n !== null && n <= target) bandBreak = `${o.key}/CF${c} exceptional no ${n} overlaps target ${target}`;
     }
   }
   t.ok(!bandBreak, "no Fate band overlaps its neighbour at any odds or Chaos Factor" + (bandBreak ? ` (${bandBreak})` : ""));
 
-  t.eq(SOLO.fateChartAnswer(5, "fifty", 5).key, "exceptionalYes", "a 5 against a target of 50 is an Exceptional Yes");
-  t.eq(SOLO.fateChartAnswer(50, "fifty", 5).key, "yes", "rolling exactly the target is a Yes");
+  // Every roll 1-100 lands in exactly one band, at every odds and Chaos Factor.
+  let coverage = null;
+  for (const o of SOLO.FATE_ODDS) {
+    for (let c = 1; c <= 9; c++) {
+      for (let r = 1; r <= 100; r++) {
+        const res = SOLO.fateChartAnswer(r, o.key, c);
+        if (!res.key) coverage = `${o.key}/CF${c} roll ${r}`;
+      }
+    }
+  }
+  t.ok(!coverage, "every d100 result reads as exactly one answer at all 81 cells" + (coverage ? ` (${coverage})` : ""));
+
+  t.eq(SOLO.fateChartAnswer(1, "certain", 9).key, "exceptionalYes", "a 1 at Certain and Chaos Factor 9 is an Exceptional Yes");
+  t.eq(SOLO.fateChartAnswer(100, "certain", 9).key, "no", "a 100 answers No even at a target of 99, because 99 is the highest printed target");
+  t.eq(SOLO.fateChartAnswer(81, "impossible", 1).key, "exceptionalNo", "81 at Impossible and Chaos Factor 1 is an Exceptional No");
+  t.eq(SOLO.fateChartAnswer(1, "impossible", 1).key, "yes", "a 1 at Impossible is a plain Yes: that cell has no Exceptional Yes band");
+
+    t.eq(SOLO.fateChartAnswer(50, "fifty", 5).key, "yes", "rolling exactly the target is a Yes");
   t.eq(SOLO.fateChartAnswer(51, "fifty", 5).key, "no", "one over the target is a No");
   t.eq(SOLO.fateChartAnswer(95, "fifty", 5).key, "exceptionalNo", "a 95 against a target of 50 is an Exceptional No");
-  t.eq(SOLO.fateChartAnswer(100, "certain", 9).key, "no", "a d100 of 100 answers No even at Certain and Chaos Factor 9");
 
   // Random Event trigger (S3).
   t.ok(SOLO.isRandomEventRoll(33, 5), "a double at or under the Chaos Factor fires an event");
@@ -698,10 +742,27 @@ function soloTests(t) {
   t.eq(SOLO.sceneTest(10, 9).key, "expected", "a 10 always beats the Chaos Factor");
   t.eq(SOLO.sceneTest(1, 1).key, "altered", "at Chaos Factor 1 only a 1 disturbs the scene, and it alters it");
 
-  t.eq(SOLO.SCENE_ADJUSTMENTS.length, 10, "the Scene Adjustment table is a full d10");
+  t.eq(SOLO.SCENE_ADJUSTMENTS.length, 7, "the printed Scene Adjustment table has seven rows, the last spanning 7-10");
   t.eq(SOLO.SCENE_ADJUSTMENTS[SOLO.SCENE_ADJUSTMENTS.length - 1].max, 10, "the Scene Adjustment table covers 1-10");
+  let adjMiss = null;
+  for (const [max, name] of printed.sceneAdjustment) {
+    const row = SOLO.sceneAdjustment(max);
+    if (row.name !== name || row.max !== max) adjMiss = `${max}: printed ${name}, app ${row.name}`;
+  }
+  t.ok(!adjMiss, "every printed Scene Adjustment row reproduces" + (adjMiss ? ` (${adjMiss})` : ""));
+  t.ok(SOLO.sceneAdjustment(7).double && SOLO.sceneAdjustment(10).double,
+    "7-10 is flagged as sending you back to the table twice");
+  t.ok(!SOLO.sceneAdjustment(6).double, "1-6 are single adjustments");
+  t.eq(SOLO.SCENE_ADJUSTMENT_DOUBLE_COUNT, 2, "Make 2 Adjustments means two");
 
   t.eq(SOLO.EVENT_FOCUS[SOLO.EVENT_FOCUS.length - 1].max, 100, "the Event Focus table covers the whole d100");
+  let focusMiss = null;
+  for (const [max, name] of printed.eventFocus) {
+    const row = SOLO.eventFocus(max);
+    if (row.name !== name || row.max !== max) focusMiss = `${max}: printed ${name}, app ${row.name}`;
+  }
+  t.ok(!focusMiss, "every printed Event Focus band reproduces — the reconstruction was already right" +
+    (focusMiss ? ` (${focusMiss})` : ""));
   let gap = null;
   let prev = 0;
   for (const f of SOLO.EVENT_FOCUS) {
@@ -729,8 +790,9 @@ function soloTests(t) {
   t.eq(SOLO.ANYTHING_WORDS.length, 10, "the ten Anything Words are present");
   t.eq(SOLO.TABLE_BUILD_METHOD.length, 5, "the five-step table-construction method is recorded");
   t.ok(SOLO.SOLO_TOPICS.length >= 6, "the solo rules library carries a topic per procedure");
-  t.ok(SOLO.FATE_CHART_VERIFY && SOLO.EVENT_FOCUS_VERIFY && SOLO.SCENE_ADJUSTMENT_VERIFY,
-    "the three reconstructed tables are flagged for verification (S1)");
+  t.ok(SOLO.FATE_CHECK_VERIFY, "the Fate Check, the one piece with no supplied source, stays flagged (S1)");
+  t.ok(!("FATE_CHART_VERIFY" in SOLO) && !("EVENT_FOCUS_VERIFY" in SOLO) && !("SCENE_ADJUSTMENT_VERIFY" in SOLO),
+    "the verify flags are gone from the three tables now transcribed from the printing");
 
   /* ---------------- persistence ---------------- */
 

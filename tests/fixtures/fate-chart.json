@@ -1,0 +1,30 @@
+{
+ "_source": "Transcribed from the supplied printed Fate Chart image. Each cell is [exceptional yes, target, exceptional no]; null is the printed 'x', meaning that band cannot occur.",
+ "odds": ["certain", "nearcert", "verylikely", "likely", "fifty", "unlikely", "veryunl", "nearimp", "impossible"],
+ "chart": {
+  "certain":    [[10,50,91],[13,65,94],[15,75,96],[17,85,98],[18,90,99],[19,95,100],[20,99,null],[20,99,null],[20,99,null]],
+  "nearcert":   [[7,35,88],[10,50,91],[13,65,94],[15,75,96],[17,85,98],[18,90,99],[19,95,100],[20,99,null],[20,99,null]],
+  "verylikely": [[5,25,86],[7,35,88],[10,50,91],[13,65,94],[15,75,96],[17,85,98],[18,90,99],[19,95,100],[20,99,null]],
+  "likely":     [[3,15,84],[5,25,86],[7,35,88],[10,50,91],[13,65,94],[15,75,96],[17,85,98],[18,90,99],[19,95,100]],
+  "fifty":      [[2,10,83],[3,15,84],[5,25,86],[7,35,88],[10,50,91],[13,65,94],[15,75,96],[17,85,98],[18,90,99]],
+  "unlikely":   [[1,5,82],[2,10,83],[3,15,84],[5,25,86],[7,35,88],[10,50,91],[13,65,94],[15,75,96],[17,85,98]],
+  "veryunl":    [[null,1,81],[1,5,82],[2,10,83],[3,15,84],[5,25,86],[7,35,88],[10,50,91],[13,65,94],[15,75,96]],
+  "nearimp":    [[null,1,81],[null,1,81],[1,5,82],[2,10,83],[3,15,84],[5,25,86],[7,35,88],[10,50,91],[13,65,94]],
+  "impossible": [[null,1,81],[null,1,81],[null,1,81],[1,5,82],[2,10,83],[3,15,84],[5,25,86],[7,35,88],[10,50,91]]
+ },
+ "sceneAdjustment": [
+  [1, "Remove A Character"],
+  [2, "Add A Character"],
+  [3, "Reduce/Remove An Activity"],
+  [4, "Increase An Activity"],
+  [5, "Remove An Object"],
+  [6, "Add An Object"],
+  [10, "Make 2 Adjustments"]
+ ],
+ "eventFocus": [
+  [5, "Remote Event"], [10, "Ambiguous Event"], [20, "New NPC"], [40, "NPC Action"],
+  [45, "NPC Negative"], [50, "NPC Positive"], [55, "Move Toward A Thread"],
+  [65, "Move Away From A Thread"], [70, "Close A Thread"], [80, "PC Negative"],
+  [85, "PC Positive"], [100, "Current Context"]
+ ]
+}
