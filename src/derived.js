@@ -17,7 +17,9 @@ export function blankCharacter(rank = "rookie") {
     campaignId: null,
     identity: {
       name: "", gender: "", rank,
-      bandIndex: 4, appearance: "normal",
+      // Height and weight are independent purchases: each draws its own Creation Point
+      // cost and its own Reputation from its own row of the Physical Traits Table.
+      heightBand: 4, weightBand: 4, appearance: "normal",
       height: "", weight: "", age: D.PROFESSION_RULES.startAge,
       profession: null, professionYears: 0,
       organisation: "", cover: "", portraitUrl: "", notes: ""
@@ -57,6 +59,13 @@ export function normalize(c) {
 
   const out = { ...base, ...c };
   out.identity = { ...base.identity, ...(c.identity || {}) };
+  // Migration: characters saved before height and weight were separable carried a single
+  // bandIndex. Back-fill both bands from it so old dossiers keep their frame.
+  if (c.identity && c.identity.bandIndex !== undefined) {
+    if (c.identity.heightBand === undefined) out.identity.heightBand = c.identity.bandIndex;
+    if (c.identity.weightBand === undefined) out.identity.weightBand = c.identity.bandIndex;
+    delete out.identity.bandIndex;
+  }
   out.attributes = { ...base.attributes, ...(c.attributes || {}) };
   out.state = { ...base.state, ...(c.state || {}) };
   out.state.conditions = { ...(c.state?.conditions || {}) };
@@ -206,10 +215,13 @@ export function isTrained(c, skillKey) {
 
 export function creationSpend(c) {
   const rankRow = R.RANK_BY_KEY[c.identity.rank] || R.RANK_BY_KEY.rookie;
-  const band = D.PHYSICAL_BANDS[c.identity.bandIndex] || D.PHYSICAL_BANDS[4];
+  const hBand = D.PHYSICAL_BANDS[c.identity.heightBand] || D.PHYSICAL_BANDS[4];
+  const wBand = D.PHYSICAL_BANDS[c.identity.weightBand] || D.PHYSICAL_BANDS[4];
   const app = R.APPEARANCE_BY_KEY[c.identity.appearance] || R.APPEARANCE_BY_KEY.normal;
 
-  const physical = band.cp * 2 + app.cp;   // height band and weight band are charged separately
+  // Height and weight are separate choices — the book lets them differ by a row — so each
+  // is charged from its own row of the Physical Traits Table.
+  const physical = hBand.cp + wBand.cp + app.cp;
   const attributes = Object.values(c.attributes).reduce((t, v) => t + R.characteristicCost(v), 0);
 
   let skills = 0;
@@ -265,6 +277,11 @@ export function validate(c) {
 
   for (const key of D.STARTING_SKILLS) {
     if (!(key in c.skills)) errors.push(`Every character starts with ${R.skillName(key)} at rank 1.`);
+  }
+
+  const gap = Math.abs((c.identity.heightBand ?? 4) - (c.identity.weightBand ?? 4));
+  if (gap > 1) {
+    warnings.push("Height and weight are more than one row apart. The book keeps characters proportional unless the GM allows otherwise.");
   }
 
   const years = c.identity.professionYears || 0;

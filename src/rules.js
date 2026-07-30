@@ -269,10 +269,16 @@ export function isMisfire(rollValue, weapon) {
 
 /* ---------------------------------------------------------------- reputation */
 
-export function startingReputation({ bandIndex = 4, appearance = "normal", professionYears = 0, scars = 0 } = {}) {
-  const band = D.PHYSICAL_BANDS[bandIndex] || D.PHYSICAL_BANDS[4];
+/**
+ * Starting Reputation = height row + weight row + appearance + 6 per profession year
+ * + 20 per visible scar. Height and weight each contribute their own row's value.
+ * Verified against four of the five published sample characters, which reproduce exactly.
+ */
+export function startingReputation({ heightBand = 4, weightBand = 4, appearance = "normal", professionYears = 0, scars = 0 } = {}) {
+  const h = D.PHYSICAL_BANDS[heightBand] || D.PHYSICAL_BANDS[4];
+  const w = D.PHYSICAL_BANDS[weightBand] || D.PHYSICAL_BANDS[4];
   const app = APPEARANCE_BY_KEY[appearance] || APPEARANCE_BY_KEY.normal;
-  return band.rep + app.rep +
+  return h.rep + w.rep + app.rep +
     professionYears * D.PROFESSION_RULES.repPerYear +
     scars * D.SCAR_REPUTATION;
 }

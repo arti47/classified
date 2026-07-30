@@ -47,6 +47,11 @@ the whole core book. Nothing was filled in from memory of the game.
 Success Quality Table each carry a typesetting error; the Physical Traits and Wound Rank
 Accumulation tables arrived column-scrambled and were reconstructed from context.
 
+**Scans supplied after the first build** confirmed all four reconstructions and corrected
+one rule (A11). A second source, the *Character Sheets & Sample PCs* PDF, supplies five
+published pre-generated characters — see §3.19 for what could and could not be extracted
+from it, and §11 for how they are used as fixtures.
+
 ---
 
 ## 3. System Profile (completed)
@@ -348,10 +353,21 @@ modifiers when a *player character uses that skill on the NPC*, never the revers
 The seven **OSIRIS** antagonists are published as full stat blocks and are extracted
 complete. They run on NPC rules (Villain/Criminal ranks with Villain Points).
 
-### 3.19 Pre-generated characters — **ABSENT for players**
+### 3.19 Pre-generated characters — **PUBLISHED, NOT YET SHIPPED**
 
-The book publishes no player pregens; it points at downloadable ones instead. The OSIRIS
-seven are NPCs, and are extracted as such — **ruling recorded at checkpoint.**
+The core book points at downloadable pregens rather than printing them. The supplementary
+*Character Sheets & Sample PCs* PDF supplies **five**: Michelle Jackson, Johnathan Sawyer,
+Godwin Georges and Emily Steele (Rookies) and Aidan Hunter (Special Agent). They run on PC
+rules, unlike the OSIRIS seven, which are NPCs.
+
+Their identity, characteristics, derived statistics, Abilities, Weaknesses, Fields of
+Experience, languages, weapon and vehicle all extract cleanly and are used as regression
+fixtures (§11). **Their skill ranks do not.** The sheets are filled PDF forms whose Skill
+Rank column is drawn at inconsistent offsets, and untrained rows are blank, so rows
+misalign against the 25-skill list — recovering all 125 ranks would mean guessing.
+
+`data-pregens.js` is therefore **not shipped**. It needs the five sheets as images, from
+which the skill columns can be read directly.
 
 ### 3.20 Solo rules — **ABSENT**
 
@@ -370,11 +386,11 @@ Recorded inline where they bite. Each is a case where the printing was unclear o
 
 | # | Point | Ruling |
 |---|---|---|
-| R1 | Skill Rank cap is stated as "+2 over the highest underlying characteristic" three times and as "cannot be greater than" once (the Language note in Ch. 3) | Use **+2**. It appears three times, and the Chapter One worked example (Fire Combat rank 12 on DEX 12/PER 14) only works with it. |
+| R1 | Skill Rank cap is stated as "+2 over the highest underlying characteristic" three times and as "cannot be greater than" once (the Language note in Ch. 3) | **CONFIRMED +2** against scans of the printed Ch.2 and Ch.3 notes. Corroborated by Aidan Hunter, the published Special Agent sample, who has Hand-to-Hand rank 11 on Strength 9 — exactly at the cap. |
 | R2 | Success Quality Table row 161–170 prints Good 35–85 and Fair 85–99, overlapping at 85 | Derive the table; Fair starts at **86**. Noted in the rules library. |
-| R3 | Multiplication Table prints 8 × 7 = 46 and 23 × 10 = 260 | Arithmetic errors. The app multiplies. Noted in the rules library. |
-| R4 | Physical Traits Table arrived column-scrambled | Reconstructed as nine symmetric bands; the printed cost/Reputation sequence (4/40 … 20/0 … 4/40) confirms the shape. |
-| R5 | Wound Rank Accumulation arrived as an unlabelled 4 × 4 grid | Reconstructed as old-wound rows × new-wound columns, which matches the book's own worked example (Light + Light = Medium). |
+| R3 | Multiplication Table prints 8 × 7 = 46 and 23 × 10 = 260 | Arithmetic errors. **The official character-sheet PDF reprints the same 8 × 7 = 46**, confirming a persistent printing error rather than a transcription artefact. The app multiplies. |
+| R4 | Physical Traits Table arrived column-scrambled, and it was unclear whether height and weight are one purchase or two | **CONFIRMED and CORRECTED.** The scan verifies the nine symmetric bands. Height and weight are **separate purchases**, each drawing its own Creation Point cost and its own Reputation from its own row — the book lets them differ by a row, which is only meaningful if they are chosen independently. Four of the five published sample characters reproduce their printed Reputation exactly under this reading, including two whose height and weight sit in different rows. See audit finding A11. |
+| R5 | Wound Rank Accumulation arrived as an unlabelled 4 × 4 grid | **CONFIRMED** against the printed table: old-wound rows × new-wound columns, exactly as reconstructed. |
 | R6 | Speed table stops at PER + DEX 30 with no row above | 30 is the maximum possible (15 + 15). No extrapolation needed. |
 | R7 | Seduction modifiers list "Unattractive −2" but the appearance list has no such entry | Map to **Plain**. Good Looking gets 0, the only unlisted appearance. |
 | R8 | Hero Points have no printed cap or decay | Implement as uncapped and persistent. `maxHeroPoints()` returns null deliberately. |
@@ -470,7 +486,7 @@ campaigns/{campaignId}
 
 characters/{characterId}
   id, schema, createdAt, updatedAt, owner, campaignId
-  identity:   { name, gender, rank, bandIndex, appearance, height, weight, age,
+  identity:   { name, gender, rank, heightBand, weightBand, appearance, height, weight, age,
                 nativeLanguage, profession, professionYears, organisation, cover,
                 portraitUrl, notes }
   attributes: { str, dex, wil, per, int }
@@ -493,7 +509,7 @@ characters/{characterId}
 ```
 
 Every schema addition ships with a back-fill in `normalize()` and is documented here in the
-same change. `SCHEMA_VERSION` is 3.
+same change. `SCHEMA_VERSION` is 3. The pre-A11 single `bandIndex` field is migrated to `heightBand` and `weightBand` on load.
 
 ---
 
@@ -669,6 +685,9 @@ sequencing and gating, not numbers.
 | A8 | Difficulty Factor modifiers were applied arithmetically rather than as ladder steps | `stepDF()` walks the legal ladder and clamps at ½ and 10 | Large modifiers bottom out at ½, top out at 10 |
 | A9 | Untrained Language rolls were offered; Language cannot be used untrained | Language is excluded from the untrained skill list | Language never appears in the rollable list |
 | A10 | The one-advance-per-mission gate was not enforced on characteristics, only skills | `advancedThisMission.attributes` gates both, and the advancement UI disables a second raise | The gate tracks both arrays and survives normalization |
+| A11 | Height and weight were treated as a single frame purchase: Creation Points were charged twice but Reputation was credited only once, and the wizard forced both into the same row | Split into `identity.heightBand` and `identity.weightBand`. Each charges its own cost and credits its own Reputation; the wizard picks them separately and warns past a one-row gap. Old dossiers migrate from `bandIndex`. | Four published sample characters reproduce their printed Reputation exactly, two of them with height and weight in different rows |
+
+**Verified against scans supplied after the first build:** the Physical Traits Table (nine bands, both columns), the Wound Rank Accumulation grid, the Characteristics and Skills cost tables, the Potential Abilities list, the Ch.6 experience modifiers and expenditures, and the Skill Rank cap note in both chapters. The Multiplication Table error survives into the official character-sheet PDF.
 
 **Verified clean, do not re-litigate:** the Chapter One worked example reproduces exactly at
 both DF 6 and DF 7; a d100 of 100 fails at every Success Chance including 300; DF ½ rounds
@@ -701,3 +720,4 @@ About screen.
 | 2026-07-30 | Derived the Success Quality Table rather than transcribing it (A1) | The printed row 161–170 overlaps at 85, and the Multiplication Table has two arithmetic errors; deriving sidesteps both | Contiguity check across all 300 Success Chances | `classified-v1` |
 | 2026-07-30 | Seeded Charisma and Driving in `blankCharacter()` (A2) | Root cause: the factory produced an illegal character, and a draft that never triggered `normalize()` reached Review with an unactionable validation error | Browser creation flow now completes and saves | `classified-v1` |
 | 2026-07-30 | Closed audit findings A3–A10 | Engine behaviours deviating from the book | Each has a dedicated regression check | `classified-v1` |
+| 2026-07-30 | Split height and weight into independent purchases (A11); confirmed R1, R3, R4, R5 against supplied scans | Root cause: the Physical Traits Table pairs Height and Weight as separate columns and the book permits them to differ by a row, so each is its own purchase. Reputation was being under-counted and the wizard was over-constrained. | 298 checks green, including four published sample characters whose printed Reputation now reproduces exactly | `classified-v2` |

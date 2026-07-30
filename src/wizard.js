@@ -133,22 +133,35 @@ const STEP_RENDERERS = {
     body.appendChild(sectionTitle("Physical traits",
       "Being unremarkable is expensive. Height, weight and appearance each cost Creation Points and each add Reputation — and a low Reputation is an operative's most valuable asset."));
 
-    body.appendChild(el("div", { class: "field-label", text: "Frame (charged for height and weight together)" }));
     const isFemale = (draft.identity.gender || "").toLowerCase().startsWith("f");
-    for (const band of D.PHYSICAL_BANDS) {
-      const col = isFemale ? band.female : band.male;
-      body.appendChild(el("button", {
-        class: "opt-btn" + (draft.identity.bandIndex === band.i ? " on" : ""), type: "button",
-        onclick: () => update(host, d => {
-          d.identity.bandIndex = band.i;
-          d.identity.height = col.h;
-          d.identity.weight = col.w;
-        })
-      },
-        el("span", { class: "on-name" },
-          el("span", { text: `${col.h}, ${col.w}` }),
-          el("span", { class: "mono small", text: `${band.cp * 2} CP · +${band.rep} Rep` }))
-      ));
+    const gap = Math.abs(draft.identity.heightBand - draft.identity.weightBand);
+
+    body.appendChild(el("p", { class: "small muted", text:
+      "Height and weight are separate purchases — each costs Creation Points and adds Reputation from its own row. Keep them within one row of each other to stay proportional." }));
+
+    for (const [field, label] of [["heightBand", "Height"], ["weightBand", "Weight"]]) {
+      body.appendChild(el("div", { class: "field-label", style: "margin-top:12px", text: label }));
+      for (const band of D.PHYSICAL_BANDS) {
+        const col = isFemale ? band.female : band.male;
+        const value = field === "heightBand" ? col.h : col.w;
+        body.appendChild(el("button", {
+          class: "opt-btn" + (draft.identity[field] === band.i ? " on" : ""), type: "button",
+          onclick: () => update(host, d => {
+            d.identity[field] = band.i;
+            const c2 = isFemale ? band.female : band.male;
+            if (field === "heightBand") d.identity.height = c2.h; else d.identity.weight = c2.w;
+          })
+        },
+          el("span", { class: "on-name" },
+            el("span", { text: value }),
+            el("span", { class: "mono small", text: `${band.cp} CP · +${band.rep} Rep` }))
+        ));
+      }
+    }
+
+    if (gap > 1) {
+      body.appendChild(el("div", { class: "banner warn", text:
+        "Height and weight are more than one row apart. Classified characters are typically fit and trim; the GM may allow any proportion." }));
     }
 
     body.appendChild(el("label", { class: "field", style: "margin-top:12px" },
@@ -169,7 +182,8 @@ const STEP_RENDERERS = {
     }
 
     const rep = R.startingReputation({
-      bandIndex: draft.identity.bandIndex,
+      heightBand: draft.identity.heightBand,
+      weightBand: draft.identity.weightBand,
       appearance: draft.identity.appearance,
       professionYears: draft.identity.professionYears || 0,
       scars: (draft.scars || []).length
@@ -449,7 +463,8 @@ const STEP_RENDERERS = {
     }
 
     const rep = R.startingReputation({
-      bandIndex: draft.identity.bandIndex,
+      heightBand: draft.identity.heightBand,
+      weightBand: draft.identity.weightBand,
       appearance: draft.identity.appearance,
       professionYears: draft.identity.professionYears || 0,
       scars: 0
@@ -508,7 +523,8 @@ async function finish(host) {
   }
 
   draft.reputation = R.startingReputation({
-    bandIndex: draft.identity.bandIndex,
+    heightBand: draft.identity.heightBand,
+    weightBand: draft.identity.weightBand,
     appearance: draft.identity.appearance,
     professionYears: draft.identity.professionYears || 0,
     scars: draft.scars.length

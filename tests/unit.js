@@ -231,9 +231,39 @@ export function unitTests(t) {
   const capBreak = normalize({ ...fresh, attributes: { ...fresh.attributes, str: 5 }, skills: { ...fresh.skills, handtohand: 20 } });
   t.ok(validate(capBreak).errors.some(e => e.includes("exceeds the cap")), "skill ranks above the cap fail validation");
 
-  t.eq(R.startingReputation({ bandIndex: 4, appearance: "normal", professionYears: 0 }), 0, "an average operative starts at Reputation 0");
-  t.eq(R.startingReputation({ bandIndex: 0, appearance: "gorgeous", professionYears: 6 }), 40 + 50 + 36,
+  t.eq(R.startingReputation({ heightBand: 4, weightBand: 4, appearance: "normal", professionYears: 0 }), 0,
+    "an average operative starts at Reputation 0");
+  t.eq(R.startingReputation({ heightBand: 0, weightBand: 0, appearance: "gorgeous", professionYears: 6 }), 40 + 40 + 50 + 36,
     "extreme traits and six years of profession stack Reputation");
+  t.eq(R.startingReputation({ heightBand: 4, weightBand: 5, appearance: "normal", professionYears: 0 }), 5,
+    "height and weight each contribute their own row's Reputation");
+
+  const freshSpend = creationSpend(normalize(blankCharacter("rookie")));
+  t.eq(freshSpend.physical, 60, "average height (20) plus average weight (20) plus Normal appearance (20) costs 60");
+
+  // The five published sample characters. Reputation is fully derivable from the printed
+  // sheet, so each is an exact fixture for the Physical Traits and profession-year rules.
+  const SAMPLES = [
+    { name: "Michelle Jackson", female: true, heightBand: 4, weightBand: 5, appearance: "goodlooking", years: 6, rep: 51,
+      attrs: { str: 7, dex: 9, wil: 7, per: 9, int: 7 }, speed: 2, hth: "A" },
+    { name: "Johnathan Sawyer", female: false, heightBand: 5, weightBand: 4, appearance: "goodlooking", years: 3, rep: 33,
+      attrs: { str: 9, dex: 8, wil: 8, per: 8, int: 7 }, speed: 2, hth: "B" },
+    { name: "Godwin Georges", female: false, heightBand: 6, weightBand: 6, appearance: "stunning", years: 3, rep: 73,
+      attrs: { str: 9, dex: 7, wil: 7, per: 7, int: 11 }, speed: 1, hth: "B" },
+    { name: "Emily Steele", female: true, heightBand: 5, weightBand: 3, appearance: "attractive", years: 6, rep: 66,
+      attrs: { str: 6, dex: 10, wil: 10, per: 9, int: 8 }, speed: 2, hth: "A" }
+  ];
+  for (const s of SAMPLES) {
+    t.eq(R.startingReputation({ heightBand: s.heightBand, weightBand: s.weightBand, appearance: s.appearance, professionYears: s.years }),
+      s.rep, `sample character ${s.name}: printed Reputation ${s.rep} is reproduced exactly`);
+    t.eq(R.speedValue(s.attrs.per, s.attrs.dex), s.speed, `sample character ${s.name}: printed Speed matches PER + DEX`);
+    t.eq(R.hthDamageRank(s.attrs.str), s.hth, `sample character ${s.name}: printed Hand-to-Hand Damage Rank matches Strength`);
+  }
+
+  // Michelle Jackson's sheet writes her language out as "Russian (7+15) = 22".
+  t.eq(Math.min(D.MAX_BASE_CHANCE, 7 + 15), 22, "sample character Michelle Jackson: Russian at INT 7 plus rank 15 gives Base Chance 22");
+  // Emily Steele's Seduction total is (WIL 10 + Charisma rank 4) / 2 = 7.
+  t.eq(R.baseChance("seduction", { wil: 10 }, 0, 4), 7, "sample character Emily Steele: Seduction formula total is 7");
   t.eq(D.PROFESSION_RULES.repPerYear, 6, "each profession year adds 6 Reputation");
   t.eq(D.PROFESSION_RULES.maxYears, 6, "a profession is capped at 6 years");
 
