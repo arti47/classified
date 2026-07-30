@@ -470,6 +470,62 @@ export async function browserTests(t, { chromium, executablePath, baseURL }) {
         advMenu.inner.some(x => x.includes("Delete this adventure")),
         "Adventure settings gathers the configuration one level down");
 
+      // Journal rows can be copied and deleted one at a time.
+      const journalRow = await page.evaluate(async () => {
+        const Store = await import("./src/store.js");
+        Store.updateAdventure(a => {
+          a.journal = [
+            { id: "j1", ts: Date.now(), kind: "fate", text: "Is the safe open? — No", detail: "Fate Chart 71 vs 50" },
+            { id: "j2", ts: Date.now(), kind: "note", text: "Second entry", detail: "" }
+          ];
+        });
+        // Bounce through another route so the Solo screen definitely re-renders.
+        location.hash = "#/home";
+        await new Promise(r => setTimeout(r, 120));
+        location.hash = "#/solo";
+        await new Promise(r => setTimeout(r, 220));
+
+        // Capture whichever copy path this browser actually takes: the async clipboard API
+        // when it is available, the textarea and execCommand fallback when it is not.
+        let copied = null;
+        try {
+          Object.defineProperty(navigator, "clipboard", {
+            configurable: true,
+            value: { writeText: async t => { copied = t; } }
+          });
+        } catch { /* fall back to execCommand below */ }
+        document.execCommand = () => {
+          const ta = document.activeElement;
+          if (ta && ta.tagName === "TEXTAREA") copied = ta.value;
+          return true;
+        };
+
+        const rows = [...document.querySelectorAll(".log-entry")]
+          .filter(r => /Is the safe open|Second entry/.test(r.textContent));
+        const first = rows.find(r => r.textContent.includes("Is the safe open"));
+        first.querySelector('button[aria-label^="Copy"]').click();
+        await new Promise(r => setTimeout(r, 80));
+        const copiedRow = copied;   // snapshot before Copy all overwrites it
+
+        first.querySelector('button[aria-label^="Delete"]').click();
+        await new Promise(r => setTimeout(r, 120));
+        [...document.querySelectorAll(".modal-foot .btn")].find(b => b.textContent === "Delete").click();
+        await new Promise(r => setTimeout(r, 150));
+
+        const after = Store.activeAdventure().journal.map(j => j.id);
+        const copyAll = [...document.querySelectorAll("button")].find(b => b.textContent.trim() === "Copy all");
+        copyAll.click();
+        await new Promise(r => setTimeout(r, 80));
+
+        return { copiedRow, after, copiedAll: copied, hasCopyAll: !!copyAll };
+      });
+      t.ok(journalRow.copiedRow && journalRow.copiedRow.includes("Is the safe open") && journalRow.copiedRow.includes("Fate Chart 71"),
+        "a journal row copies itself, dice detail and all");
+      t.deep(journalRow.after, ["j2"], "and deletes on its own without touching the rest");
+      t.ok(journalRow.hasCopyAll, "the journal offers a Copy all");
+      t.ok(journalRow.copiedAll && journalRow.copiedAll.includes("Second entry"),
+        "which copies the surviving entries");
+
       // Re-rolling the words replaces the record instead of stacking beside it.
       const reroll = await page.evaluate(async () => {
         const Store = await import("./src/store.js");

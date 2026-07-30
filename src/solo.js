@@ -1099,6 +1099,11 @@ function appendJournal(host, adv) {
     return;
   }
 
+  sec.querySelector(".section-head").appendChild(el("button", {
+    class: "btn sm ghost", type: "button",
+    onclick: () => copyText(journalText(entries), `${entries.length} entries copied`)
+  }, "Copy all"));
+
   const card = el("div", { class: "card flush" });
   for (const e of entries.slice(0, 40)) {
     card.appendChild(el("div", { class: "log-entry" },
@@ -1106,12 +1111,30 @@ function appendJournal(host, adv) {
       el("div", { class: "ld" },
         el("div", { class: "lt" }, el("b", { text: e.text })),
         e.detail ? el("div", { class: "lm", text: e.detail }) : null,
-        el("div", { class: "lm", text: fmtDate(e.ts) }))));
+        el("div", { class: "lm", text: fmtDate(e.ts) })),
+      el("div", { class: "row tight", style: "flex:none" },
+        el("button", {
+          class: "btn sm ghost", type: "button",
+          "aria-label": `Copy: ${e.text}`, title: "Copy this entry",
+          onclick: () => copyText(entryText(e), "Entry copied")
+        }, "⧉"),
+        el("button", {
+          class: "btn sm ghost", type: "button",
+          "aria-label": `Delete: ${e.text}`, title: "Delete this entry",
+          onclick: async () => {
+            if (await confirmModal(e.text, {
+              title: "Delete this entry?", danger: true, okLabel: "Delete"
+            })) {
+              save(a => unjournal(a, e.id));
+              showToast("Entry deleted");
+            }
+          }
+        }, "✕"))));
   }
   sec.appendChild(card);
 
   if (entries.length > 40) {
-    sec.appendChild(el("p", { class: "small muted", text: `${entries.length - 40} older entries are kept in the adventure record.` }));
+    sec.appendChild(el("p", { class: "small muted", text: `${entries.length - 40} older entries are kept in the adventure record. Copy all takes every one of them.` }));
   }
   sec.appendChild(el("button", {
     class: "btn ghost block", style: "margin-top:8px", type: "button",
@@ -1122,6 +1145,52 @@ function appendJournal(host, adv) {
     }
   }, "Clear journal"));
   host.appendChild(sec);
+}
+
+/** One journal row as plain text: what happened, the dice behind it, and when. */
+function entryText(e) {
+  return [`[${e.kind}] ${e.text}`, e.detail, fmtDate(e.ts)].filter(Boolean).join("\n");
+}
+
+/** The whole journal, oldest first, so a pasted log reads forwards. */
+function journalText(entries) {
+  return [...entries].reverse().map(entryText).join("\n\n");
+}
+
+/**
+ * Copy to the clipboard. The async API needs a secure context, so a hidden textarea and
+ * execCommand stand in when it is unavailable — over plain http on a phone, for instance.
+ */
+async function copyText(text, okMessage) {
+  try {
+    if (navigator.clipboard && window.isSecureContext) {
+      await navigator.clipboard.writeText(text);
+      showToast(okMessage, "ok");
+      return;
+    }
+  } catch { /* fall through to the textarea */ }
+
+  const ta = el("textarea", { style: "position:fixed;top:-1000px;left:-1000px;opacity:0" });
+  ta.value = text;
+  document.body.appendChild(ta);
+  ta.select();
+  let ok = false;
+  try { ok = document.execCommand("copy"); } catch { ok = false; }
+  ta.remove();
+
+  if (ok) { showToast(okMessage, "ok"); return; }
+
+  // Nothing worked, so show the text and let the player copy it by hand.
+  const area = el("textarea", { style: "min-height:220px" });
+  area.value = text;
+  modal({
+    title: "Copy",
+    body: el("div", {},
+      el("p", { class: "small muted", text: "This browser blocked the clipboard. Select the text and copy it." }),
+      area),
+    actions: [{ label: "Close", kind: "primary" }]
+  });
+  area.select();
 }
 
 /* ---------------------------------------------------------------- topics */
