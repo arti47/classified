@@ -50,6 +50,16 @@ fully offline after the first load.
 - **GM screen** (toggle in Settings) — party panel, the Hot and Cold random encounter
   tables with their sub-tables and Hero Point variants, the NPC generator built on the
   book's 1d10 stereotype tables, the OSIRIS roster, animals, and the reference tables.
+- **Solo play (toggle in Settings)** — a Solo tab running the Mythic Game Master Emulator
+  as a second system layered on top: Fate questions on either the Fate Chart or the Fate
+  Check, the Chaos Factor, scene tests with altered and interrupt scenes, Random Events with
+  the Event Focus table, weighted Threads and Characters lists, an adventure journal, a
+  guided End Scene with one-step undo, and 37 Meaning Tables of 100 words each. Nine come
+  from the supplied Mythic Magazine Vol. 38 report; twenty-eight were written for this app's
+  1960s-espionage context by that report's five-step method, one per subsystem the game
+  actually has — combat, wounds, chases, reactions, interrogation, social play, the world
+  around them, and the shape of the story. Fate never replaces a Classified roll — it settles
+  what is true, and you still roll skills the ordinary way.
 - **Backup** — JSON export and import in Settings.
 
 ## Data files
@@ -60,6 +70,7 @@ fully offline after the first load.
 | `data-monsters.js` | The book's five animals |
 | `data-npcs.js` | NPC stereotypes and generation tables, the OSIRIS antagonists, and the random encounter system |
 | `data-pregens.js` | The five published pre-generated characters |
+| `data-solo.js` | The Mythic layer: Fate, Chaos Factor, scenes, Random Events, Adventure Lists and all 37 Meaning Tables. No Classified rules live in this file |
 
 No rules value is hardcoded anywhere in `src/`. If a number is wrong, it is wrong in a data
 file and nowhere else.
@@ -88,7 +99,10 @@ The harness runs the rules engine against the rulebook in Node, then boots the r
 headless Chromium: every route renders, the creation flow completes, a roll resolves and is
 logged with enough detail to re-derive it, lifecycle boundaries store an undo snapshot, the
 GM generators produce output, there is no horizontal overflow at 360px or 390px, the
-accessibility basics hold, and the console stays clean.
+accessibility basics hold, and the console stays clean. The solo layer is covered too: all
+900 baseline Meaning Table words are checked against a fixture extracted from the supplied
+report, the Fate Chart is checked for monotonicity along both axes and for bands that never
+overlap, and a solo session is driven end to end in the browser.
 
 If Chromium is not on the machine, the browser section reports as skipped and the Node
 checks still run.
@@ -114,6 +128,13 @@ This application is a **personal play aid** built from the rulebook. It extracts
 mechanics and paraphrases every effect description in its own words; no rules prose is
 reproduced verbatim, and no setting, adventure or artwork is included.
 
+The optional solo layer is a **different game by a different publisher**: the Mythic Game
+Master Emulator and Mythic Magazine are Word Mill Games'. `data-solo.js` reproduces nine
+100-word Meaning Tables from the supplied Mythic Magazine Vol. 38 material, because a
+paraphrased word list is not the same table, and reconstructs three procedure tables that the
+supplied material does not contain — the app flags those on screen and asks you to check them
+against your own copy. The other twenty-eight tables were written for this app.
+
 If you publish or distribute this application or anything derived from it, the licensing is
-your responsibility. Openly licensed material — an SRD, or ORC/Creative Commons content —
-is the safe basis for anything public.
+your responsibility, for both layers. Openly licensed material — an SRD, or ORC/Creative
+Commons content — is the safe basis for anything public.

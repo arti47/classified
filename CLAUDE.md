@@ -14,7 +14,8 @@
 | **Game** | Classified (Expeditious Retreat Press), core rulebook only — a retro-clone of the system originally designed by Gerard Christopher Klug. OGL 1.0a. |
 | **Audience** | Players, with an opt-in GM screen |
 | **Platforms** | One installable PWA: phone, browser, desktop |
-| **Core job** | Creation wizard + full in-play tracker + native dice engine |
+| **Core job** | Creation wizard + full in-play tracker + native dice engine + opt-in Mythic solo engine |
+| **Solo play** | Mythic Game Master Emulator layered on top, behind a toggle. Second system, second source — see §2 and §3.20. |
 | **Multiplayer** | Local-first. Sync architected from day one (schema, roles, security rules, `sync.js`), build gated behind First Session Playable. |
 | **Backend** | Firebase Realtime Database + Storage; runs with zero keys in local mode |
 | **Theme** | 1960s intelligence dossier — kraft/manila paper and typewriter faces in light mode, a dim operations room in dark, a red classification stamp as the single accent. Light + dark, default follows system. No rulebook art, logos or trade dress. |
@@ -34,6 +35,25 @@ these are the template's defaults applied deliberately, and each is reversible i
 | Theme default | Follow system | `prefers-color-scheme` with an in-app override |
 | Campaign style | Adventurous (the book's own default) | Sets when Hero Points are earned; changeable in Settings |
 
+### 1.2 Solo Decisions
+
+Recorded at the Phase 7 request, one question at a time. Unlike §1.1 these are the user's
+own answers, not template defaults.
+
+| Decision | Choice | Consequence |
+|---|---|---|
+| Engine scope | Full Mythic GME engine, not tables alone | Fate, Chaos Factor, scenes, Random Events, Adventure Lists all ship |
+| Fate mechanic | Fate Chart is the default; Fate Check selectable | `fateMode` per adventure, d100 idiom matches Classified |
+| Solo surfaces | One tab carrying the whole adventure engine | Chaos + scene header, Fate box, events, lists, meaning roller, journal |
+| Tables shipped | All 9 word tables from the supplied report | 900 baseline entries; the World History router is a worksheet diagram, not shipped |
+| Custom tables | 28 authored Classified-flavoured tables | 2,800 further entries built by the report's own 5-step method (§3.20.2) — one table per subsystem the game actually has |
+| Integration | Full — shared roll log, per-character link, one storage layer | Oracle rolls are ordinary roll-log rows; solo state exports with the backup |
+| Gating | `solo` toggle, off by default | Solo replaces Rules in the bottom nav when on; Rules stays on Home |
+| Persistence | Per-adventure records | Named adventures, switchable and archivable |
+| Scene bookkeeping | Guided one-tap End Scene with undo | Mirrors the existing lifecycle engine |
+| Meaning roller | Rolls a word pair by default | Doubles reported as amplification, per the report |
+| Missing GME tables | Reconstructed and flagged | Fate Chart, Event Focus, Scene Adjustment carry `verify: true` — ruling S1 |
+
 ---
 
 ## 2. Source
@@ -51,6 +71,19 @@ Accumulation tables arrived column-scrambled and were reconstructed from context
 one rule (A11). A second source, the *Character Sheets & Sample PCs* PDF, supplies five
 published pre-generated characters — see §3.19 for what could and could not be extracted
 from it, and §11 for how they are used as fixtures.
+
+**A third source covers solo play and is a different game.** *Custom Elements Meaning
+Tables — a report based on Mythic Magazine Volume 38* (Word Mill Games) was supplied as
+Markdown. It is authoritative for what it contains: the table-construction method, the ten
+Anything Words, the doubles rule, and nine complete 100-word tables (Action 1/2,
+Descriptor 1/2, Locations, Characters, Objects, Genre, Tone). It does **not** contain the
+GME core procedures — no Fate Chart, no Event Focus table, no Scene Adjustment table — so
+those are reconstructed rather than extracted and are flagged in the data and on screen
+(ruling S1). The report's §5 World History Paths is a worksheet routing diagram, not a
+table, and is not shipped.
+
+Classified rules and Mythic rules never mix in one file: `data.js` and its siblings stay
+core-book-only, and every Mythic value lives in `data-solo.js`.
 
 ---
 
@@ -368,9 +401,90 @@ screen.
 
 All 114 printed Base Chances across the five sheets are regression fixtures (§11).
 
-### 3.20 Solo rules — **ABSENT**
+### 3.20 Solo rules — **MYTHIC LAYER, PLANNED**
 
-No solo oracle or procedures. No solo tab.
+Classified itself has no solo oracle or procedures; nothing in §3.20 comes from the core
+book. Solo play is a **second system bolted on**, the Mythic Game Master Emulator, behind
+the `solo` toggle. Everything below is Mythic's, not Classified's, and the UI labels it as
+such so the two are never confused at the table.
+
+#### 3.20.1 The Mythic layer
+
+| Piece | Procedure | Where |
+|---|---|---|
+| **Fate question** | Pick odds from the nine-step ladder (Certain → Impossible), read the target against the current Chaos Factor, roll d100 under it for Yes. Low fifth of the Yes range is an **Exceptional Yes**; top fifth of the No range an **Exceptional No**. | `fateTarget()`, `fateChartAnswer()` |
+| **Fate Check** | The chartless alternative: 2d10 + odds modifier + chaos modifier against a threshold of 11; matching dice trigger a Random Event, and a margin of 5 either way makes the answer Exceptional. Selectable per adventure. | `fateCheckAnswer()` |
+| **Random Event trigger** | On the Fate Chart, a doubles roll (11, 22, … 99) whose tens digit is at or under the Chaos Factor fires a Random Event **as well as** answering the question. | `isRandomEventRoll()` |
+| **Random Event** | Roll the Event Focus table, then roll a word pair from a Meaning Table to colour it. Focuses that name a thread or character draw from the Adventure Lists. | `rollRandomEvent()` |
+| **Chaos Factor** | 1–9, clamped. Starts at 5. Falls one step when the scene went the character's way, rises one step when it did not. | `stepChaos()` |
+| **Scene test** | At scene start, roll d10: over the Chaos Factor the expected scene happens; at or under, an **odd** roll alters it and an **even** roll replaces it with an **interrupt** scene built from a Random Event. | `sceneTest()` |
+| **Adventure Lists** | Threads and Characters, 25 slots each, weighted by repeated entry. Randomising a list rolls d100 across the slots so frequently entered items come up more often. | `rollList()` |
+| **Meaning Tables** | 37 tables of 100 words. Rolled as a **pair** by default; the same word twice is amplification, not a re-roll. | `rollMeaning()` |
+
+**How the chart is built.** It is derived from a ladder rather than transcribed, on the A1
+precedent: `score = odds rank × 4 + (Chaos Factor − 5)`, read off `FATE_LADDER`. The middle
+column is the anchor — 99, 95, 85, 75, 50, 25, 15, 5, 1 — and each step away from it is one
+point of Chaos Factor. Weighting the odds axis four times as heavily as the chaos axis is
+what keeps an Impossible question impossible in a chaotic scene, which a flat additive model
+does not: the harness checks that Impossible at Chaos Factor 9 is still longer odds than
+50/50 at Chaos Factor 1.
+
+**What the Mythic layer does not do.** It never touches Classified's resolution mechanic. A
+Fate question is not a skill check: skill checks stay Base Chance × Difficulty Factor
+through `resolve()`. The solo engine answers questions about the fiction and hands the
+result back to the player, who then rolls Classified normally for anything the character
+attempts.
+
+#### 3.20.2 Meaning Tables shipped
+
+**Baseline, extracted from the supplied report (9 tables, 900 words):** Action 1, Action 2,
+Descriptor 1, Descriptor 2, Locations, Characters, Objects, Genre, Tone. Verbatim, because
+a paraphrased word list is a different table.
+
+**Authored for Classified (28 tables, 2,800 words):** built by the report's own five-step
+method for this app's 1960s-espionage context, seeded with the ten Anything Words and
+finished with neutral filler per Steps 4 and 5. Step 1 of that method is to define the
+subject, so the subjects are the game's own subsystems: every §3 procedure that a solo player
+has to narrate rather than roll has a table pointed at it.
+
+| Set | Tables | Points at |
+|---|---|---|
+| Core espionage | Espionage Action · Espionage Description · Agency & Tradecraft · Adversary · Location · Object & Equipment | the general run of play |
+| Mission-shaped | Mission Objective · Complication · Cover Identity · Intel & Rumour | §3.12 missions, §3.7 cover, the Skill Time and Information table |
+| Flavour | Codename Words · Surveillance & Chase · Gadget Quirk | naming, §3.17 tailing, §3.14 equipment |
+| In play | Combat Action · Wound & Injury · Vehicle & Chase · Reaction & Attitude · Coercion & Pressure · Social & Seduction | §3.17 combat, §3.10 wounds, §3.13 chases, §3.18 Reactions, §3.2 Interrogation and Seduction |
+| World | Weather & Time · Sensory Detail · Terrain & Environment · Organisation & Faction | scene backdrop, and the institutions §3.18 NPCs belong to |
+| Story | Mission Twist · Scene Framing · Motive & Secret · Leverage & Money · Consequence & Aftermath | interrupt scenes, NPC motive, §3.16 money, mission aftermath |
+
+Two tables pair across rather than rolling twice on themselves: Combat Action draws its
+second word from Espionage Description, and Scene Framing draws its second from Location, so
+an interrupt scene arrives with a place attached.
+
+Authored tables carry `authored: true` and baselines carry `source: "mm38"`, so the two are
+never presented as one provenance (ruling S6).
+
+#### 3.20.3 Integration with Classified
+
+- Every Fate, event and meaning roll writes a row to the **shared roll log** through
+  `Store.addRoll()`, so a solo session reads back in one place with the character's checks.
+- A solo adventure **links to a dossier** by `characterId`, and the Event Focus results that
+  name the player character resolve to that dossier's name.
+- Solo state lives in the same `localStorage` layer and rides along in **JSON export and
+  import**.
+- **Hero Points are untouched.** Neither book connects them to Fate, so the app does not
+  invent a link.
+- Solo is **not synced**. Mythic replaces the GM; a shared campaign has one, so there is no
+  `solo` node in the Firebase shape.
+
+#### 3.20.4 Scene boundaries, and how they differ from R9
+
+Two things called a scene now exist and they are deliberately separate:
+
+- **End Scene (house aid, R9)** — clears aim, cover, posture and combat declarations. Still
+  on the Combat screen, unchanged.
+- **End Scene (Mythic)** — asks whether the character was in control, steps the Chaos
+  Factor, increments the scene number, writes a journal row, offers to update the Adventure
+  Lists, and stores a one-step undo. On the Solo screen only.
 
 ### 3.21 GM tables
 
@@ -396,6 +510,22 @@ Recorded inline where they bite. Each is a case where the printing was unclear o
 | R9 | The book defines missions and sessions but no scene | End Scene is shipped as an **explicitly labelled house aid**. |
 | R10 | Draw Situation ties | Not covered by the book. The app reports a dead heat and defers to the GM rather than inventing a rule. |
 | R11 | Horse STR 18 and shark STR 16 exceed the 1–15 characteristic range | Reproduced as printed; animals are not bound by the PC range. |
+
+### Solo rulings
+
+The Mythic layer's own cases. Same rule as above: recorded where they bite, and the data
+layer carries the flag rather than the UI.
+
+| # | Point | Ruling |
+|---|---|---|
+| S1 | The supplied report contains the Meaning Tables but **not** the GME core procedures — no Fate Chart, no Event Focus table, no Scene Adjustment table | Reconstructed rather than extracted. Each carries `verify: true` and the Solo screen prints a one-line note asking the player to check them against their own copy. Fate Check ships alongside because it needs no chart at all, so a player who distrusts the reconstruction still has a working oracle. Replacing the values later is a `data-solo.js` edit and nothing else. |
+| S2 | Exceptional Yes and Exceptional No thresholds | **Derived, not transcribed**, on the A1/R2 precedent: Exceptional Yes is `floor(target / 5)`, Exceptional No is `100 − floor((100 − target) / 5) + 1`. A derived threshold cannot drift out of step with the chart it sits beside. |
+| S3 | Random Event trigger on the Fate Chart | Doubles (11, 22, … 99) whose **tens digit is at or under the Chaos Factor**. The event fires in addition to the answer, never instead of it. |
+| S4 | Chaos Factor bounds | 1–9, clamped at both ends, starting at 5. `stepChaos()` clamps rather than wrapping. |
+| S5 | Two different things called a scene | Kept separate and separately labelled. R9's End Scene stays the Classified combat-flag house aid on the Combat screen; Mythic's End Scene is its own bundle on the Solo screen. Neither calls the other. |
+| S6 | The 13 authored tables are not extracted from anything | Marked `authored: true`, listed apart from the `source: "mm38"` baselines, and described on screen as written for this app. They are not presented as Mythic Magazine content. |
+| S7 | Whether a Fate answer should be spendable with Hero Points | **No.** Hero Points shift a Classified Success Quality; nothing in either book connects them to an oracle. Left alone rather than invented. |
+| S8 | The supplied report's Objects column prints Information and Intriguing twice, at 49-50 and again at 51-52 | **Reproduced as supplied.** The report is the source of record, and silently repairing a source table is how transcription damage gets laundered — the same reasoning as R3, where the app multiplies rather than trusting the printed 8 × 7 = 46. Two regression checks pin the repeat in place so it cannot be tidied away by accident. |
 
 ---
 
@@ -431,6 +561,7 @@ Recorded inline where they bite. Each is a case where the printing was unclear o
 | `data-monsters.js` | The book's five animals (there is no monster bestiary — see §3.18) |
 | `data-npcs.js` | NPC stereotypes and generation tables, OSIRIS, the encounter system |
 | `data-pregens.js` | The five published pre-generated characters |
+| `data-solo.js` | **Mythic layer** — Fate, Chaos, scenes, events, and all 37 Meaning Tables (§3.20). No Classified rules in this file. |
 | `firebase-config.js` | Placeholder config + `FIREBASE_ENABLED` flag |
 | `database.rules.json` | RTDB security rules with player/GM roles |
 | `manifest.json`, `service-worker.js`, `icon.svg` | PWA |
@@ -438,7 +569,7 @@ Recorded inline where they bite. Each is a case where the printing was unclear o
 | `README.md` | Setup, Firebase steps, the two printed-table corrections, licensing |
 | `CLAUDE.md` | This file |
 
-No `data-<expansion>.js` (no expansions supplied) and no `data-solo.js` (§3.20).
+No `data-<expansion>.js` — no expansions were supplied.
 
 ### 5.1 `src/` module map
 
@@ -456,11 +587,17 @@ No `data-<expansion>.js` (no expansions supplied) and no `data-solo.js` (§3.20)
 | `sheet.js` | Character sheet, gear screen, and the persistent resource header |
 | `combat.js` | Combat tracker, NPC instantiation, progress tasks, lifecycle engine |
 | `gm.js` | GM dashboard: party panel, generators, reference tables |
+| `solo.js` | The Mythic engine and the Solo screen: Fate, Chaos, scene test, Random Events, Adventure Lists, Meaning-table roller, journal, guided End Scene |
 | `screens.js` | Home, rules library, roll log, advancement, settings |
 | `router.js` | Bottom-nav routing and conditional tab gating |
 | `main.js` | Entry point and boot |
 
-No `power-automation.js` (§3.14), no `solo.js` (§3.20).
+No `power-automation.js` (§3.14).
+
+`solo.js` may import `core.js`, `ui.js`, `store.js`, `settings.js` and `data-solo.js`. It
+must **not** import `rules.js` or `data.js`: the Mythic layer never reaches into the
+Classified rules engine, which is what keeps the two systems from bleeding together. Its one
+crossing point is `Store.addRoll()` for the shared log.
 
 **When adding or moving a `src/` file:** update this table *and* the service worker's
 `APP_SHELL` list, then bump `CACHE_VERSION` — in the same change.
@@ -482,6 +619,7 @@ campaigns/{campaignId}
   rollLog/{pushId}: { by, characterId, label, roll, quality, baseQuality, heroSpent,
                       baseChance, df, successChance, modifiers[], note, ts }   // capped ~100
   broadcast/{pushId}: { text, ts, from }
+  solo:    —                                    // ABSENT: Mythic replaces the GM (§3.20.3)
 
 characters/{characterId}
   id, schema, createdAt, updatedAt, owner, campaignId
@@ -507,8 +645,31 @@ characters/{characterId}
   log:        [ ]
 ```
 
+Solo adventures are local-only and sit beside the characters rather than inside them, so a
+dossier can be played solo, then handed to a table, without carrying oracle state:
+
+```
+classified.soloAdventures: [ {
+  id, schema, name, createdAt, updatedAt,
+  characterId,                                  // the linked dossier, or null
+  fateMode: "chart" | "check",                  // §1.2, default "chart"
+  chaos: 1..9,                                  // Chaos Factor, starts at 5
+  scene: number,                                // scene counter, starts at 1
+  threads:    [ { id, text, weight } ],         // Adventure List, 25 slots
+  characters: [ { id, text, weight } ],         // Adventure List, 25 slots
+  journal:    [ { id, ts, kind, text, detail } ]  // kind: scene|fate|event|meaning|note
+} ]
+classified.soloActive: <adventureId>
+classified.soloUndo:   <one-step End Scene snapshot>
+```
+
 Every schema addition ships with a back-fill in `normalize()` and is documented here in the
-same change. `SCHEMA_VERSION` is 3. The pre-A11 single `bandIndex` field is migrated to `heightBand` and `weightBand` on load.
+same change. `SCHEMA_VERSION` is 4. The pre-A11 single `bandIndex` field is migrated to `heightBand` and `weightBand` on load. Version 4 adds the solo keys above; characters are
+untouched by it, and `normalizeAdventure()` — in `store.js`, beside the rest of the
+persistence layer, so `derived.js` stays free of Mythic — back-fills every field, clamps the
+Chaos Factor, truncates a list past 25 slots and corrects a weight below 1. A version-3
+backup carries no solo section and imports cleanly. Solo rolls are written to the shared log
+with `solo: true` and a Mythic `outcome` instead of a Success Quality.
 
 ---
 
@@ -519,8 +680,13 @@ one-line description, every related UI checks the flag, and gated nav tabs are h
 router.
 
 `gmScreen` · `multiplayer` · `manualDice` · `showUntrained` · `autoConditions` ·
-`heroPointPrompt` · `seatbelts` · `airbags`. Plus `theme` and `campaignStyle`, which are
-choices rather than toggles.
+`heroPointPrompt` · `seatbelts` · `airbags` · `solo`. Plus `theme` and `campaignStyle`,
+which are choices rather than toggles.
+
+`solo` is the only toggle that **swaps** a nav tab rather than adding one: six tabs is the
+limit at 360px, so when solo is on the Solo tab takes the Rules slot and Rules stays
+reachable from its Home tile. `manualDice` applies to Mythic rolls too — `getD100()` is
+still the single entry point, and the Fate Check's 2d10 gets the same treatment.
 
 ---
 
@@ -605,7 +771,39 @@ unticked table.**
 - [x] **T60** Five published sample characters: identity, characteristics, skill ranks, Abilities, Weaknesses, Fields of Experience, languages, weapon and vehicle
 - [x] **T61** Per-sheet arithmetic-slip notes and the Creation Point audit
 
-**Every box is ticked.** The core book is fully represented.
+**Every box above is ticked.** The core book is fully represented.
+
+### `data-solo.js` — the Mythic layer
+
+A second system and a second source (§2). Reconstructed tables are marked in the row and
+carry `verify: true` in the data; authored tables are marked and carry `authored: true`.
+
+- [x] **T62** Fate Chart — 9 odds × Chaos Factor 1–9 *(reconstructed, S1)*
+- [x] **T63** Exceptional Yes / Exceptional No thresholds *(derived, S2)*
+- [x] **T64** Fate Check — odds modifiers, chaos modifiers, threshold, matching-dice trigger
+- [x] **T65** Chaos Factor — range, start, stepping, and what raises or lowers it *(S4)*
+- [x] **T66** Scene test — expected / altered / interrupt, and the d10 procedure
+- [x] **T67** Scene Adjustment table *(reconstructed, S1)*
+- [x] **T68** Event Focus table *(reconstructed, S1)*
+- [x] **T69** Adventure Lists — Threads and Characters, 25 slots, weighting and randomisation
+- [x] **T70** Anything Words — the ten, and the doubles-as-amplification rule
+- [x] **T71** The five-step table-construction method, as a rules-library topic
+- [x] **T72** Baseline Action Tables — Action 1, Action 2 *(200 words, mm38)*
+- [x] **T73** Baseline Description Tables — Descriptor 1, Descriptor 2 *(200 words, mm38)*
+- [x] **T74** Baseline Elements Tables — Locations, Characters, Objects *(300 words, mm38)*
+- [x] **T75** Baseline Adventure tables — Genre, Tone *(200 words, mm38)*
+- [x] **T76** Authored core espionage set — Espionage Action, Espionage Description, Agency & Tradecraft, Adversary, Location, Object & Equipment *(600 words, authored)*
+- [x] **T77** Authored mission set — Mission Objective, Complication, Cover Identity, Intel & Rumour *(400 words, authored)*
+- [x] **T78** Authored flavour set — Codename Words, Surveillance & Chase, Gadget Quirk *(300 words, authored)*
+- [x] **T79** Solo rules-library topics — Fate, Chaos, scenes, events, lists, table building
+- [x] **T80** Authored in-play set — Combat Action, Wound & Injury, Vehicle & Chase, Reaction & Attitude, Coercion & Pressure, Social & Seduction *(600 words, authored)*
+- [x] **T81** Authored world set — Weather & Time, Sensory Detail, Terrain & Environment, Organisation & Faction *(400 words, authored)*
+- [x] **T82** Authored story set — Mission Twist, Scene Framing, Motive & Secret, Leverage & Money, Consequence & Aftermath *(500 words, authored)*
+
+**Every box is ticked.** The supplied report is fully represented — 900 baseline words
+reproduced cell for cell and checked against a committed fixture extracted from the report
+itself — and the 2,800 authored words are in place, one table per subsystem (§3.20.2). The three reconstructed procedure tables
+are flagged rather than presented as extracted (S1).
 
 ---
 
@@ -638,7 +836,17 @@ unticked table.**
 - [x] **Phase 6 — Conditional surfaces.** GM screen with party panel, encounter generators,
       NPC generator, OSIRIS roster and reference tables. No expansions, no solo mode, no
       power automation — none exist in this game.
-- [x] **Hardening.** Committed regression harness (282 checks); accessibility pass;
+- [x] **Phase 7 — Solo play (Mythic).** *(§3.20, decided in §1.2.)*
+      - [x] `data-solo.js` extracted and authored per the T62–T82 ledger.
+      - [x] `src/solo.js`: Chaos + scene header, Fate question box on both mechanics,
+            Random Event generator, Threads and Characters lists, Meaning-table roller,
+            adventure journal, guided End Scene with one-step undo.
+      - [x] Per-adventure persistence in `store.js`, in the JSON backup, `SCHEMA_VERSION` 4.
+      - [x] `solo` toggle, nav swap, and the reconstruction notice (S1) on screen.
+      - [x] Roll-log integration through `Store.addRoll()`.
+      - [x] Regression checks: chart monotonicity, derived thresholds, event trigger,
+            chaos clamping, list weighting, and every table exactly 100 entries.
+- [x] **Hardening.** Committed regression harness (444 checks); accessibility pass;
       rules-accuracy audit with every finding closed (§11).
 
 ---
@@ -693,7 +901,21 @@ sequencing and gating, not numbers.
 | A12 | Choosing Language as the fourth Ability turned the *generic* Language skill into a Base Chance 20 Ability. It grants one **named** tongue at 20; the generic skill stays at Intelligence. | `baseChanceFor()` and `isTrained()` exempt `language`; the Ability is displayed by its language name | Aidan Hunter's sheet shows French as an Ability alongside Language at INT 12 — his printed row is now reproduced |
 | A11 | Height and weight were treated as a single frame purchase: Creation Points were charged twice but Reputation was credited only once, and the wizard forced both into the same row | Split into `identity.heightBand` and `identity.weightBand`. Each charges its own cost and credits its own Reputation; the wizard picks them separately and warns past a one-row gap. Old dossiers migrate from `bandIndex`. | Four published sample characters reproduce their printed Reputation exactly, two of them with height and weight in different rows |
 
+**Solo layer.** Two findings, both at the seam between the two systems rather than inside
+either one.
+
+| # | Finding | Fix | Regression check |
+|---|---|---|---|
+| SA1 | Solo rolls written to the shared log rendered a Classified Success Quality pill from a field they do not have, printing `undefined` in the log | `logRow()` branches on `solo: true` and prints the Mythic outcome instead | The log renders a solo row labelled Mythic and contains no `undefined` |
+| SA2 | Adding a Solo tab to the six-tab bottom bar would have overflowed at 360px | Solo takes the Rules slot when the toggle is on, and Rules keeps its Home tile | The bar still carries six tabs, Solo is present and Rules is not, and no screen overflows at 360px |
+
 **Verified against scans supplied after the first build:** the Physical Traits Table (nine bands, both columns), the Wound Rank Accumulation grid, the Characteristics and Skills cost tables, the Potential Abilities list, the Ch.6 experience modifiers and expenditures, and the Skill Rank cap note in both chapters. The Multiplication Table error survives into the official character-sheet PDF.
+
+**Not verifiable here, by construction:** the reconstructed Fate Chart, Event Focus and
+Scene Adjustment tables (S1). The harness checks them for internal consistency —
+monotonicity along both axes, contiguous bands, complete d100 and d10 coverage — which
+cannot tell you they match the printed originals. That check is the user's, against their own
+copy, and the app says so on screen.
 
 **Verified clean, do not re-litigate:** the Chapter One worked example reproduces exactly at
 both DF 6 and DF 7; a d100 of 100 fails at every Success Chance including 300; DF ½ rounds
@@ -714,6 +936,14 @@ publishing or distributing it makes licensing the user's responsibility, and tha
 licensed material is the safe basis for anything public. The OGL notice appears in the
 About screen.
 
+**Two systems, two provenances.** The Classified layer is OGL 1.0a and paraphrased
+throughout. The Mythic layer is not: `data-solo.js` reproduces nine 100-word Meaning Tables
+verbatim from the supplied report, because a word list cannot be paraphrased and still be
+the same table, and Mythic is Word Mill Games' rather than open content. The user decided
+against adding further licensing text to the README or About screen, so the existing
+personal-use wording stands and the split is recorded here instead. The thirteen authored
+tables are this app's own work and are marked as such (S6).
+
 ---
 
 ## Changelog
@@ -729,3 +959,7 @@ About screen.
 | 2026-07-30 | Split height and weight into independent purchases (A11); confirmed R1, R3, R4, R5 against supplied scans | Root cause: the Physical Traits Table pairs Height and Weight as separate columns and the book permits them to differ by a row, so each is its own purchase. Reputation was being under-counted and the wizard was over-constrained. | 298 checks green, including four published sample characters whose printed Reputation now reproduces exactly | `classified-v2` |
 | 2026-07-30 | Shipped `data-pregens.js` with the five published sample characters and one-tap instantiation (T60, T61) | The Character Sheets supplement was supplied as page images, from which the skill columns are readable | All 114 printed Base Chances reproduce; the Creation Point audit clears four of five sheets, with Emily Steele 12 points over on the printed sheet | `classified-v3` |
 | 2026-07-30 | Language as the fourth Ability grants a named tongue, not the generic skill (A12) | Root cause: `baseChanceFor()` matched the Ability key against the skill key without exempting Language. Found by Aidan Hunter's sheet, which prints French as an Ability and Language at INT 12. | 325 checks green | `classified-v3` |
+| 2026-07-30 | Planned Phase 7 — the Mythic solo layer. Recorded the third source (§2), the solo system profile (§3.20), the eleven solo decisions (§1.2), rulings S1–S7, `data-solo.js` and `src/solo.js` in the file tables, the per-adventure schema at `SCHEMA_VERSION` 4 (§6), the `solo` toggle and its nav swap (§7), ledger rows T62–T79, and the two-provenance note (§12) | Spec before code, per process rule 1. The user asked for a solo tab on the Mythic system and for the supplied Elements tables to be rollable; the answers to Q1–Q12 fix the scope. The ledger boxes stay unticked because no data is extracted yet | None yet — this change is documentation only | unchanged |
+| 2026-07-30 | Shipped the Mythic solo layer: `data-solo.js` (T62–T79), `src/solo.js`, the `solo` toggle and its nav swap, per-adventure persistence at `SCHEMA_VERSION` 4, solo rows in the shared roll log, and 22 Meaning Tables — 9 reproduced from the supplied report and 13 authored for this app | Phase 7, per the plan committed earlier today. The Fate Chart, Event Focus and Scene Adjustment tables were not in the supplied source, so they are derived or reconstructed and flagged on screen (S1); the Fate Check ships alongside because it needs no chart | 442 checks green, including all 900 baseline words against a committed fixture extracted from the report, chart monotonicity on both axes, band contiguity at every odds and Chaos Factor, and the event trigger. Driven headless at 360px in light and dark: adventure creation, both Fate mechanics across all nine odds, scene test, scene adjustment, twelve Random Events, list randomisation, seven Meaning Tables, guided End Scene with undo, and the roll log — zero console errors, zero horizontal overflow | `classified-v4` |
+| 2026-07-30 | Closed SA1 and SA2 | Root cause of SA1: `logRow()` read `quality` and `QUALITY_SHORT[quality]` unconditionally, and a Fate answer has no Success Quality, so the pill rendered `undefined`. SA2 was a layout limit, not a bug — six tabs is the maximum at 360px | A solo row renders as Mythic with no `undefined`; the nav carries six tabs with Solo in the Rules slot | `classified-v4` |
+| 2026-07-30 | Extended the authored Meaning Tables from 13 to 28 (T80–T82): an in-play set for combat, wounds, chases, Reactions, coercion and social play; a world set for weather, senses, terrain and institutions; and a story set for twists, scene framing, motive, leverage and aftermath. 37 tables, 3,700 words | The report's Step 1 is to define the subject, and the app's subjects are the game's own subsystems — a solo player narrating a §3.17 fight or a §3.13 chase had no table pointed at it, so every procedure that has to be narrated rather than rolled now has one. Combat Action pairs across to Espionage Description and Scene Framing to Location, so an interrupt scene arrives with a place attached | 444 checks green: every table exactly 100 single capitalised words, no repeats inside an authored table, Anything Words seeded in all but the codename list, every pairWith and Event Focus suggestion resolving, and the group index matching the roller | `classified-v5` |

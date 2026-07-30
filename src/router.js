@@ -14,12 +14,18 @@ const ROUTES = {
   rules: { label: "Rules", icon: "❋", title: "Rules", render: h => imp("./screens.js", m => m.renderRules(h)) },
   log: { label: "Log", icon: "≡", title: "Roll log", render: h => imp("./screens.js", m => m.renderLog(h)) },
   gm: { label: "GM", icon: "★", title: "GM Screen", gated: () => Settings.gmScreen(), render: h => imp("./gm.js", m => m.renderGM(h)) },
+  solo: { label: "Solo", icon: "◈", title: "Solo", gated: () => Settings.solo(), render: h => imp("./solo.js", m => m.renderSolo(h)) },
   settings: { label: "Settings", icon: "⚑", title: "Settings", render: h => imp("./screens.js", m => m.renderSettings(h)) }
 };
 
 /* Primary tabs shown in the bottom navigation. The rest are reachable from Home
- * and Settings; a small screen cannot carry ten tabs. */
-const PRIMARY = ["home", "sheet", "combat", "rules", "gm", "settings"];
+ * and Settings; a small screen cannot carry ten tabs. Six is the limit at 360px, so Solo
+ * takes the Rules slot rather than adding a seventh — Rules keeps its Home tile. */
+function primaryTabs() {
+  const base = ["home", "sheet", "combat", "rules", "gm", "settings"];
+  if (!Settings.solo()) return base;
+  return base.map(k => (k === "rules" ? "solo" : k));
+}
 
 let current = "home";
 
@@ -58,7 +64,7 @@ export function navigate(route, { replace = false } = {}) {
 export function rebuildNav() {
   const nav = document.getElementById("bottomNav");
   clear(nav);
-  for (const key of PRIMARY) {
+  for (const key of primaryTabs()) {
     const r = ROUTES[key];
     if (r.gated && !r.gated()) continue;
     nav.appendChild(el("button", {

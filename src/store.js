@@ -10,6 +10,9 @@ const K_LOG = STORAGE_PREFIX + "rollLog";
 const K_COMBAT = STORAGE_PREFIX + "combat";
 const K_TASKS = STORAGE_PREFIX + "tasks";
 const K_UNDO = STORAGE_PREFIX + "lifecycleUndo";
+const K_SOLO = STORAGE_PREFIX + "soloAdventures";
+const K_SOLO_ACTIVE = STORAGE_PREFIX + "soloActive";
+const K_SOLO_UNDO = STORAGE_PREFIX + "soloUndo";
 
 export const ROLL_LOG_CAP = 100;
 
@@ -139,6 +142,124 @@ export function deleteTask(id) {
   emit("tasks");
 }
 
+/* ---------------------------------------------------------------- solo adventures */
+
+/* The Mythic layer's state (CLAUDE.md §3.20, §6). Kept beside the characters rather than
+ * inside them, so a dossier can be played solo and then handed to a table without carrying
+ * oracle state with it. Local only: Mythic replaces the GM, and a synced campaign has one,
+ * so nothing here is ever pushed. */
+
+export function normalizeAdventure(a) {
+  const src = a && typeof a === "object" ? a : {};
+  const clampChaos = n => Math.max(1, Math.min(9, Number(n) || 5));
+  return {
+    id: src.id || uid("adv"),
+    schema: SCHEMA_VERSION,
+    name: src.name || "Untitled adventure",
+    createdAt: Number(src.createdAt) || Date.now(),
+    updatedAt: Number(src.updatedAt) || Date.now(),
+    characterId: src.characterId || null,
+    fateMode: src.fateMode === "check" ? "check" : "chart",
+    chaos: clampChaos(src.chaos),
+    scene: Math.max(1, Number(src.scene) || 1),
+    threads: normalizeList(src.threads),
+    characters: normalizeList(src.characters),
+    journal: Array.isArray(src.journal)
+      ? src.journal.map(e => ({
+          id: e.id || uid("j"),
+          ts: Number(e.ts) || Date.now(),
+          kind: e.kind || "note",
+          text: e.text || "",
+          detail: e.detail || ""
+        }))
+      : []
+  };
+}
+
+function normalizeList(list) {
+  if (!Array.isArray(list)) return [];
+  return list.slice(0, 25).map(i => ({
+    id: i.id || uid("li"),
+    text: i.text || "",
+    weight: Math.max(1, Math.min(9, Number(i.weight) || 1))
+  }));
+}
+
+export function soloAdventures() {
+  return readJSON(K_SOLO, []).map(normalizeAdventure);
+}
+
+export function getAdventure(id) {
+  return soloAdventures().find(a => a.id === id) || null;
+}
+
+export function activeAdventureId() { return localStorage.getItem(K_SOLO_ACTIVE) || null; }
+
+export function activeAdventure() {
+  const list = soloAdventures();
+  if (!list.length) return null;
+  const id = activeAdventureId();
+  return list.find(a => a.id === id) || list[0];
+}
+
+export function setActiveAdventure(id) {
+  if (id) localStorage.setItem(K_SOLO_ACTIVE, id);
+  else localStorage.removeItem(K_SOLO_ACTIVE);
+  emit("solo");
+}
+
+export function saveAdventure(adv) {
+  const list = readJSON(K_SOLO, []);
+  const clean = normalizeAdventure(adv);
+  clean.updatedAt = Date.now();
+  const i = list.findIndex(a => a.id === clean.id);
+  if (i >= 0) list[i] = clean; else list.push(clean);
+  writeJSON(K_SOLO, list);
+  emit("solo");
+  return clean;
+}
+
+export function createAdventure({ name = "Untitled adventure", characterId = null } = {}) {
+  const adv = normalizeAdventure({ name, characterId });
+  saveAdventure(adv);
+  setActiveAdventure(adv.id);
+  return adv;
+}
+
+export function deleteAdventure(id) {
+  const list = readJSON(K_SOLO, []).filter(a => a.id !== id);
+  writeJSON(K_SOLO, list);
+  if (activeAdventureId() === id) setActiveAdventure(list.length ? list[0].id : null);
+  emit("solo");
+}
+
+/** Mutate the active adventure through a callback and persist the result. */
+export function updateAdventure(mutator) {
+  const adv = activeAdventure();
+  if (!adv) return null;
+  mutator(adv);
+  return saveAdventure(adv);
+}
+
+/* Solo keeps its own one-step undo so an End Scene and an End Mission never overwrite
+ * each other's snapshot. */
+export function soloSnapshot() {
+  return { ts: Date.now(), adventures: readJSON(K_SOLO, []), active: activeAdventureId() };
+}
+export function pushSoloUndo(snapshot) { writeJSON(K_SOLO_UNDO, snapshot); emit("solo"); }
+export function peekSoloUndo() { return readJSON(K_SOLO_UNDO, null); }
+export function clearSoloUndo() { localStorage.removeItem(K_SOLO_UNDO); emit("solo"); }
+
+export function applySoloUndo() {
+  const snap = peekSoloUndo();
+  if (!snap) return false;
+  writeJSON(K_SOLO, snap.adventures || []);
+  if (snap.active) localStorage.setItem(K_SOLO_ACTIVE, snap.active);
+  clearSoloUndo();
+  emit("solo");
+  return true;
+}
+
 /* ---------------------------------------------------------------- lifecycle undo */
 
 export function pushUndo(snapshot) { writeJSON(K_UNDO, snapshot); emit("undo"); }
@@ -177,6 +298,8 @@ export function exportJSON() {
     rollLog: readJSON(K_LOG, []),
     combat: readJSON(K_COMBAT, null),
     tasks: readJSON(K_TASKS, []),
+    soloAdventures: readJSON(K_SOLO, []),
+    soloActive: activeAdventureId(),
     settings: readJSON(STORAGE_PREFIX + "settings", {})
   }, null, 2);
 }
@@ -209,6 +332,8 @@ export function importJSON(text, mode = "merge") {
     if (data.combat) writeJSON(K_COMBAT, data.combat);
     if (Array.isArray(data.tasks)) writeJSON(K_TASKS, data.tasks);
     if (data.settings) writeJSON(STORAGE_PREFIX + "settings", data.settings);
+    writeJSON(K_SOLO, (data.soloAdventures || []).map(normalizeAdventure));
+    if (data.soloActive) localStorage.setItem(K_SOLO_ACTIVE, data.soloActive);
   } else {
     const existing = readJSON(K_CHARS, []);
     const byId = new Map(existing.map(c => [c.id, c]));
@@ -221,6 +346,16 @@ export function importJSON(text, mode = "merge") {
       }
     }
     writeJSON(K_CHARS, Array.from(byId.values()));
+
+    // Solo adventures merge on the same newest-wins rule. A version-3 backup has none.
+    if (Array.isArray(data.soloAdventures)) {
+      const advById = new Map(readJSON(K_SOLO, []).map(a => [a.id, a]));
+      for (const a of data.soloAdventures.map(normalizeAdventure)) {
+        const cur = advById.get(a.id);
+        if (!cur || (a.updatedAt || 0) >= (cur.updatedAt || 0)) advById.set(a.id, a);
+      }
+      writeJSON(K_SOLO, Array.from(advById.values()));
+    }
   }
 
   const list = readJSON(K_CHARS, []);

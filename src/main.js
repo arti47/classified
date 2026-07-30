@@ -8,7 +8,7 @@ import { showToast } from "./ui.js";
 import * as Store from "./store.js";
 import * as Sync from "./sync.js";
 
-const CACHE_VERSION = "classified-v3";
+const CACHE_VERSION = "classified-v5";
 
 function boot() {
   applyTheme();
@@ -31,7 +31,7 @@ function boot() {
     if (what === "character" || what === "active") renderResourceHeader();
   });
   document.addEventListener("settings:changed", e => {
-    if (e.detail.key === "gmScreen" || e.detail.key === "multiplayer") rebuildNav();
+    if (e.detail.key === "gmScreen" || e.detail.key === "multiplayer" || e.detail.key === "solo") rebuildNav();
   });
 
   renderResourceHeader();

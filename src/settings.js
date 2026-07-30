@@ -14,7 +14,8 @@ const DEFAULTS = {
   heroPointPrompt: true,        // offer Hero Point spends after each roll
   multiplayer: false,
   seatbelts: true,
-  airbags: true
+  airbags: true,
+  solo: false                   // the Mythic solo layer, a second system (CLAUDE.md §3.20)
 };
 
 let cache = null;
@@ -56,7 +57,8 @@ export const Settings = {
   heroPointPrompt: () => !!get("heroPointPrompt"),
   multiplayer: () => !!get("multiplayer"),
   seatbelts: () => !!get("seatbelts"),
-  airbags: () => !!get("airbags")
+  airbags: () => !!get("airbags"),
+  solo: () => !!get("solo")
 };
 
 /* ---------------------------------------------------------------- theme */
@@ -84,5 +86,6 @@ export const TOGGLE_ROWS = [
   { key: "autoConditions", name: "Auto-apply condition modifiers", desc: "Wounds and exhaustion adjust the Difficulty Factor of every roll automatically." },
   { key: "heroPointPrompt", name: "Offer Hero Point spends", desc: "After each roll, offer to shift the Success Quality with Hero Points." },
   { key: "seatbelts", name: "Assume seat belts worn", desc: "Reduces accident damage to occupants by one further Wound Rank." },
-  { key: "airbags", name: "Assume airbags fitted", desc: "Reduces a single three-rank accident hit by one further Wound Rank." }
+  { key: "airbags", name: "Assume airbags fitted", desc: "Reduces a single three-rank accident hit by one further Wound Rank." },
+  { key: "solo", name: "Solo play (Mythic)", desc: "Adds a Solo tab running the Mythic Game Master Emulator: Fate questions, the Chaos Factor, scene tests, Random Events and 22 Meaning Tables. A second system, not part of Classified. Takes the Rules tab's place in the bottom bar; Rules stays on Home." }
 ];

@@ -63,6 +63,9 @@ export function renderHome(host) {
   quick.appendChild(tile("Combat", "Declaration and action order", () => navigate("combat")));
   quick.appendChild(tile("Rules", "Searchable reference", () => navigate("rules")));
   quick.appendChild(tile("Roll log", "Re-derive any roll", () => navigate("log")));
+  if (Settings.solo()) {
+    quick.appendChild(tile("Solo", "Mythic: Fate, chaos, scenes, tables", () => navigate("solo")));
+  }
   host.appendChild(quick);
 
   const log = Store.rollLog().slice(0, 5);
@@ -79,6 +82,20 @@ export function renderHome(host) {
 /* ---------------------------------------------------------------- roll log */
 
 function logRow(r) {
+  // Solo rows carry a Mythic outcome, not a Classified Success Quality: the Quality columns
+  // are meaningless for a Fate answer, so they are not printed for one.
+  if (r.solo) {
+    return el("div", { class: "log-entry" },
+      el("span", { class: "lr", text: String(r.roll) }),
+      el("div", { class: "ld" },
+        el("div", { class: "lt" },
+          el("b", { text: r.label }), " ",
+          el("span", { class: "pill neutral", text: r.outcome || "—" })),
+        el("div", { class: "lm", text: ["Solo (Mythic)", r.note].filter(Boolean).join(" · ") }),
+        el("div", { class: "lm", text: `${r.by || ""} · ${fmtDate(r.ts)}` })
+      )
+    );
+  }
   return el("div", { class: "log-entry" },
     el("span", { class: "lr", text: String(r.roll) }),
     el("div", { class: "ld" },
@@ -730,7 +747,7 @@ export function renderSettings(host) {
       type: "checkbox", checked: !!SettingsMod.get(row.key),
       onchange: e => {
         SettingsMod.set(row.key, e.target.checked);
-        if (row.key === "gmScreen" || row.key === "multiplayer") {
+        if (row.key === "gmScreen" || row.key === "multiplayer" || row.key === "solo") {
           import("./router.js").then(m => m.rebuildNav());
         }
         if (row.key === "showUntrained") showToast("Applied on the sheet");
