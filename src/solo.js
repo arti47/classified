@@ -161,7 +161,6 @@ function appendHeader(host, adv) {
   host.appendChild(card);
 
 
-
   const undo = Store.peekSoloUndo();
   if (undo) {
     host.appendChild(el("div", { class: "banner" },
@@ -568,7 +567,6 @@ function appendMeaning(host, adv) {
 
   sec.appendChild(el("p", { class: "small muted", style: "margin-top:8px", text:
     "Baseline covers any scene; the rest are pointed at what the game actually asks you to narrate — the run of play, the mission, the world around it, and the shape of the story." }));
-  sec.appendChild(el("button", { class: "btn ghost block", style: "margin-top:6px", type: "button", onclick: () => openTopic("meaning") }, "Meaning Tables and building your own"));
   host.appendChild(sec);
 }
 
@@ -806,8 +804,6 @@ function appendTopics(host) {
     el("span", { class: "n", text: "Event Focus table" })));
   card.appendChild(el("button", { class: "skill-row", type: "button", onclick: () => showSceneAdjustment() },
     el("span", { class: "n", text: "Scene Adjustment table" })));
-  card.appendChild(el("button", { class: "skill-row", type: "button", onclick: () => showMethod() },
-    el("span", { class: "n", text: "Building a table" })));
 
   host.appendChild(sec);
 }
@@ -911,23 +907,3 @@ function showSceneAdjustment() {
   });
 }
 
-function showMethod() {
-  const body = el("div", {});
-  body.appendChild(el("p", { class: "small", text: S.ONE_WORD_NOTE }));
-  const card = el("div", { class: "card flush" });
-  for (const s of S.TABLE_BUILD_METHOD) {
-    card.appendChild(el("div", { class: "card-row" },
-      el("span", { class: "mono", text: String(s.step) }),
-      el("div", { class: "grow" },
-        el("div", { style: "font-weight:600", text: s.name }),
-        el("div", { class: "small muted", text: s.desc }))));
-  }
-  body.appendChild(card);
-  body.appendChild(el("div", { class: "section-title", style: "margin-top:14px", text: "The Anything Words" }));
-  const wrap = el("div", { class: "chip-wrap" });
-  for (const w of S.ANYTHING_WORDS) wrap.appendChild(el("span", { class: "chip static", text: w }));
-  body.appendChild(wrap);
-  for (const n of S.ANYTHING_WORD_NOTES) body.appendChild(el("p", { class: "small muted", text: n }));
-  body.appendChild(el("p", { class: "small muted", text: S.DOUBLES_NOTE }));
-  modal({ title: "Building a Meaning Table", body, wide: true, actions: [{ label: "Close", kind: "primary" }] });
-}
