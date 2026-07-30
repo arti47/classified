@@ -420,7 +420,7 @@ export function renderSheet(host) {
   }, showUntrained ? "Hide untrained" : "Show all"));
 
   for (const [group, list] of Object.entries(groups)) {
-    const acc = el("details", { class: "acc", open: true },
+    const acc = el("details", { class: "acc" },
       el("summary", { text: group + ` (${list.filter(r => r.trained).length}/${list.length})` }));
     const bodyEl = el("div", { class: "acc-body", style: "padding:0" });
     for (const r of list.sort((a, b) => a.name.localeCompare(b.name))) {
@@ -656,6 +656,8 @@ export function renderGear(host) {
     const byCat = {};
     for (const e of filtered) (byCat[e.cat] = byCat[e.cat] || []).push(e);
     for (const [cat, list] of Object.entries(byCat)) {
+      // Closed by default; a live search opens the groups it matched, which is a result
+      // rather than a default.
       const acc = el("details", { class: "acc", open: !!q }, el("summary", { text: `${cat} (${list.length})` }));
       const bodyEl = el("div", { class: "acc-body", style: "padding:0" });
       for (const e of list) {

@@ -552,7 +552,7 @@ function appendMeaning(host, adv) {
   for (const m of S.MEANING_TABLES) (groups[m.group] = groups[m.group] || []).push(m);
 
   for (const [group, list] of Object.entries(groups)) {
-    const acc = el("details", { class: "acc", open: group === "Espionage" },
+    const acc = el("details", { class: "acc" },
       el("summary", { text: `${group} (${list.length})` }));
     const bodyEl = el("div", { class: "acc-body", style: "padding:0" });
     for (const m of list) {

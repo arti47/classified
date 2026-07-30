@@ -575,6 +575,10 @@ layer carries the flag rather than the UI.
 - **Accessibility:** `aria-live` roll announcements, labelled icon buttons, `aria-current`
   nav, a skip link.
 - **Responsive:** phone-first, zero horizontal overflow at 360px.
+- **Accordions start closed.** Every `details.acc` on the sheet, the wizard, the Solo screen
+  and the gear catalogue opens on a tap, not on render, so a screen opens as a list of
+  headings rather than a wall. The one exception is the gear catalogue under a live search,
+  where matched groups open because that is a result rather than a default.
 
 ---
 
@@ -873,7 +877,7 @@ are flagged rather than presented as extracted (S1).
       - [x] Roll-log integration through `Store.addRoll()`.
       - [x] Regression checks: chart monotonicity, derived thresholds, event trigger,
             chaos clamping, list weighting, and every table exactly 100 entries.
-- [x] **Hardening.** Committed regression harness (512 checks); accessibility pass;
+- [x] **Hardening.** Committed regression harness (518 checks); accessibility pass;
       rules-accuracy audit with every finding closed (§11).
 
 ---
@@ -1011,3 +1015,4 @@ tables are this app's own work and are marked as such (S6).
 | 2026-07-30 | Transcribed the printed Fate Check page, closing the last unsourced piece of the solo layer (S1 fully resolved; SA5–SA8) | Root causes, all from reasoning by analogy with the chart instead of from a source: the Chaos Factor adjustment was linear where the printing reuses the uneven Roll Modifier column (+5 at Chaos Factor 9, no −3 at all); Exceptional results were a margin of 5 where the printing uses fixed totals of 18 and 4; the Random Event trigger ignored the "within CF" half of "Double Digits Within CF"; and the check's own odds labels — Has To Be, Sure Thing, No Way — were not carried at all | 495 checks green against a new committed fixture: every printed odds label and Roll Modifier, the whole Chaos Factor column, the Answers bands, the doubles trigger at three Chaos Factors, and the chart's diagonal still intact beside the check's separate ladder | `classified-v8` |
 | 2026-07-30 | Removed every source-attribution label from the UI: the "Vol. 38" and "authored" tags and the `d100` column on Meaning Table rows, the "as printed" tags on the solo reference list, the source line in a solo topic modal, the provenance banners in the Fate Chart and Fate Check views, and the Classified chapter tags in the rules library rows, search results and topic modals | The user asked for these labels gone, and for any like them. They were shelf-provenance, not play information — the same four words repeated down a column, squeezing the table names into a narrow gutter on a phone. Provenance is still recorded where it belongs: the `source`/`authored`/`chapter` fields in the data layer, the ledger, and §12 | 501 checks green, including a new sweep that walks the Solo and Rules screens and their modals and asserts none of the attribution strings render, and that no Solo row carries a trailing label column | `classified-v9` |
 | 2026-07-30 | Trimmed the Solo reference list: dropped the "Meaning Tables and building your own" topic and the button that opened it, dropped the "Building a table" entry and its unreachable `showMethod()`, and renamed "Mythic and Classified side by side" to "Mythic and Classified" | The user asked for it. Both removals were how-to-write-tables material rather than how-to-play material, and 37 rollable tables sitting directly above them made the essay redundant. `TABLE_BUILD_METHOD`, `ONE_WORD_NOTE` and `ANYTHING_WORD_NOTES` stay in the data layer — T70 and T71 are extraction rows, not UI rows, and the harness still checks them | 512 checks green: the topic list is asserted key by key, and a browser sweep confirms neither removed entry nor the old title renders on the Solo screen | `classified-v10` |
+| 2026-07-30 | Every accordion now starts closed: the sheet's skill groups, the wizard's skill groups, and the Solo screen's Meaning Table groups | The user asked for it, and the defaults had drifted per screen — the sheet opened all of them, the wizard opened Combat and Covert, Solo opened Espionage. A phone screen that opens as a list of headings is navigable; one that opens expanded is a wall. The gear catalogue keeps opening groups that match a live search, which is a result and not a default | 518 checks green, including a sweep of the sheet, wizard, Solo and gear screens asserting no `details.acc` renders open, and a check that a closed accordion still holds its rows in the DOM so counts and search keep working | `classified-v11` |
