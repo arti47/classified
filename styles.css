@@ -77,7 +77,13 @@
 
 * { box-sizing: border-box; }
 html, body { margin: 0; padding: 0; }
-html { -webkit-text-size-adjust: 100%; }
+html {
+  -webkit-text-size-adjust: 100%;
+  /* No double-tap zoom. Panning and single taps are untouched; pinch-zoom is refused by the
+     viewport meta and, on iOS, by the gesture handlers in main.js. */
+  touch-action: manipulation;
+}
+body { touch-action: manipulation; }
 
 body {
   background: var(--paper);
@@ -234,6 +240,9 @@ label.field > span, .field-label {
 input[type="text"], input[type="number"], input[type="search"], select, textarea {
   width: 100%; background: var(--field); border: 1px solid var(--rule-2);
   border-radius: var(--r); padding: 9px 10px; min-height: 40px;
+  /* Under 16px iOS zooms the page to meet a focused field. 16px is the fix that does not
+     involve disabling anything. */
+  font-size: 16px;
 }
 textarea { min-height: 90px; resize: vertical; line-height: 1.5; }
 input[type="checkbox"], input[type="radio"] { width: 18px; height: 18px; accent-color: var(--stamp); }

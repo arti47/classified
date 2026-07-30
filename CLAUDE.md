@@ -575,6 +575,14 @@ layer carries the flag rather than the UI.
 - **Accessibility:** `aria-live` roll announcements, labelled icon buttons, `aria-current`
   nav, a skip link.
 - **Responsive:** phone-first, zero horizontal overflow at 360px.
+- **No zoom.** An installed home-screen copy should behave like an app, so the viewport sets
+  `maximum-scale=1, user-scalable=no`, `touch-action: manipulation` kills double-tap zoom, and
+  `main.js` cancels iOS pinch gestures — multi-touch only, so one finger still pans and taps.
+  Every text field is 16px, which is what stops iOS zooming to a focused input; that is the
+  fix for focus zoom that does not involve disabling anything. The accessibility cost is real
+  and deliberate: system font-size scaling still applies (`-webkit-text-size-adjust: 100%`,
+  relative units throughout), but a player who pinches to enlarge a table no longer can. One
+  line in `index.html` reverses it.
 - **Accordions start closed.** Every `details.acc` on the sheet, the wizard, the Solo screen
   and the gear catalogue opens on a tap, not on render, so a screen opens as a list of
   headings rather than a wall. The one exception is the gear catalogue under a live search,
@@ -877,7 +885,7 @@ are flagged rather than presented as extracted (S1).
       - [x] Roll-log integration through `Store.addRoll()`.
       - [x] Regression checks: chart monotonicity, derived thresholds, event trigger,
             chaos clamping, list weighting, and every table exactly 100 entries.
-- [x] **Hardening.** Committed regression harness (518 checks); accessibility pass;
+- [x] **Hardening.** Committed regression harness (534 checks); accessibility pass;
       rules-accuracy audit with every finding closed (§11).
 
 ---
@@ -1016,3 +1024,4 @@ tables are this app's own work and are marked as such (S6).
 | 2026-07-30 | Removed every source-attribution label from the UI: the "Vol. 38" and "authored" tags and the `d100` column on Meaning Table rows, the "as printed" tags on the solo reference list, the source line in a solo topic modal, the provenance banners in the Fate Chart and Fate Check views, and the Classified chapter tags in the rules library rows, search results and topic modals | The user asked for these labels gone, and for any like them. They were shelf-provenance, not play information — the same four words repeated down a column, squeezing the table names into a narrow gutter on a phone. Provenance is still recorded where it belongs: the `source`/`authored`/`chapter` fields in the data layer, the ledger, and §12 | 501 checks green, including a new sweep that walks the Solo and Rules screens and their modals and asserts none of the attribution strings render, and that no Solo row carries a trailing label column | `classified-v9` |
 | 2026-07-30 | Trimmed the Solo reference list: dropped the "Meaning Tables and building your own" topic and the button that opened it, dropped the "Building a table" entry and its unreachable `showMethod()`, and renamed "Mythic and Classified side by side" to "Mythic and Classified" | The user asked for it. Both removals were how-to-write-tables material rather than how-to-play material, and 37 rollable tables sitting directly above them made the essay redundant. `TABLE_BUILD_METHOD`, `ONE_WORD_NOTE` and `ANYTHING_WORD_NOTES` stay in the data layer — T70 and T71 are extraction rows, not UI rows, and the harness still checks them | 512 checks green: the topic list is asserted key by key, and a browser sweep confirms neither removed entry nor the old title renders on the Solo screen | `classified-v10` |
 | 2026-07-30 | Every accordion now starts closed: the sheet's skill groups, the wizard's skill groups, and the Solo screen's Meaning Table groups | The user asked for it, and the defaults had drifted per screen — the sheet opened all of them, the wizard opened Combat and Covert, Solo opened Espionage. A phone screen that opens as a list of headings is navigable; one that opens expanded is a wall. The gear catalogue keeps opening groups that match a live search, which is a result and not a default | 518 checks green, including a sweep of the sheet, wizard, Solo and gear screens asserting no `details.acc` renders open, and a check that a closed accordion still holds its rows in the DOM so counts and search keep working | `classified-v11` |
+| 2026-07-30 | Turned off zoom for the installed app: `maximum-scale=1, user-scalable=no` on the viewport, `touch-action: manipulation` on the root and body, iOS pinch-gesture handlers in `main.js`, 16px text fields, and the standalone/apple-mobile-web-app meta tags | Reported: a home-screen copy still pinched and double-tapped to zoom. The viewport meta carried no scale limit, so nothing stopped it; `touch-action` was unset, so double-tap zoom was live; iOS ignores `user-scalable` in a Safari tab, hence the gesture handlers; and fields under 16px make iOS zoom to a focused input, which is the other route to a scaled view. The multi-touch guard cancels nothing single-fingered, so panning and taps are untouched | 534 checks green, including the viewport contents, computed `touch-action` on root and body, no field under 16px, the standalone declaration, and that the page still scrolls with zoom disabled | `classified-v12` |

@@ -8,7 +8,7 @@ import { showToast } from "./ui.js";
 import * as Store from "./store.js";
 import * as Sync from "./sync.js";
 
-const CACHE_VERSION = "classified-v11";
+const CACHE_VERSION = "classified-v12";
 
 function boot() {
   applyTheme();
@@ -34,11 +34,26 @@ function boot() {
     if (e.detail.key === "gmScreen" || e.detail.key === "multiplayer" || e.detail.key === "solo") rebuildNav();
   });
 
+  blockPinchZoom();
   renderResourceHeader();
   initRouter();
 
   if (Settings.multiplayer()) Sync.init();
   registerServiceWorker();
+}
+
+/**
+ * iOS honours user-scalable=no in a home-screen copy but ignores it in a Safari tab, so the
+ * pinch gestures are refused here as well. Only multi-touch is cancelled: one finger still
+ * pans, taps, and drags a range input exactly as before.
+ */
+function blockPinchZoom() {
+  for (const type of ["gesturestart", "gesturechange", "gestureend"]) {
+    document.addEventListener(type, e => e.preventDefault(), { passive: false });
+  }
+  document.addEventListener("touchmove", e => {
+    if (e.touches && e.touches.length > 1) e.preventDefault();
+  }, { passive: false });
 }
 
 /* Update checks. The app has no build step and no version endpoint: the deployed

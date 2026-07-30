@@ -2,7 +2,14 @@
 <html lang="en">
 <head>
 <meta charset="utf-8">
-<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<!-- user-scalable=no and maximum-scale=1 are what stop an installed home-screen copy from
+     pinching and double-tapping to zoom. Text still scales with the system font-size
+     setting, which -webkit-text-size-adjust and relative units preserve. -->
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="default">
+<meta name="apple-mobile-web-app-title" content="Classified">
 <meta name="theme-color" content="#8c1c13">
 <meta name="description" content="Player companion for the Classified role-playing game of covert operations.">
 <title>Classified Player</title>
