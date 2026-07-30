@@ -1,0 +1,22 @@
+{
+ "_source": "Transcribed from the supplied printed Fate Check page: the Fate Check Modifiers table, the Fate Check Answers table, and the rules text around them.",
+ "oddsModifiers": [
+  ["Has To Be", 5], ["Sure Thing", 4], ["Very Likely", 2], ["Likely", 1], ["50/50", 0],
+  ["Unlikely", -1], ["Very Unlikely", -2], ["No Way", -4], ["Impossible", -5]
+ ],
+ "chaosModifiers": { "9": 5, "8": 4, "7": 2, "6": 1, "5": 0, "4": -1, "3": -2, "2": -4, "1": -5 },
+ "answers": [
+  ["18-20", "Exceptional Yes"],
+  ["11 or more", "Yes"],
+  ["10 or less", "No"],
+  ["2-4", "Exceptional No"],
+  ["Double Digits Within CF", "Random Event"]
+ ],
+ "thresholds": { "exceptionalYes": 18, "yes": 11, "no": 10, "exceptionalNo": 4 },
+ "dice": "2d10",
+ "notes": [
+  "Rolling 2d10 to meet or exceed a target number of 11. Rolling 11 or more is a Yes, rolling under 11 is a No.",
+  "The roll is modified by the Odds and the Chaos Factor, both read off the same Roll Modifier column.",
+  "A little faster than the Fate Chart and it matches the same odds fairly closely, but the Chaos Factor has more influence on Exceptional results."
+ ]
+}

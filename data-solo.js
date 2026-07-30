@@ -21,9 +21,9 @@ export const SOLO_SOURCE = {
   system: "Mythic Game Master Emulator",
   supplied: "Custom Elements Meaning Tables — a report based on Mythic Magazine Volume 38",
   suppliedCovers: "The five-step table-construction method, the ten Anything Words, the doubles rule, and nine complete 100-word tables.",
-  scans: "The printed Fate Chart, Random Event Focus Table and Scene Adjustment Table were supplied as images after the first solo build. All three are now transcribed from the printing: the Event Focus table confirmed the earlier reconstruction band for band, and the Fate Chart and Scene Adjustment table replaced theirs.",
+  scans: "The printed Fate Chart, Random Event Focus Table, Scene Adjustment Table and Fate Check page were supplied as images after the first solo build. All four are transcribed from the printing: the Event Focus table confirmed the earlier reconstruction band for band, and the other three replaced theirs.",
   chartNotice: "The Fate Chart reproduces the printed chart cell for cell — all 81 targets and both exceptional bands.",
-  remaining: "The Fate Check's odds and chaos modifiers were never in a supplied source and remain the app's own arithmetic. The Fate Chart is the verified mechanic; prefer it if the difference matters."
+  checkNotice: "The Fate Check reproduces the printed modifier and answer tables. It is faster than the chart and matches it closely, though the Chaos Factor swings Exceptional results further."
 };
 
 /* ================================================================ T65 chaos */
@@ -50,40 +50,69 @@ export const CHAOS_RULES = {
 /* ================================================================ T62/T63/T64 fate */
 
 /**
- * The nine odds.
+ * The nine odds. The two mechanics label the same nine ranks differently — the Fate Chart's
+ * rows read Certain to Impossible, the Fate Check's modifier table reads Has To Be to
+ * Impossible — so both printed labels are carried and the UI shows whichever mechanic is in
+ * use.
  *   `rank` places the row on the Fate Chart's ladder: +4 Certain down to -4 Impossible.
- *   `mod`  is the Fate Check's arithmetic modifier, added to 2d10.
+ *   `mod`  is the printed Fate Check Roll Modifier, added to 2d10.
  */
 export const FATE_ODDS = [
-  { key: "certain",   name: "Certain",           rank:  4, mod:  5 },
-  { key: "nearcert",  name: "Nearly Certain",    rank:  3, mod:  4 },
-  { key: "verylikely",name: "Very Likely",       rank:  2, mod:  2 },
-  { key: "likely",    name: "Likely",            rank:  1, mod:  1 },
-  { key: "fifty",     name: "50/50",             rank:  0, mod:  0 },
-  { key: "unlikely",  name: "Unlikely",          rank: -1, mod: -1 },
-  { key: "veryunl",   name: "Very Unlikely",     rank: -2, mod: -2 },
-  { key: "nearimp",   name: "Nearly Impossible", rank: -3, mod: -4 },
-  { key: "impossible",name: "Impossible",        rank: -4, mod: -5 }
+  { key: "certain",   name: "Certain",           checkName: "Has To Be",     rank:  4, mod:  5 },
+  { key: "nearcert",  name: "Nearly Certain",    checkName: "Sure Thing",    rank:  3, mod:  4 },
+  { key: "verylikely",name: "Very Likely",       checkName: "Very Likely",   rank:  2, mod:  2 },
+  { key: "likely",    name: "Likely",            checkName: "Likely",        rank:  1, mod:  1 },
+  { key: "fifty",     name: "50/50",             checkName: "50/50",         rank:  0, mod:  0 },
+  { key: "unlikely",  name: "Unlikely",          checkName: "Unlikely",      rank: -1, mod: -1 },
+  { key: "veryunl",   name: "Very Unlikely",     checkName: "Very Unlikely", rank: -2, mod: -2 },
+  { key: "nearimp",   name: "Nearly Impossible", checkName: "No Way",        rank: -3, mod: -4 },
+  { key: "impossible",name: "Impossible",        checkName: "Impossible",    rank: -4, mod: -5 }
 ];
+
+/** The label a given mechanic prints for these odds. */
+export function oddsLabel(oddsKey, mechanic = "chart") {
+  const o = FATE_ODDS_BY_KEY[oddsKey] || FATE_ODDS_BY_KEY[FATE_DEFAULT_ODDS];
+  return mechanic === "check" ? o.checkName : o.name;
+}
 
 export const FATE_ODDS_BY_KEY = Object.fromEntries(FATE_ODDS.map(o => [o.key, o]));
 export const FATE_DEFAULT_ODDS = "fifty";
 
-/** Chaos modifier: one step per point away from the middle of the range. */
-export function chaosMod(chaos) {
-  return Math.max(CHAOS_MIN, Math.min(CHAOS_MAX, Number(chaos) || CHAOS_START)) - CHAOS_START;
+function clampChaos(chaos) {
+  return Math.max(CHAOS_MIN, Math.min(CHAOS_MAX, Number(chaos) || CHAOS_START));
 }
 
-/* The one part of the Mythic layer with no supplied source behind it (S1). */
-export const FATE_CHECK_VERIFY = true;
+/**
+ * The Fate Chart moves one ladder position per point of Chaos Factor — that is what makes
+ * the printed chart a diagonal.
+ */
+export function chartChaosStep(chaos) {
+  return clampChaos(chaos) - CHAOS_START;
+}
 
+/**
+ * The Fate Check does not: its printed Chaos Factor column reuses the Roll Modifier column,
+ * so the chaos adjustment is the same uneven ladder as the odds (±5, ±4, ±2, ±1, 0). This is
+ * why the book says the Chaos Factor has more influence on Exceptional results under the
+ * check than under the chart.
+ */
+export const FATE_CHECK_CHAOS_MOD = { 9: 5, 8: 4, 7: 2, 6: 1, 5: 0, 4: -1, 3: -2, 2: -4, 1: -5 };
+
+export function chaosMod(chaos) {
+  return FATE_CHECK_CHAOS_MOD[clampChaos(chaos)];
+}
+
+/* Transcribed from the printed Fate Check page: the Modifiers table, the Answers table, and
+ * the rules text around them [S1]. */
 export const FATE_CHECK = {
   dice: "2d10",
   threshold: 11,
-  desc: "Roll 2d10, add the odds modifier and the chaos modifier, and 11 or more is a Yes.",
-  eventTrigger: "Matching dice fire a Random Event as well as answering the question.",
-  exceptionalMargin: 5,
-  exceptionalDesc: "Beating or missing the threshold by 5 or more makes the answer Exceptional."
+  exceptionalYesFrom: 18,
+  exceptionalNoTo: 4,
+  desc: "Roll 2d10, add the odds modifier and the Chaos Factor modifier. A modified total of 11 or more is a Yes, 10 or less a No.",
+  exceptionalDesc: "A modified total of 18 or more is an Exceptional Yes; 4 or less is an Exceptional No. These are fixed totals, not a margin, which is why the Chaos Factor swings Exceptional results further here than on the chart.",
+  eventTrigger: "Double digits within the Chaos Factor fire a Random Event: the dice must match AND the number showing must be at or under the Chaos Factor.",
+  closeness: "A little faster than the chart, and it matches the same odds fairly closely."
 };
 
 /**
@@ -109,7 +138,7 @@ export const FATE_LADDER_MAX = 8;
 
 export function fateScore(oddsKey, chaos) {
   const odds = FATE_ODDS_BY_KEY[oddsKey] || FATE_ODDS_BY_KEY[FATE_DEFAULT_ODDS];
-  const raw = odds.rank + chaosMod(chaos);
+  const raw = odds.rank + chartChaosStep(chaos);
   return Math.max(FATE_LADDER_MIN, Math.min(FATE_LADDER_MAX, raw));
 }
 
@@ -168,23 +197,32 @@ export function fateChartAnswer(roll, oddsKey, chaos) {
   };
 }
 
-/** Read 2d10 against the Fate Check threshold. */
+/**
+ * Read 2d10 against the printed Fate Check Answers table. The Exceptional bands are fixed
+ * totals — 18 or more, 4 or less — not a margin from the threshold.
+ */
 export function fateCheckAnswer(die1, die2, oddsKey, chaos) {
   const odds = FATE_ODDS_BY_KEY[oddsKey] || FATE_ODDS_BY_KEY[FATE_DEFAULT_ODDS];
   const cm = chaosMod(chaos);
-  const total = Number(die1) + Number(die2) + odds.mod + cm;
-  const margin = total - FATE_CHECK.threshold;
-  const yes = margin >= 0;
-  const exceptional = Math.abs(margin) >= FATE_CHECK.exceptionalMargin ||
-    (!yes && margin <= -FATE_CHECK.exceptionalMargin);
+  const d1 = Number(die1);
+  const d2 = Number(die2);
+  const total = d1 + d2 + odds.mod + cm;
+
   let key;
-  if (yes) key = exceptional ? "exceptionalYes" : "yes";
-  else key = exceptional ? "exceptionalNo" : "no";
+  if (total >= FATE_CHECK.exceptionalYesFrom) key = "exceptionalYes";
+  else if (total >= FATE_CHECK.threshold) key = "yes";
+  else if (total <= FATE_CHECK.exceptionalNoTo) key = "exceptionalNo";
+  else key = "no";
+
   return {
-    mechanic: "check", die1: Number(die1), die2: Number(die2),
+    mechanic: "check", die1: d1, die2: d2,
     oddsMod: odds.mod, chaosMod: cm, total, threshold: FATE_CHECK.threshold,
-    answer: FATE_ANSWERS[key], key, yes, exceptional,
-    event: Number(die1) === Number(die2)
+    answer: FATE_ANSWERS[key], key,
+    yes: key === "yes" || key === "exceptionalYes",
+    exceptional: key === "exceptionalYes" || key === "exceptionalNo",
+    // "Double digits within CF": the dice must match and the number must be within the
+    // Chaos Factor, exactly as the chart requires of its doubles.
+    event: d1 === d2 && d1 <= clampChaos(chaos)
   };
 }
 
@@ -885,7 +923,8 @@ export const SOLO_TOPICS = [
     body: [
       "Frame a question the fiction cannot already answer, and one that a Yes or a No actually settles. Pick the odds you would give it if a game master were sitting opposite you.",
       "The app reads the odds against the current Chaos Factor and rolls. The low fifth of the Yes range is an Exceptional Yes — more than you asked for. The top fifth of the No range is an Exceptional No — worse than a simple refusal.",
-      "The Fate Chart and the Fate Check are two ways of reading roughly the same probability. The chart rolls d100 under a printed target; the check rolls 2d10 and adds the odds and chaos modifiers against 11. Pick one per adventure and stay with it — the chart is the one this app reproduces from the printing."
+      "The Fate Chart and the Fate Check are two ways of reading roughly the same probability, and both are reproduced from the printing. The chart rolls d100 under a printed target. The check rolls 2d10, adds the odds modifier and the Chaos Factor modifier, and reads 11 or more as a Yes, 18 or more as an Exceptional Yes, and 4 or less as an Exceptional No.",
+      "The check is quicker and needs no lookup, but its Exceptional bands are fixed totals rather than a share of the range, so the Chaos Factor swings them further than it does on the chart. Pick one per adventure and stay with it."
     ]
   },
   {
@@ -948,7 +987,7 @@ export const SOLO_TOPICS = [
       "The solo engine never replaces a Classified roll. Fate answers questions about the world; skills, combat and damage stay on Base Chance × Difficulty Factor as always.",
       "So a scene runs: ask Fate whether the guard is where you feared, then roll Stealth against him the ordinary way.",
       "Hero Points are untouched by the solo engine. Neither book connects them to an oracle, so the app does not invent a link.",
-      "The Fate Chart, the Event Focus table and the Scene Adjustment table are transcribed from the printed originals. The Fate Check's modifiers are not — they are the app's own arithmetic, so the chart is the mechanic to trust if a close call matters."
+      "The Fate Chart, the Fate Check, the Event Focus table and the Scene Adjustment table are all transcribed from the printed originals, so nothing in the solo layer is guesswork any more."
     ]
   }
 ];

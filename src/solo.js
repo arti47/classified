@@ -160,9 +160,7 @@ function appendHeader(host, adv) {
   card.appendChild(modeRow);
   host.appendChild(card);
 
-  if (adv.fateMode === "check") {
-    host.appendChild(el("div", { class: "banner", text: S.SOLO_SOURCE.remaining }));
-  }
+
 
   const undo = Store.peekSoloUndo();
   if (undo) {
@@ -264,12 +262,14 @@ function appendFate(host, adv) {
       oddsWrap.appendChild(el("button", {
         class: "chip" + (state.odds === o.key ? " on" : ""), type: "button",
         onclick: () => { state.odds = o.key; drawOdds(); }
-      }, o.name));
+      }, S.oddsLabel(o.key, adv.fateMode)));
     }
     clear(preview);
     if (adv.fateMode === "check") {
       const o = S.FATE_ODDS_BY_KEY[state.odds];
-      preview.textContent = `2d10 ${signed(o.mod)} odds ${signed(S.chaosMod(adv.chaos))} chaos vs ${S.FATE_CHECK.threshold}+`;
+      preview.textContent = `2d10 ${signed(o.mod)} odds ${signed(S.chaosMod(adv.chaos))} chaos · ` +
+        `Yes on ${S.FATE_CHECK.threshold}+ · Exceptional Yes ${S.FATE_CHECK.exceptionalYesFrom}+ · ` +
+        `Exceptional No ${S.FATE_CHECK.exceptionalNoTo} or less`;
     } else {
       const target = S.fateTarget(state.odds, adv.chaos);
       const y = S.exceptionalYes(target);
@@ -317,8 +317,8 @@ export async function askFate(adv, oddsKey, question) {
     el("div", { class: "roll-d100", text: res.mechanic === "check" ? `${res.die1}+${res.die2}` : String(res.roll) }),
     el("div", { class: "roll-quality " + (res.yes ? "q1" : "q5"), text: res.answer }),
     el("div", { class: "roll-formula", text: res.mechanic === "check"
-      ? `${res.die1} + ${res.die2} ${signed(res.oddsMod)} odds ${signed(res.chaosMod)} chaos = ${res.total} vs ${res.threshold}+`
-      : `${odds.name} at Chaos Factor ${adv.chaos} · Yes on ${res.target} or under` })
+      ? `${res.die1} + ${res.die2} ${signed(res.oddsMod)} odds ${signed(res.chaosMod)} chaos = ${res.total} · ${S.oddsLabel(oddsKey, "check")} at Chaos Factor ${adv.chaos}`
+      : `${S.oddsLabel(oddsKey, "chart")} at Chaos Factor ${adv.chaos} · Yes on ${res.target} or under` })
   ));
 
   if (res.mechanic === "chart") {
@@ -334,6 +334,17 @@ export async function askFate(adv, oddsKey, question) {
     body.appendChild(b);
   }
 
+  if (res.mechanic === "check") {
+    const b = el("div", { class: "bands" });
+    const seg = (name, range, hit) => el("div", { class: "band" + (hit ? " hit" : "") },
+      el("span", { class: "bl", text: name }), range);
+    b.appendChild(seg("Exc No", `≤${S.FATE_CHECK.exceptionalNoTo}`, res.key === "exceptionalNo"));
+    b.appendChild(seg("No", `${S.FATE_CHECK.exceptionalNoTo + 1}-${S.FATE_CHECK.threshold - 1}`, res.key === "no"));
+    b.appendChild(seg("Yes", `${S.FATE_CHECK.threshold}-${S.FATE_CHECK.exceptionalYesFrom - 1}`, res.key === "yes"));
+    b.appendChild(seg("Exc Yes", `${S.FATE_CHECK.exceptionalYesFrom}+`, res.key === "exceptionalYes"));
+    body.appendChild(b);
+  }
+
   if (res.exceptional) {
     body.appendChild(el("div", { class: "banner " + (res.yes ? "ok" : "warn"), text: res.yes
       ? "More than you asked for. Push the answer further than a plain Yes would go."
@@ -346,8 +357,8 @@ export async function askFate(adv, oddsKey, question) {
     eventSlot.appendChild(el("div", { class: "banner warn" },
       el("b", { text: "Random Event" }),
       el("div", { class: "small", text: res.mechanic === "check"
-        ? "The dice match, so an event fires as well as the answer."
-        : `A double at or under the Chaos Factor, so an event fires as well as the answer.` })));
+        ? `Double ${res.die1}s, within the Chaos Factor, so an event fires as well as the answer.`
+        : "A double at or under the Chaos Factor, so an event fires as well as the answer." })));
   }
 
   const actions = [{ label: "Done", kind: "primary" }];
@@ -796,6 +807,9 @@ function appendTopics(host) {
   card.appendChild(el("button", { class: "skill-row", type: "button", onclick: () => showFateChart() },
     el("span", { class: "n", text: "The Fate Chart" }),
     el("span", { class: "r", text: "as printed" })));
+  card.appendChild(el("button", { class: "skill-row", type: "button", onclick: () => showFateCheck() },
+    el("span", { class: "n", text: "The Fate Check" }),
+    el("span", { class: "r", text: "as printed" })));
   card.appendChild(el("button", { class: "skill-row", type: "button", onclick: () => showEventFocus() },
     el("span", { class: "n", text: "Event Focus table" }),
     el("span", { class: "r", text: "as printed" })));
@@ -832,6 +846,42 @@ function showFateChart() {
       el("p", { class: "small muted", text: "Each cell reads: Exceptional Yes on that or under, Yes on the bold number or under, Exceptional No on the last number or over. An x means that band cannot occur at those odds." }),
       el("div", { class: "banner ok", text: S.SOLO_SOURCE.chartNotice }),
       el("p", { class: "small muted", text: "The printing is one ladder read diagonally: every cell equals the cell up and to its left, so a point of Chaos Factor moves exactly as far as a step of odds." })),
+    actions: [{ label: "Close", kind: "primary" }]
+  });
+}
+
+function showFateCheck() {
+  const mods = el("table", { class: "data" });
+  mods.appendChild(el("tr", {}, el("th", { text: "Odds" }), el("th", { text: "Roll modifier" }), el("th", { text: "Chaos Factor" })));
+  for (const o of S.FATE_ODDS) {
+    const cf = Object.keys(S.FATE_CHECK_CHAOS_MOD).find(k => S.FATE_CHECK_CHAOS_MOD[k] === o.mod);
+    mods.appendChild(el("tr", {},
+      el("td", { text: o.checkName }),
+      el("td", { class: "num", text: o.mod === 0 ? "None" : signed(o.mod) }),
+      el("td", { class: "num", text: cf || "—" })));
+  }
+
+  const answers = el("table", { class: "data" });
+  answers.appendChild(el("tr", {}, el("th", { text: "Roll total" }), el("th", { text: "Answer" })));
+  for (const [range, answer] of [
+    [`${S.FATE_CHECK.exceptionalYesFrom}-20`, "Exceptional Yes"],
+    [`${S.FATE_CHECK.threshold} or more`, "Yes"],
+    [`${S.FATE_CHECK.threshold - 1} or less`, "No"],
+    [`2-${S.FATE_CHECK.exceptionalNoTo}`, "Exceptional No"],
+    ["Double digits within the Chaos Factor", "Random Event"]
+  ]) {
+    answers.appendChild(el("tr", {}, el("td", { style: "white-space:normal", text: range }), el("td", { text: answer })));
+  }
+
+  modal({
+    title: "Fate Check", wide: true,
+    body: el("div", {},
+      el("p", { class: "small", text: S.FATE_CHECK.desc }),
+      el("div", { class: "table-wrap" }, mods),
+      el("p", { class: "small muted", text: "The Odds and the Chaos Factor read off the same modifier column, so a Chaos Factor of 9 is worth as much as odds of Has To Be." }),
+      el("div", { class: "table-wrap" }, answers),
+      el("p", { class: "small muted", text: S.FATE_CHECK.exceptionalDesc }),
+      el("div", { class: "banner ok", text: S.SOLO_SOURCE.checkNotice })),
     actions: [{ label: "Close", kind: "primary" }]
   });
 }
