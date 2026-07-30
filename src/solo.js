@@ -160,7 +160,9 @@ function appendHeader(host, adv) {
   card.appendChild(modeRow);
   host.appendChild(card);
 
-  host.appendChild(el("div", { class: "banner", text: S.SOLO_SOURCE.verifyNotice }));
+  if (adv.fateMode === "check") {
+    host.appendChild(el("div", { class: "banner", text: S.SOLO_SOURCE.remaining }));
+  }
 
   const undo = Store.peekSoloUndo();
   if (undo) {
@@ -270,7 +272,13 @@ function appendFate(host, adv) {
       preview.textContent = `2d10 ${signed(o.mod)} odds ${signed(S.chaosMod(adv.chaos))} chaos vs ${S.FATE_CHECK.threshold}+`;
     } else {
       const target = S.fateTarget(state.odds, adv.chaos);
-      preview.textContent = `Yes on ${target} or under · Exceptional Yes ${S.exceptionalYes(target)} or under · Exceptional No ${S.exceptionalNo(target)} or over`;
+      const y = S.exceptionalYes(target);
+      const n = S.exceptionalNo(target);
+      preview.textContent = [
+        `Yes on ${target} or under`,
+        y === null ? "no Exceptional Yes at these odds" : `Exceptional Yes ${y} or under`,
+        n === null ? "no Exceptional No at these odds" : `Exceptional No ${n} or over`
+      ].join(" · ");
     }
   }
   drawOdds();
@@ -317,10 +325,12 @@ export async function askFate(adv, oddsKey, question) {
     const b = el("div", { class: "bands" });
     const seg = (name, range, hit) => el("div", { class: "band" + (hit ? " hit" : "") },
       el("span", { class: "bl", text: name }), range);
-    b.appendChild(seg("Exc Yes", `1-${res.exYes}`, res.key === "exceptionalYes"));
-    if (res.target > res.exYes) b.appendChild(seg("Yes", `${res.exYes + 1}-${res.target}`, res.key === "yes"));
-    if (res.exNo - 1 > res.target) b.appendChild(seg("No", `${res.target + 1}-${res.exNo - 1}`, res.key === "no"));
-    b.appendChild(seg("Exc No", `${Math.min(100, res.exNo)}-100`, res.key === "exceptionalNo"));
+    const yesFrom = res.exYes === null ? 1 : res.exYes + 1;
+    const noTo = res.exNo === null ? 100 : res.exNo - 1;
+    if (res.exYes !== null) b.appendChild(seg("Exc Yes", `1-${res.exYes}`, res.key === "exceptionalYes"));
+    if (res.target >= yesFrom) b.appendChild(seg("Yes", `${yesFrom}-${res.target}`, res.key === "yes"));
+    if (noTo > res.target) b.appendChild(seg("No", `${res.target + 1}-${noTo}`, res.key === "no"));
+    if (res.exNo !== null) b.appendChild(seg("Exc No", `${res.exNo}-100`, res.key === "exceptionalNo"));
     body.appendChild(b);
   }
 
@@ -394,23 +404,47 @@ export async function testScene(adv) {
   modal({ title: "Scene test", body, actions });
 }
 
+/**
+ * Roll the Scene Adjustment table. A 7-10 is "Make 2 Adjustments", which is not an
+ * adjustment itself — it sends you back to the table twice, and a second 7-10 does it again,
+ * so the resolved list is expanded here rather than left for the player to chase.
+ */
 export async function rollSceneAdjustment(adv) {
-  const roll = await soloD10("Scene Adjustment d10");
-  let row = S.SCENE_ADJUSTMENTS[S.SCENE_ADJUSTMENTS.length - 1];
-  for (const r of S.SCENE_ADJUSTMENTS) if (roll <= r.max) { row = r; break; }
+  const rolls = [];
+  const resolved = [];
+  let pending = 1;
+  let guard = 0;
 
-  const body = el("div", {},
-    el("div", { class: "banner" }, el("b", { text: row.name }), el("div", { class: "small", text: row.desc })),
-    el("p", { class: "small muted", text: `Rolled ${roll}. Change that one thing and play the scene.` }));
-
-  const actions = [{ label: "Done", kind: "primary" }];
-  if (row.name === "Random Event instead") {
-    actions.unshift({ label: "Roll the event", kind: "ghost", onClick: () => rollRandomEvent(Store.activeAdventure()) });
+  while (pending > 0 && guard < 12) {
+    guard += 1;
+    pending -= 1;
+    const roll = await soloD10(`Scene Adjustment d10 (${rolls.length + 1})`);
+    const row = S.sceneAdjustment(roll);
+    rolls.push({ roll, name: row.name });
+    if (row.double) pending += S.SCENE_ADJUSTMENT_DOUBLE_COUNT;
+    else resolved.push(row);
   }
 
-  save(a => { journal(a, "scene", `Scene adjustment — ${row.name}`, `d10 ${roll}`); });
-  logSolo(adv, "Scene adjustment", roll, row.name, row.desc);
-  modal({ title: "Altered scene", body, actions });
+  const body = el("div", {});
+  for (const row of resolved) {
+    body.appendChild(el("div", { class: "banner" },
+      el("b", { text: row.name }),
+      el("div", { class: "small", text: row.desc })));
+  }
+  body.appendChild(el("p", { class: "small muted", text:
+    `Rolled ${rolls.map(r => r.roll).join(", ")}. ` +
+    (resolved.length > 1
+      ? `Make all ${resolved.length} changes and play the scene.`
+      : "Change that one thing and play the scene.") }));
+  if (rolls.some(r => r.name === "Make 2 Adjustments")) {
+    body.appendChild(el("p", { class: "small muted", text:
+      "A 7-10 is not itself an adjustment — it sends you back to the table twice, which is why there is more than one result here." }));
+  }
+
+  const names = resolved.map(r => r.name).join(" + ");
+  save(a => { journal(a, "scene", `Scene adjustment — ${names}`, `d10 ${rolls.map(r => r.roll).join("/")}`); });
+  logSolo(adv, "Scene adjustment", rolls[0].roll, names, resolved.map(r => r.desc).join(" "));
+  modal({ title: "Altered scene", body, actions: [{ label: "Done", kind: "primary" }] });
 }
 
 /* ---------------------------------------------------------------- random events */
@@ -761,10 +795,13 @@ function appendTopics(host) {
 
   card.appendChild(el("button", { class: "skill-row", type: "button", onclick: () => showFateChart() },
     el("span", { class: "n", text: "The Fate Chart" }),
-    el("span", { class: "r", text: "reconstructed" })));
+    el("span", { class: "r", text: "as printed" })));
   card.appendChild(el("button", { class: "skill-row", type: "button", onclick: () => showEventFocus() },
     el("span", { class: "n", text: "Event Focus table" }),
-    el("span", { class: "r", text: "reconstructed" })));
+    el("span", { class: "r", text: "as printed" })));
+  card.appendChild(el("button", { class: "skill-row", type: "button", onclick: () => showSceneAdjustment() },
+    el("span", { class: "n", text: "Scene Adjustment table" }),
+    el("span", { class: "r", text: "as printed" })));
   card.appendChild(el("button", { class: "skill-row", type: "button", onclick: () => showMethod() },
     el("span", { class: "n", text: "Building a table" }),
     el("span", { class: "r", text: "Vol. 38" })));
@@ -778,15 +815,23 @@ function showFateChart() {
     ...[1, 2, 3, 4, 5, 6, 7, 8, 9].map(c => el("th", { text: "CF " + c }))));
   for (const o of S.FATE_ODDS) {
     t.appendChild(el("tr", {}, el("th", { text: o.name }),
-      ...[1, 2, 3, 4, 5, 6, 7, 8, 9].map(c => el("td", { class: "num", text: String(S.fateTarget(o.key, c)) }))));
+      ...[1, 2, 3, 4, 5, 6, 7, 8, 9].map(c => {
+        const target = S.fateTarget(o.key, c);
+        const y = S.exceptionalYes(target);
+        const n = S.exceptionalNo(target);
+        return el("td", { class: "num" },
+          el("span", { class: "small muted", text: (y === null ? "x" : String(y)) + " " }),
+          el("b", { text: String(target) }),
+          el("span", { class: "small muted", text: " " + (n === null ? "x" : String(n)) }));
+      })));
   }
   modal({
     title: "Fate Chart", wide: true,
     body: el("div", {},
       el("div", { class: "table-wrap" }, t),
-      el("p", { class: "small muted", text: "Roll d100 at or under the number for a Yes. The low fifth of the Yes range is an Exceptional Yes; the top fifth of the No range is an Exceptional No. A 100 always answers No." }),
-      el("div", { class: "banner warn", text: S.SOLO_SOURCE.reconstructed }),
-      el("p", { class: "small muted", text: "The middle column is the anchor and each step away from it is one point of Chaos Factor. The odds axis is weighted four times as heavily as the chaos axis, which is what keeps an Impossible question impossible in a chaotic scene." })),
+      el("p", { class: "small muted", text: "Each cell reads: Exceptional Yes on that or under, Yes on the bold number or under, Exceptional No on the last number or over. An x means that band cannot occur at those odds." }),
+      el("div", { class: "banner ok", text: S.SOLO_SOURCE.chartNotice }),
+      el("p", { class: "small muted", text: "The printing is one ladder read diagonally: every cell equals the cell up and to its left, so a point of Chaos Factor moves exactly as far as a step of odds." })),
     actions: [{ label: "Close", kind: "primary" }]
   });
 }
@@ -805,7 +850,26 @@ function showEventFocus() {
     title: "Event Focus", wide: true,
     body: el("div", {},
       el("div", { class: "table-wrap" }, t),
-      el("div", { class: "banner warn", text: S.SOLO_SOURCE.reconstructed })),
+      el("p", { class: "small muted", text: "Roll the focus, then roll a word pair from a Meaning Table to colour it. Focuses that name a thread or a character draw from your Adventure Lists." })),
+    actions: [{ label: "Close", kind: "primary" }]
+  });
+}
+
+function showSceneAdjustment() {
+  const t = el("table", { class: "data" });
+  t.appendChild(el("tr", {}, el("th", { text: "d10" }), el("th", { text: "Result" })));
+  let lo = 0;
+  for (const r of S.SCENE_ADJUSTMENTS) {
+    t.appendChild(el("tr", {},
+      el("td", { class: "num", text: lo + 1 === r.max ? String(r.max) : `${lo + 1}-${r.max}` }),
+      el("td", { style: "white-space:normal" }, el("b", { text: r.name }), el("div", { class: "small muted", text: r.desc }))));
+    lo = r.max;
+  }
+  modal({
+    title: "Scene Adjustment", wide: true,
+    body: el("div", {},
+      el("div", { class: "table-wrap" }, t),
+      el("p", { class: "small muted", text: "Rolled when a scene is altered: change that one thing and play it. A 7-10 sends you back to the table twice, and the app expands that for you." })),
     actions: [{ label: "Close", kind: "primary" }]
   });
 }

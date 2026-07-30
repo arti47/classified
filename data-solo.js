@@ -21,8 +21,9 @@ export const SOLO_SOURCE = {
   system: "Mythic Game Master Emulator",
   supplied: "Custom Elements Meaning Tables — a report based on Mythic Magazine Volume 38",
   suppliedCovers: "The five-step table-construction method, the ten Anything Words, the doubles rule, and nine complete 100-word tables.",
-  reconstructed: "The Fate Chart, the Event Focus table and the Scene Adjustment table were not in the supplied report. They are reconstructed here and marked verify: true.",
-  verifyNotice: "The Fate, event and scene-adjustment tables are reconstructed rather than transcribed — check them against your own copy of the Mythic Game Master Emulator before you rely on them."
+  scans: "The printed Fate Chart, Random Event Focus Table and Scene Adjustment Table were supplied as images after the first solo build. All three are now transcribed from the printing: the Event Focus table confirmed the earlier reconstruction band for band, and the Fate Chart and Scene Adjustment table replaced theirs.",
+  chartNotice: "The Fate Chart reproduces the printed chart cell for cell — all 81 targets and both exceptional bands.",
+  remaining: "The Fate Check's odds and chaos modifiers were never in a supplied source and remain the app's own arithmetic. The Fate Chart is the verified mechanic; prefer it if the difference matters."
 };
 
 /* ================================================================ T65 chaos */
@@ -50,8 +51,7 @@ export const CHAOS_RULES = {
 
 /**
  * The nine odds.
- *   `rank` places the row on the Fate Chart's ladder — one rank per row, four ladder steps
- *          each, so the odds axis always outweighs the chaos axis.
+ *   `rank` places the row on the Fate Chart's ladder: +4 Certain down to -4 Impossible.
  *   `mod`  is the Fate Check's arithmetic modifier, added to 2d10.
  */
 export const FATE_ODDS = [
@@ -74,6 +74,9 @@ export function chaosMod(chaos) {
   return Math.max(CHAOS_MIN, Math.min(CHAOS_MAX, Number(chaos) || CHAOS_START)) - CHAOS_START;
 }
 
+/* The one part of the Mythic layer with no supplied source behind it (S1). */
+export const FATE_CHECK_VERIFY = true;
+
 export const FATE_CHECK = {
   dice: "2d10",
   threshold: 11,
@@ -84,55 +87,50 @@ export const FATE_CHECK = {
 };
 
 /**
- * The Fate Chart, reconstructed [S1] and derived rather than transcribed, on the same
- * precedent as the Success Quality Table (A1). Two axes on one ladder:
+ * The Fate Chart, transcribed from the printed chart supplied after the first solo build
+ * [S1]. The printing is a single ladder read diagonally: every cell equals the cell up and
+ * to its left, so one point of Chaos Factor moves exactly as far as one step of odds. That
+ * is why Impossible at Chaos Factor 9 is the same 50 as 50/50 at Chaos Factor 5 — the
+ * reconstruction this replaces weighted the odds axis four times as heavily, and got both
+ * that and the middle column wrong.
  *
- *   score = odds rank × 4 + (Chaos Factor − 5)
- *
- * The nine anchors are the middle column — Certain 99, Nearly Certain 95, Very Likely 85,
- * Likely 75, 50/50 50, Unlikely 25, Very Unlikely 15, Nearly Impossible 5, Impossible 1 —
- * and the three steps between each pair of anchors are the Chaos Factor moving one column
- * at a time. Weighting the odds axis four times as heavily as the chaos axis is what keeps
- * an Impossible question impossible even in a chaotic scene, which a flat additive model
- * does not.
+ *   ladder index = odds rank + (Chaos Factor - 5), clamped to +/-8
  */
 export const FATE_LADDER = {
-  "-20": 1, "-19": 1, "-18": 1, "-17": 1, "-16": 1,
-  "-15": 2, "-14": 3, "-13": 4, "-12": 5,
-  "-11": 7, "-10": 10, "-9": 12, "-8": 15,
-  "-7": 18, "-6": 20, "-5": 23, "-4": 25,
-  "-3": 31, "-2": 38, "-1": 44, "0": 50,
-  "1": 56, "2": 63, "3": 69, "4": 75,
-  "5": 78, "6": 80, "7": 83, "8": 85,
-  "9": 88, "10": 90, "11": 93, "12": 95,
-  "13": 96, "14": 97, "15": 98, "16": 99,
-  "17": 99, "18": 99, "19": 99, "20": 99
+  "-8": 1, "-7": 1, "-6": 1,
+  "-5": 5, "-4": 10, "-3": 15, "-2": 25, "-1": 35,
+  "0": 50,
+  "1": 65, "2": 75, "3": 85, "4": 90, "5": 95,
+  "6": 99, "7": 99, "8": 99
 };
 
-export const FATE_ODDS_LADDER_STEP = 4;
-
-/** A 100 always answers No, the same convention Classified applies to its own d100. */
-export const FATE_CHART_MAX_TARGET = 99;
-export const FATE_CHART_VERIFY = true;
+export const FATE_LADDER_MIN = -8;
+export const FATE_LADDER_MAX = 8;
 
 export function fateScore(oddsKey, chaos) {
   const odds = FATE_ODDS_BY_KEY[oddsKey] || FATE_ODDS_BY_KEY[FATE_DEFAULT_ODDS];
-  return odds.rank * FATE_ODDS_LADDER_STEP + chaosMod(chaos);
+  const raw = odds.rank + chaosMod(chaos);
+  return Math.max(FATE_LADDER_MIN, Math.min(FATE_LADDER_MAX, raw));
 }
 
 export function fateTarget(oddsKey, chaos) {
   return FATE_LADDER[String(fateScore(oddsKey, chaos))];
 }
 
-/** Exceptional Yes is the low fifth of the Yes range [S2]. */
+/**
+ * Exceptional Yes is the low fifth of the Yes range and Exceptional No the top fifth of the
+ * No range, both rounded rather than truncated [S2]. Derived, not transcribed, and checked
+ * against all 81 printed cells: at a target of 1 no Exceptional Yes is possible and at 99 no
+ * Exceptional No is, which is what the printed chart's "x" means. Those cases return null.
+ */
 export function exceptionalYes(target) {
-  return Math.max(1, Math.floor(target / 5));
+  const v = Math.round(Number(target) / 5);
+  return v >= 1 ? v : null;
 }
 
-/** Exceptional No is the top fifth of the No range [S2]. */
 export function exceptionalNo(target) {
-  if (target >= 100) return 101;
-  return 100 - Math.floor((100 - target) / 5) + 1;
+  const v = 100 - Math.round((100 - Number(target)) / 5) + 1;
+  return v <= 100 ? v : null;
 }
 
 /** A doubles roll whose tens digit is at or under the Chaos Factor fires an event [S3]. */
@@ -151,17 +149,16 @@ export const FATE_ANSWERS = {
   exceptionalNo: "Exceptional No"
 };
 
-/** Read a d100 against the chart. */
+/** Read a d100 against the chart. A null band is one the printed chart marks "x". */
 export function fateChartAnswer(roll, oddsKey, chaos) {
   const target = fateTarget(oddsKey, chaos);
   const exYes = exceptionalYes(target);
   const exNo = exceptionalNo(target);
   const n = Number(roll);
   let answer, key;
-  if (n >= 100) { answer = FATE_ANSWERS.no; key = "no"; }
-  else if (n <= exYes) { answer = FATE_ANSWERS.exceptionalYes; key = "exceptionalYes"; }
+  if (exYes !== null && n <= exYes) { answer = FATE_ANSWERS.exceptionalYes; key = "exceptionalYes"; }
   else if (n <= target) { answer = FATE_ANSWERS.yes; key = "yes"; }
-  else if (n >= exNo) { answer = FATE_ANSWERS.exceptionalNo; key = "exceptionalNo"; }
+  else if (exNo !== null && n >= exNo) { answer = FATE_ANSWERS.exceptionalNo; key = "exceptionalNo"; }
   else { answer = FATE_ANSWERS.no; key = "no"; }
   return {
     mechanic: "chart", roll: n, target, exYes, exNo, answer, key,
@@ -210,26 +207,31 @@ export function sceneTest(d10Roll, chaos) {
   return { ...(n % 2 === 1 ? SCENE_KINDS.altered : SCENE_KINDS.interrupt), roll: n, chaos: cf };
 }
 
-/* T67 Scene Adjustment — reconstructed [S1] */
-export const SCENE_ADJUSTMENT_VERIFY = true;
+/* T67 Scene Adjustment — transcribed from the printed table [S1]. A 7-10 does not adjust
+ * anything itself: it tells you to make two adjustments, each rolled again on this table. */
 export const SCENE_ADJUSTMENTS = [
-  { max: 1,  name: "Remove a character",   desc: "Someone you expected in this scene is not here." },
-  { max: 2,  name: "Add a character",      desc: "Someone you did not expect is here. Draw from the Characters list or roll a new one." },
-  { max: 3,  name: "Reduce or weaken",     desc: "An element of the scene is smaller, poorer or less capable than expected." },
-  { max: 4,  name: "Increase or strengthen", desc: "An element of the scene is larger, richer or more capable than expected." },
-  { max: 5,  name: "Remove an object",     desc: "Something you counted on being here is gone." },
-  { max: 6,  name: "Add an object",        desc: "Something unexpected is here to be used, taken or noticed." },
-  { max: 7,  name: "Change the activity",  desc: "What is happening here is not what you expected to find happening." },
-  { max: 8,  name: "Change the location",  desc: "The scene takes place somewhere other than you planned." },
-  { max: 9,  name: "Change the time",      desc: "The scene happens earlier or later than you planned." },
-  { max: 10, name: "Random Event instead", desc: "Set the adjustment aside and roll a Random Event to shape the scene." }
+  { max: 1,  name: "Remove A Character",        desc: "Someone you expected in this scene is not here." },
+  { max: 2,  name: "Add A Character",           desc: "Someone you did not expect is here. Draw from the Characters list, or roll a new one." },
+  { max: 3,  name: "Reduce/Remove An Activity", desc: "Something you expected to be happening here is smaller than expected, or is not happening at all." },
+  { max: 4,  name: "Increase An Activity",      desc: "Something happening here is bigger, busier or further along than you expected." },
+  { max: 5,  name: "Remove An Object",          desc: "Something you counted on being here is gone." },
+  { max: 6,  name: "Add An Object",             desc: "Something unexpected is here to be used, taken or noticed." },
+  { max: 10, name: "Make 2 Adjustments",        desc: "Roll twice more on this table and apply both.", double: true }
 ];
+
+export const SCENE_ADJUSTMENT_DOUBLE_COUNT = 2;
+
+export function sceneAdjustment(roll) {
+  const n = Number(roll);
+  for (const row of SCENE_ADJUSTMENTS) if (n <= row.max) return row;
+  return SCENE_ADJUSTMENTS[SCENE_ADJUSTMENTS.length - 1];
+}
 
 /* ================================================================ T68 events */
 
-/* Event Focus — reconstructed [S1]. `list` marks the focuses that draw from an Adventure
- * List; `pc` marks the ones that point at the linked dossier. */
-export const EVENT_FOCUS_VERIFY = true;
+/* Event Focus — transcribed from the printed Random Event Focus Table, which confirmed the
+ * earlier reconstruction band for band [S1]. `list` marks the focuses that draw from an
+ * Adventure List; `pc` marks the ones that point at the linked dossier. */
 export const EVENT_FOCUS = [
   { max: 5,   key: "remote",       name: "Remote Event",             desc: "Something happens elsewhere that you learn about, or that will reach you later." },
   { max: 10,  key: "ambiguous",    name: "Ambiguous Event",          desc: "Something happens whose meaning is not clear yet. Do not explain it." },
@@ -883,7 +885,7 @@ export const SOLO_TOPICS = [
     body: [
       "Frame a question the fiction cannot already answer, and one that a Yes or a No actually settles. Pick the odds you would give it if a game master were sitting opposite you.",
       "The app reads the odds against the current Chaos Factor and rolls. The low fifth of the Yes range is an Exceptional Yes — more than you asked for. The top fifth of the No range is an Exceptional No — worse than a simple refusal.",
-      "The Fate Chart and the Fate Check are two ways of reading the same probability. The chart rolls d100 under a target; the check rolls 2d10 and adds the odds and chaos modifiers against 11. Either is legal; pick one per adventure and stay with it."
+      "The Fate Chart and the Fate Check are two ways of reading roughly the same probability. The chart rolls d100 under a printed target; the check rolls 2d10 and adds the odds and chaos modifiers against 11. Pick one per adventure and stay with it — the chart is the one this app reproduces from the printing."
     ]
   },
   {
@@ -946,7 +948,7 @@ export const SOLO_TOPICS = [
       "The solo engine never replaces a Classified roll. Fate answers questions about the world; skills, combat and damage stay on Base Chance × Difficulty Factor as always.",
       "So a scene runs: ask Fate whether the guard is where you feared, then roll Stealth against him the ordinary way.",
       "Hero Points are untouched by the solo engine. Neither book connects them to an oracle, so the app does not invent a link.",
-      "The Fate Chart, the Event Focus table and the Scene Adjustment table were not in the supplied source and are reconstructed here. Check them against your own copy before you lean on them; the Fate Check needs no chart at all."
+      "The Fate Chart, the Event Focus table and the Scene Adjustment table are transcribed from the printed originals. The Fate Check's modifiers are not — they are the app's own arithmetic, so the chart is the mechanic to trust if a close call matters."
     ]
   }
 ];

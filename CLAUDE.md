@@ -52,7 +52,7 @@ own answers, not template defaults.
 | Persistence | Per-adventure records | Named adventures, switchable and archivable |
 | Scene bookkeeping | Guided one-tap End Scene with undo | Mirrors the existing lifecycle engine |
 | Meaning roller | Rolls a word pair by default | Doubles reported as amplification, per the report |
-| Missing GME tables | Reconstructed and flagged | Fate Chart, Event Focus, Scene Adjustment carry `verify: true` — ruling S1 |
+| Missing GME tables | Reconstructed and flagged, then **replaced by the printed originals** | The Fate Chart, Event Focus and Scene Adjustment tables were supplied as images afterwards; only the Fate Check's modifiers are still unsourced — ruling S1 |
 
 ---
 
@@ -77,10 +77,16 @@ Tables — a report based on Mythic Magazine Volume 38* (Word Mill Games) was su
 Markdown. It is authoritative for what it contains: the table-construction method, the ten
 Anything Words, the doubles rule, and nine complete 100-word tables (Action 1/2,
 Descriptor 1/2, Locations, Characters, Objects, Genre, Tone). It does **not** contain the
-GME core procedures — no Fate Chart, no Event Focus table, no Scene Adjustment table — so
-those are reconstructed rather than extracted and are flagged in the data and on screen
-(ruling S1). The report's §5 World History Paths is a worksheet routing diagram, not a
-table, and is not shipped.
+GME core procedures — no Fate Chart, no Event Focus table, no Scene Adjustment table. The
+report's §5 World History Paths is a worksheet routing diagram, not a table, and is not
+shipped.
+
+**Printed images of the three missing tables were supplied after the first solo build** and
+are the source of record for them: the Fate Chart (9 odds × Chaos Factor 1–9, all three
+numbers per cell), the Random Event Focus Table and the Scene Adjustment Table. They are now
+transcribed rather than reconstructed, with a committed fixture holding the printed values
+(ruling S1). The Fate Check's odds and chaos modifiers remain the app's own arithmetic and
+stay flagged.
 
 Classified rules and Mythic rules never mix in one file: `data.js` and its siblings stay
 core-book-only, and every Mythic value lives in `data-solo.js`.
@@ -413,21 +419,28 @@ such so the two are never confused at the table.
 | Piece | Procedure | Where |
 |---|---|---|
 | **Fate question** | Pick odds from the nine-step ladder (Certain → Impossible), read the target against the current Chaos Factor, roll d100 under it for Yes. Low fifth of the Yes range is an **Exceptional Yes**; top fifth of the No range an **Exceptional No**. | `fateTarget()`, `fateChartAnswer()` |
-| **Fate Check** | The chartless alternative: 2d10 + odds modifier + chaos modifier against a threshold of 11; matching dice trigger a Random Event, and a margin of 5 either way makes the answer Exceptional. Selectable per adventure. | `fateCheckAnswer()` |
+| **Fate Check** | The chartless alternative: 2d10 + odds modifier + chaos modifier against a threshold of 11; matching dice trigger a Random Event, and a margin of 5 either way makes the answer Exceptional. Selectable per adventure, and the only piece with no supplied source behind it. | `fateCheckAnswer()` |
 | **Random Event trigger** | On the Fate Chart, a doubles roll (11, 22, … 99) whose tens digit is at or under the Chaos Factor fires a Random Event **as well as** answering the question. | `isRandomEventRoll()` |
 | **Random Event** | Roll the Event Focus table, then roll a word pair from a Meaning Table to colour it. Focuses that name a thread or character draw from the Adventure Lists. | `rollRandomEvent()` |
 | **Chaos Factor** | 1–9, clamped. Starts at 5. Falls one step when the scene went the character's way, rises one step when it did not. | `stepChaos()` |
 | **Scene test** | At scene start, roll d10: over the Chaos Factor the expected scene happens; at or under, an **odd** roll alters it and an **even** roll replaces it with an **interrupt** scene built from a Random Event. | `sceneTest()` |
+| **Scene Adjustment** | The altered-scene table: remove or add a character, reduce or increase an activity, remove or add an object, or on 7–10 **make two adjustments**, each rolled again. The app expands the recursion rather than leaving it to the player. | `sceneAdjustment()` |
 | **Adventure Lists** | Threads and Characters, 25 slots each, weighted by repeated entry. Randomising a list rolls d100 across the slots so frequently entered items come up more often. | `rollList()` |
 | **Meaning Tables** | 37 tables of 100 words. Rolled as a **pair** by default; the same word twice is amplification, not a re-roll. | `rollMeaning()` |
 
-**How the chart is built.** It is derived from a ladder rather than transcribed, on the A1
-precedent: `score = odds rank × 4 + (Chaos Factor − 5)`, read off `FATE_LADDER`. The middle
-column is the anchor — 99, 95, 85, 75, 50, 25, 15, 5, 1 — and each step away from it is one
-point of Chaos Factor. Weighting the odds axis four times as heavily as the chaos axis is
-what keeps an Impossible question impossible in a chaotic scene, which a flat additive model
-does not: the harness checks that Impossible at Chaos Factor 9 is still longer odds than
-50/50 at Chaos Factor 1.
+**How the chart is built.** The printing is **one ladder read diagonally** — every cell equals
+the cell up and to its left — so the app stores the ladder and indexes it, rather than keeping
+81 literal cells:
+
+```
+ladder index = odds rank + (Chaos Factor − 5), clamped to ±8
+targets:  1  1  1  5 10 15 25 35 50 65 75 85 90 95 99 99 99      (index −8 … +8)
+```
+
+One point of Chaos Factor therefore moves exactly as far as one step of odds, which is why
+Impossible at Chaos Factor 9 is the same 50 as 50/50 at Chaos Factor 5, and why Certain at
+Chaos Factor 5 is 90 rather than 99. All 81 printed cells reproduce from this, targets and
+both exceptional bands, against a committed fixture.
 
 **What the Mythic layer does not do.** It never touches Classified's resolution mechanic. A
 Fate question is not a skill check: skill checks stay Base Chance × Difficulty Factor
@@ -518,8 +531,8 @@ layer carries the flag rather than the UI.
 
 | # | Point | Ruling |
 |---|---|---|
-| S1 | The supplied report contains the Meaning Tables but **not** the GME core procedures — no Fate Chart, no Event Focus table, no Scene Adjustment table | Reconstructed rather than extracted. Each carries `verify: true` and the Solo screen prints a one-line note asking the player to check them against their own copy. Fate Check ships alongside because it needs no chart at all, so a player who distrusts the reconstruction still has a working oracle. Replacing the values later is a `data-solo.js` edit and nothing else. |
-| S2 | Exceptional Yes and Exceptional No thresholds | **Derived, not transcribed**, on the A1/R2 precedent: Exceptional Yes is `floor(target / 5)`, Exceptional No is `100 − floor((100 − target) / 5) + 1`. A derived threshold cannot drift out of step with the chart it sits beside. |
+| S1 | The supplied report contains the Meaning Tables but **not** the GME core procedures — no Fate Chart, no Event Focus table, no Scene Adjustment table | **RESOLVED by printed images supplied afterwards.** All three are now transcribed from the printing and the `verify` flags are gone. The Event Focus table **confirmed** the reconstruction band for band. The Fate Chart and Scene Adjustment table **replaced** theirs — see SA3 and SA4 for what was wrong. The escape hatch built for this worked exactly as intended: swapping in the printed values was a `data-solo.js` edit and nothing else. `FATE_CHECK_VERIFY` stays true, because the Fate Check's modifiers were never in any supplied source and still are not. |
+| S2 | Exceptional Yes and Exceptional No thresholds | **Derived, not transcribed**, on the A1/R2 precedent, and now **confirmed against all 81 printed cells**: Exceptional Yes is `round(target / 5)`, Exceptional No is `100 − round((100 − target) / 5) + 1`. Two corrections came out of the scan: the rounding is round, not floor — a target of 99 gives 20, which truncation misses — and at a target of 1 no Exceptional Yes exists while at 99 no Exceptional No does, which is what the printed **x** means. Both cases return `null` and the UI drops the band rather than inventing one. |
 | S3 | Random Event trigger on the Fate Chart | Doubles (11, 22, … 99) whose **tens digit is at or under the Chaos Factor**. The event fires in addition to the answer, never instead of it. |
 | S4 | Chaos Factor bounds | 1–9, clamped at both ends, starting at 5. `stepChaos()` clamps rather than wrapping. |
 | S5 | Two different things called a scene | Kept separate and separately labelled. R9's End Scene stays the Classified combat-flag house aid on the Combat screen; Mythic's End Scene is its own bundle on the Solo screen. Neither calls the other. |
@@ -778,13 +791,13 @@ unticked table.**
 A second system and a second source (§2). Reconstructed tables are marked in the row and
 carry `verify: true` in the data; authored tables are marked and carry `authored: true`.
 
-- [x] **T62** Fate Chart — 9 odds × Chaos Factor 1–9 *(reconstructed, S1)*
-- [x] **T63** Exceptional Yes / Exceptional No thresholds *(derived, S2)*
-- [x] **T64** Fate Check — odds modifiers, chaos modifiers, threshold, matching-dice trigger
+- [x] **T62** Fate Chart — 9 odds × Chaos Factor 1–9, all three numbers per cell *(transcribed from the printed chart, S1)*
+- [x] **T63** Exceptional Yes / Exceptional No thresholds *(derived, confirmed against all 81 printed cells, S2)*
+- [x] **T64** Fate Check — odds modifiers, chaos modifiers, threshold, matching-dice trigger *(unsourced, flagged, S1)*
 - [x] **T65** Chaos Factor — range, start, stepping, and what raises or lowers it *(S4)*
 - [x] **T66** Scene test — expected / altered / interrupt, and the d10 procedure
-- [x] **T67** Scene Adjustment table *(reconstructed, S1)*
-- [x] **T68** Event Focus table *(reconstructed, S1)*
+- [x] **T67** Scene Adjustment table, including the 7–10 double *(transcribed from the printed table, S1)*
+- [x] **T68** Event Focus table *(transcribed; the printing confirmed the reconstruction, S1)*
 - [x] **T69** Adventure Lists — Threads and Characters, 25 slots, weighting and randomisation
 - [x] **T70** Anything Words — the ten, and the doubles-as-amplification rule
 - [x] **T71** The five-step table-construction method, as a rules-library topic
@@ -842,11 +855,11 @@ are flagged rather than presented as extracted (S1).
             Random Event generator, Threads and Characters lists, Meaning-table roller,
             adventure journal, guided End Scene with one-step undo.
       - [x] Per-adventure persistence in `store.js`, in the JSON backup, `SCHEMA_VERSION` 4.
-      - [x] `solo` toggle, nav swap, and the reconstruction notice (S1) on screen.
+      - [x] `solo` toggle, nav swap, and the unsourced-mechanic notice (S1) on screen.
       - [x] Roll-log integration through `Store.addRoll()`.
       - [x] Regression checks: chart monotonicity, derived thresholds, event trigger,
             chaos clamping, list weighting, and every table exactly 100 entries.
-- [x] **Hardening.** Committed regression harness (444 checks); accessibility pass;
+- [x] **Hardening.** Committed regression harness (456 checks); accessibility pass;
       rules-accuracy audit with every finding closed (§11).
 
 ---
@@ -908,14 +921,20 @@ either one.
 |---|---|---|---|
 | SA1 | Solo rolls written to the shared log rendered a Classified Success Quality pill from a field they do not have, printing `undefined` in the log | `logRow()` branches on `solo: true` and prints the Mythic outcome instead | The log renders a solo row labelled Mythic and contains no `undefined` |
 | SA2 | Adding a Solo tab to the six-tab bottom bar would have overflowed at 360px | Solo takes the Rules slot when the toggle is on, and Rules keeps its Home tile | The bar still carries six tabs, Solo is present and Rules is not, and no screen overflows at 360px |
+| SA3 | The reconstructed Fate Chart was wrong in two ways at once: it weighted the odds axis four times as heavily as the chaos axis, and its middle column read 99/95/85/75/50/25/15/5/1. The printed chart is a plain diagonal — one point of Chaos Factor equals one step of odds — with 90 at Certain/CF5 | Replaced with the printed ladder, indexed by `odds rank + (Chaos Factor − 5)` | All 81 printed cells reproduce from a committed fixture; every cell equals the cell up and to its left |
+| SA4 | The reconstructed Scene Adjustment table invented ten distinct results, including a "Random Event instead" row. The printed table has six adjustments and a 7–10 band meaning **Make 2 Adjustments** | Replaced with the printed seven rows; `rollSceneAdjustment()` expands the 7–10 recursion, re-rolling until it holds real adjustments, and reports all of them at once | Every printed row reproduces, 7–10 is flagged `double`, and 1–6 are not |
 
 **Verified against scans supplied after the first build:** the Physical Traits Table (nine bands, both columns), the Wound Rank Accumulation grid, the Characteristics and Skills cost tables, the Potential Abilities list, the Ch.6 experience modifiers and expenditures, and the Skill Rank cap note in both chapters. The Multiplication Table error survives into the official character-sheet PDF.
 
-**Not verifiable here, by construction:** the reconstructed Fate Chart, Event Focus and
-Scene Adjustment tables (S1). The harness checks them for internal consistency —
-monotonicity along both axes, contiguous bands, complete d100 and d10 coverage — which
-cannot tell you they match the printed originals. That check is the user's, against their own
-copy, and the app says so on screen.
+**Verified against the printed images supplied after the first solo build:** all 81 Fate Chart
+cells with both exceptional bands, the Random Event Focus Table, and the Scene Adjustment
+Table. The fixture at `tests/fixtures/fate-chart.json` is the transcription; the harness
+compares the app's derived values against it.
+
+**Still not verifiable here, by construction:** the Fate Check's odds and chaos modifiers
+(S1). No supplied source carries them, so they remain the app's own arithmetic. The Solo
+screen says so when an adventure is set to the Fate Check, and the Fate Chart — which is
+verified — is the default.
 
 **Verified clean, do not re-litigate:** the Chapter One worked example reproduces exactly at
 both DF 6 and DF 7; a d100 of 100 fails at every Success Chance including 300; DF ½ rounds
@@ -963,3 +982,4 @@ tables are this app's own work and are marked as such (S6).
 | 2026-07-30 | Shipped the Mythic solo layer: `data-solo.js` (T62–T79), `src/solo.js`, the `solo` toggle and its nav swap, per-adventure persistence at `SCHEMA_VERSION` 4, solo rows in the shared roll log, and 22 Meaning Tables — 9 reproduced from the supplied report and 13 authored for this app | Phase 7, per the plan committed earlier today. The Fate Chart, Event Focus and Scene Adjustment tables were not in the supplied source, so they are derived or reconstructed and flagged on screen (S1); the Fate Check ships alongside because it needs no chart | 442 checks green, including all 900 baseline words against a committed fixture extracted from the report, chart monotonicity on both axes, band contiguity at every odds and Chaos Factor, and the event trigger. Driven headless at 360px in light and dark: adventure creation, both Fate mechanics across all nine odds, scene test, scene adjustment, twelve Random Events, list randomisation, seven Meaning Tables, guided End Scene with undo, and the roll log — zero console errors, zero horizontal overflow | `classified-v4` |
 | 2026-07-30 | Closed SA1 and SA2 | Root cause of SA1: `logRow()` read `quality` and `QUALITY_SHORT[quality]` unconditionally, and a Fate answer has no Success Quality, so the pill rendered `undefined`. SA2 was a layout limit, not a bug — six tabs is the maximum at 360px | A solo row renders as Mythic with no `undefined`; the nav carries six tabs with Solo in the Rules slot | `classified-v4` |
 | 2026-07-30 | Extended the authored Meaning Tables from 13 to 28 (T80–T82): an in-play set for combat, wounds, chases, Reactions, coercion and social play; a world set for weather, senses, terrain and institutions; and a story set for twists, scene framing, motive, leverage and aftermath. 37 tables, 3,700 words | The report's Step 1 is to define the subject, and the app's subjects are the game's own subsystems — a solo player narrating a §3.17 fight or a §3.13 chase had no table pointed at it, so every procedure that has to be narrated rather than rolled now has one. Combat Action pairs across to Espionage Description and Scene Framing to Location, so an interrupt scene arrives with a place attached | 444 checks green: every table exactly 100 single capitalised words, no repeats inside an authored table, Anything Words seeded in all but the codename list, every pairWith and Event Focus suggestion resolving, and the group index matching the roller | `classified-v5` |
+| 2026-07-30 | Replaced the reconstructed Fate Chart and Scene Adjustment table with the printed originals, supplied as images (S1 resolved; SA3, SA4); confirmed the Event Focus table and the Exceptional Yes/No derivation | Root cause of SA3: the reconstruction guessed at two things and got both wrong — it weighted the odds axis four times as heavily as the chaos axis, where the printed chart is a plain diagonal, and its middle column put Certain at 99 where the printing says 90. Root cause of SA4: the reconstruction invented ten results where the printing has six plus a 7–10 "Make 2 Adjustments" band. S2 needed rounding rather than truncation, and the printed **x** cells mean a band that cannot occur, now `null` rather than a fabricated 1 | 456 checks green, including all 81 printed cells against a new committed fixture, the diagonal property, every d100 reading as exactly one answer at all 81 cells, and every printed Scene Adjustment and Event Focus row. Driven headless at 360px: both mechanics, the 7–10 recursion, and the chart reference view | `classified-v6` |

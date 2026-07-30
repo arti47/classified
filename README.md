@@ -101,8 +101,8 @@ logged with enough detail to re-derive it, lifecycle boundaries store an undo sn
 GM generators produce output, there is no horizontal overflow at 360px or 390px, the
 accessibility basics hold, and the console stays clean. The solo layer is covered too: all
 900 baseline Meaning Table words are checked against a fixture extracted from the supplied
-report, the Fate Chart is checked for monotonicity along both axes and for bands that never
-overlap, and a solo session is driven end to end in the browser.
+report, all 81 Fate Chart cells are checked against a fixture transcribed from the printed chart,
+and a solo session is driven end to end in the browser.
 
 If Chromium is not on the machine, the browser section reports as skipped and the Node
 checks still run.
@@ -131,9 +131,10 @@ reproduced verbatim, and no setting, adventure or artwork is included.
 The optional solo layer is a **different game by a different publisher**: the Mythic Game
 Master Emulator and Mythic Magazine are Word Mill Games'. `data-solo.js` reproduces nine
 100-word Meaning Tables from the supplied Mythic Magazine Vol. 38 material, because a
-paraphrased word list is not the same table, and reconstructs three procedure tables that the
-supplied material does not contain — the app flags those on screen and asks you to check them
-against your own copy. The other twenty-eight tables were written for this app.
+paraphrased word list is not the same table, and transcribes the printed Fate Chart, Random
+Event Focus Table and Scene Adjustment Table from images of the originals. The Fate Check's
+modifiers are the one piece with no supplied source behind them, and the app says so on screen
+when an adventure is set to use it. The other twenty-eight tables were written for this app.
 
 If you publish or distribute this application or anything derived from it, the licensing is
 your responsibility, for both layers. Openly licensed material — an SRD, or ORC/Creative
