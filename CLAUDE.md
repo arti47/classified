@@ -412,14 +412,22 @@ such so the two are never confused at the table.
 
 | Piece | Procedure | Where |
 |---|---|---|
-| **Fate question** | Pick odds from the nine-step ladder (Certain → Impossible), read the target against the current Chaos Factor, roll d100 under it for Yes. Low fifth of the Yes range is an **Exceptional Yes**; top fifth of the No range an **Exceptional No**. | `fateChart()`, `fateCheck()` |
-| **Fate Check** | The chartless alternative: 2d10 + odds modifier + chaos modifier against a fixed threshold; matching dice trigger a Random Event. Selectable per adventure. | `fateCheck()` |
+| **Fate question** | Pick odds from the nine-step ladder (Certain → Impossible), read the target against the current Chaos Factor, roll d100 under it for Yes. Low fifth of the Yes range is an **Exceptional Yes**; top fifth of the No range an **Exceptional No**. | `fateTarget()`, `fateChartAnswer()` |
+| **Fate Check** | The chartless alternative: 2d10 + odds modifier + chaos modifier against a threshold of 11; matching dice trigger a Random Event, and a margin of 5 either way makes the answer Exceptional. Selectable per adventure. | `fateCheckAnswer()` |
 | **Random Event trigger** | On the Fate Chart, a doubles roll (11, 22, … 99) whose tens digit is at or under the Chaos Factor fires a Random Event **as well as** answering the question. | `isRandomEventRoll()` |
 | **Random Event** | Roll the Event Focus table, then roll a word pair from a Meaning Table to colour it. Focuses that name a thread or character draw from the Adventure Lists. | `rollRandomEvent()` |
 | **Chaos Factor** | 1–9, clamped. Starts at 5. Falls one step when the scene went the character's way, rises one step when it did not. | `stepChaos()` |
 | **Scene test** | At scene start, roll d10: over the Chaos Factor the expected scene happens; at or under, an **odd** roll alters it and an **even** roll replaces it with an **interrupt** scene built from a Random Event. | `sceneTest()` |
 | **Adventure Lists** | Threads and Characters, 25 slots each, weighted by repeated entry. Randomising a list rolls d100 across the slots so frequently entered items come up more often. | `rollList()` |
 | **Meaning Tables** | 22 tables of 100 words. Rolled as a **pair** by default; the same word twice is amplification, not a re-roll. | `rollMeaning()` |
+
+**How the chart is built.** It is derived from a ladder rather than transcribed, on the A1
+precedent: `score = odds rank × 4 + (Chaos Factor − 5)`, read off `FATE_LADDER`. The middle
+column is the anchor — 99, 95, 85, 75, 50, 25, 15, 5, 1 — and each step away from it is one
+point of Chaos Factor. Weighting the odds axis four times as heavily as the chaos axis is
+what keeps an Impossible question impossible in a chaotic scene, which a flat additive model
+does not: the harness checks that Impossible at Chaos Factor 9 is still longer odds than
+50/50 at Chaos Factor 1.
 
 **What the Mythic layer does not do.** It never touches Classified's resolution mechanic. A
 Fate question is not a skill check: skill checks stay Base Chance × Difficulty Factor
@@ -508,6 +516,7 @@ layer carries the flag rather than the UI.
 | S5 | Two different things called a scene | Kept separate and separately labelled. R9's End Scene stays the Classified combat-flag house aid on the Combat screen; Mythic's End Scene is its own bundle on the Solo screen. Neither calls the other. |
 | S6 | The 13 authored tables are not extracted from anything | Marked `authored: true`, listed apart from the `source: "mm38"` baselines, and described on screen as written for this app. They are not presented as Mythic Magazine content. |
 | S7 | Whether a Fate answer should be spendable with Hero Points | **No.** Hero Points shift a Classified Success Quality; nothing in either book connects them to an oracle. Left alone rather than invented. |
+| S8 | The supplied report's Objects column prints Information and Intriguing twice, at 49-50 and again at 51-52 | **Reproduced as supplied.** The report is the source of record, and silently repairing a source table is how transcription damage gets laundered — the same reasoning as R3, where the app multiplies rather than trusting the printed 8 × 7 = 46. Two regression checks pin the repeat in place so it cannot be tidied away by accident. |
 
 ---
 
@@ -647,8 +656,11 @@ classified.soloUndo:   <one-step End Scene snapshot>
 
 Every schema addition ships with a back-fill in `normalize()` and is documented here in the
 same change. `SCHEMA_VERSION` is 4. The pre-A11 single `bandIndex` field is migrated to `heightBand` and `weightBand` on load. Version 4 adds the solo keys above; characters are
-untouched by it, and `normalizeAdventure()` back-fills every field so a version-3 backup
-imports without a solo section.
+untouched by it, and `normalizeAdventure()` — in `store.js`, beside the rest of the
+persistence layer, so `derived.js` stays free of Mythic — back-fills every field, clamps the
+Chaos Factor, truncates a list past 25 slots and corrects a weight below 1. A version-3
+backup carries no solo section and imports cleanly. Solo rolls are written to the shared log
+with `solo: true` and a Mythic `outcome` instead of a Success Quality.
 
 ---
 
@@ -757,24 +769,29 @@ unticked table.**
 A second system and a second source (§2). Reconstructed tables are marked in the row and
 carry `verify: true` in the data; authored tables are marked and carry `authored: true`.
 
-- [ ] **T62** Fate Chart — 9 odds × Chaos Factor 1–9 *(reconstructed, S1)*
-- [ ] **T63** Exceptional Yes / Exceptional No thresholds *(derived, S2)*
-- [ ] **T64** Fate Check — odds modifiers, chaos modifiers, threshold, matching-dice trigger
-- [ ] **T65** Chaos Factor — range, start, stepping, and what raises or lowers it *(S4)*
-- [ ] **T66** Scene test — expected / altered / interrupt, and the d10 procedure
-- [ ] **T67** Scene Adjustment table *(reconstructed, S1)*
-- [ ] **T68** Event Focus table *(reconstructed, S1)*
-- [ ] **T69** Adventure Lists — Threads and Characters, 25 slots, weighting and randomisation
-- [ ] **T70** Anything Words — the ten, and the doubles-as-amplification rule
-- [ ] **T71** The five-step table-construction method, as a rules-library topic
-- [ ] **T72** Baseline Action Tables — Action 1, Action 2 *(200 words, mm38)*
-- [ ] **T73** Baseline Description Tables — Descriptor 1, Descriptor 2 *(200 words, mm38)*
-- [ ] **T74** Baseline Elements Tables — Locations, Characters, Objects *(300 words, mm38)*
-- [ ] **T75** Baseline Adventure tables — Genre, Tone *(200 words, mm38)*
-- [ ] **T76** Authored core espionage set — Espionage Action, Espionage Description, Agency & Tradecraft, Adversary, Location, Object & Equipment *(600 words, authored)*
-- [ ] **T77** Authored mission set — Mission Objective, Complication, Cover Identity, Intel & Rumour *(400 words, authored)*
-- [ ] **T78** Authored flavour set — Codename Words, Surveillance & Chase, Gadget Quirk *(300 words, authored)*
-- [ ] **T79** Solo rules-library topics — Fate, Chaos, scenes, events, lists, table building
+- [x] **T62** Fate Chart — 9 odds × Chaos Factor 1–9 *(reconstructed, S1)*
+- [x] **T63** Exceptional Yes / Exceptional No thresholds *(derived, S2)*
+- [x] **T64** Fate Check — odds modifiers, chaos modifiers, threshold, matching-dice trigger
+- [x] **T65** Chaos Factor — range, start, stepping, and what raises or lowers it *(S4)*
+- [x] **T66** Scene test — expected / altered / interrupt, and the d10 procedure
+- [x] **T67** Scene Adjustment table *(reconstructed, S1)*
+- [x] **T68** Event Focus table *(reconstructed, S1)*
+- [x] **T69** Adventure Lists — Threads and Characters, 25 slots, weighting and randomisation
+- [x] **T70** Anything Words — the ten, and the doubles-as-amplification rule
+- [x] **T71** The five-step table-construction method, as a rules-library topic
+- [x] **T72** Baseline Action Tables — Action 1, Action 2 *(200 words, mm38)*
+- [x] **T73** Baseline Description Tables — Descriptor 1, Descriptor 2 *(200 words, mm38)*
+- [x] **T74** Baseline Elements Tables — Locations, Characters, Objects *(300 words, mm38)*
+- [x] **T75** Baseline Adventure tables — Genre, Tone *(200 words, mm38)*
+- [x] **T76** Authored core espionage set — Espionage Action, Espionage Description, Agency & Tradecraft, Adversary, Location, Object & Equipment *(600 words, authored)*
+- [x] **T77** Authored mission set — Mission Objective, Complication, Cover Identity, Intel & Rumour *(400 words, authored)*
+- [x] **T78** Authored flavour set — Codename Words, Surveillance & Chase, Gadget Quirk *(300 words, authored)*
+- [x] **T79** Solo rules-library topics — Fate, Chaos, scenes, events, lists, table building
+
+**Every box is ticked.** The supplied report is fully represented — 900 baseline words
+reproduced cell for cell and checked against a committed fixture extracted from the report
+itself — and the 1,300 authored words are in place. The three reconstructed procedure tables
+are flagged rather than presented as extracted (S1).
 
 ---
 
@@ -807,17 +824,17 @@ carry `verify: true` in the data; authored tables are marked and carry `authored
 - [x] **Phase 6 — Conditional surfaces.** GM screen with party panel, encounter generators,
       NPC generator, OSIRIS roster and reference tables. No expansions, no solo mode, no
       power automation — none exist in this game.
-- [ ] **Phase 7 — Solo play (Mythic).** *(§3.20, decided in §1.2.)*
-      - [ ] `data-solo.js` extracted and authored per the T62–T79 ledger.
-      - [ ] `src/solo.js`: Chaos + scene header, Fate question box on both mechanics,
+- [x] **Phase 7 — Solo play (Mythic).** *(§3.20, decided in §1.2.)*
+      - [x] `data-solo.js` extracted and authored per the T62–T79 ledger.
+      - [x] `src/solo.js`: Chaos + scene header, Fate question box on both mechanics,
             Random Event generator, Threads and Characters lists, Meaning-table roller,
             adventure journal, guided End Scene with one-step undo.
-      - [ ] Per-adventure persistence in `store.js`, in the JSON backup, `SCHEMA_VERSION` 4.
-      - [ ] `solo` toggle, nav swap, and the reconstruction notice (S1) on screen.
-      - [ ] Roll-log integration through `Store.addRoll()`.
-      - [ ] Regression checks: chart monotonicity, derived thresholds, event trigger,
+      - [x] Per-adventure persistence in `store.js`, in the JSON backup, `SCHEMA_VERSION` 4.
+      - [x] `solo` toggle, nav swap, and the reconstruction notice (S1) on screen.
+      - [x] Roll-log integration through `Store.addRoll()`.
+      - [x] Regression checks: chart monotonicity, derived thresholds, event trigger,
             chaos clamping, list weighting, and every table exactly 100 entries.
-- [x] **Hardening.** Committed regression harness (282 checks); accessibility pass;
+- [x] **Hardening.** Committed regression harness (442 checks); accessibility pass;
       rules-accuracy audit with every finding closed (§11).
 
 ---
@@ -872,7 +889,21 @@ sequencing and gating, not numbers.
 | A12 | Choosing Language as the fourth Ability turned the *generic* Language skill into a Base Chance 20 Ability. It grants one **named** tongue at 20; the generic skill stays at Intelligence. | `baseChanceFor()` and `isTrained()` exempt `language`; the Ability is displayed by its language name | Aidan Hunter's sheet shows French as an Ability alongside Language at INT 12 — his printed row is now reproduced |
 | A11 | Height and weight were treated as a single frame purchase: Creation Points were charged twice but Reputation was credited only once, and the wizard forced both into the same row | Split into `identity.heightBand` and `identity.weightBand`. Each charges its own cost and credits its own Reputation; the wizard picks them separately and warns past a one-row gap. Old dossiers migrate from `bandIndex`. | Four published sample characters reproduce their printed Reputation exactly, two of them with height and weight in different rows |
 
+**Solo layer.** Two findings, both at the seam between the two systems rather than inside
+either one.
+
+| # | Finding | Fix | Regression check |
+|---|---|---|---|
+| SA1 | Solo rolls written to the shared log rendered a Classified Success Quality pill from a field they do not have, printing `undefined` in the log | `logRow()` branches on `solo: true` and prints the Mythic outcome instead | The log renders a solo row labelled Mythic and contains no `undefined` |
+| SA2 | Adding a Solo tab to the six-tab bottom bar would have overflowed at 360px | Solo takes the Rules slot when the toggle is on, and Rules keeps its Home tile | The bar still carries six tabs, Solo is present and Rules is not, and no screen overflows at 360px |
+
 **Verified against scans supplied after the first build:** the Physical Traits Table (nine bands, both columns), the Wound Rank Accumulation grid, the Characteristics and Skills cost tables, the Potential Abilities list, the Ch.6 experience modifiers and expenditures, and the Skill Rank cap note in both chapters. The Multiplication Table error survives into the official character-sheet PDF.
+
+**Not verifiable here, by construction:** the reconstructed Fate Chart, Event Focus and
+Scene Adjustment tables (S1). The harness checks them for internal consistency —
+monotonicity along both axes, contiguous bands, complete d100 and d10 coverage — which
+cannot tell you they match the printed originals. That check is the user's, against their own
+copy, and the app says so on screen.
 
 **Verified clean, do not re-litigate:** the Chapter One worked example reproduces exactly at
 both DF 6 and DF 7; a d100 of 100 fails at every Success Chance including 300; DF ½ rounds
@@ -917,3 +948,5 @@ tables are this app's own work and are marked as such (S6).
 | 2026-07-30 | Shipped `data-pregens.js` with the five published sample characters and one-tap instantiation (T60, T61) | The Character Sheets supplement was supplied as page images, from which the skill columns are readable | All 114 printed Base Chances reproduce; the Creation Point audit clears four of five sheets, with Emily Steele 12 points over on the printed sheet | `classified-v3` |
 | 2026-07-30 | Language as the fourth Ability grants a named tongue, not the generic skill (A12) | Root cause: `baseChanceFor()` matched the Ability key against the skill key without exempting Language. Found by Aidan Hunter's sheet, which prints French as an Ability and Language at INT 12. | 325 checks green | `classified-v3` |
 | 2026-07-30 | Planned Phase 7 — the Mythic solo layer. Recorded the third source (§2), the solo system profile (§3.20), the eleven solo decisions (§1.2), rulings S1–S7, `data-solo.js` and `src/solo.js` in the file tables, the per-adventure schema at `SCHEMA_VERSION` 4 (§6), the `solo` toggle and its nav swap (§7), ledger rows T62–T79, and the two-provenance note (§12) | Spec before code, per process rule 1. The user asked for a solo tab on the Mythic system and for the supplied Elements tables to be rollable; the answers to Q1–Q12 fix the scope. The ledger boxes stay unticked because no data is extracted yet | None yet — this change is documentation only | unchanged |
+| 2026-07-30 | Shipped the Mythic solo layer: `data-solo.js` (T62–T79), `src/solo.js`, the `solo` toggle and its nav swap, per-adventure persistence at `SCHEMA_VERSION` 4, solo rows in the shared roll log, and 22 Meaning Tables — 9 reproduced from the supplied report and 13 authored for this app | Phase 7, per the plan committed earlier today. The Fate Chart, Event Focus and Scene Adjustment tables were not in the supplied source, so they are derived or reconstructed and flagged on screen (S1); the Fate Check ships alongside because it needs no chart | 442 checks green, including all 900 baseline words against a committed fixture extracted from the report, chart monotonicity on both axes, band contiguity at every odds and Chaos Factor, and the event trigger. Driven headless at 360px in light and dark: adventure creation, both Fate mechanics across all nine odds, scene test, scene adjustment, twelve Random Events, list randomisation, seven Meaning Tables, guided End Scene with undo, and the roll log — zero console errors, zero horizontal overflow | `classified-v4` |
+| 2026-07-30 | Closed SA1 and SA2 | Root cause of SA1: `logRow()` read `quality` and `QUALITY_SHORT[quality]` unconditionally, and a Fate answer has no Success Quality, so the pill rendered `undefined`. SA2 was a layout limit, not a bug — six tabs is the maximum at 360px | A solo row renders as Mythic with no `undefined`; the nav carries six tabs with Solo in the Rules slot | `classified-v4` |

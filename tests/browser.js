@@ -6,7 +6,7 @@ const VIEWPORTS = [
   { name: "390px phone", width: 390, height: 844 }
 ];
 
-const TABS = ["home", "sheet", "combat", "rules", "settings", "create", "gear", "advance", "log", "gm"];
+const TABS = ["home", "sheet", "combat", "rules", "settings", "create", "gear", "advance", "log", "gm", "solo"];
 
 export async function browserTests(t, { chromium, executablePath, baseURL }) {
   const browser = await chromium.launch({ executablePath, args: ["--no-sandbox", "--disable-dev-shm-usage"] });
@@ -36,7 +36,7 @@ export async function browserTests(t, { chromium, executablePath, baseURL }) {
 
       // Turn on the GM screen so its tab is reachable.
       await page.evaluate(() => {
-        localStorage.setItem("classified.settings", JSON.stringify({ theme: "system", campaignStyle: "adventurous", gmScreen: true, showUntrained: true, autoConditions: true, heroPointPrompt: true }));
+        localStorage.setItem("classified.settings", JSON.stringify({ theme: "system", campaignStyle: "adventurous", gmScreen: true, showUntrained: true, autoConditions: true, heroPointPrompt: true, solo: true }));
       });
       await page.reload({ waitUntil: "load" });
       await page.waitForSelector(".nav-btn");
@@ -203,6 +203,103 @@ export async function browserTests(t, { chromium, executablePath, baseURL }) {
       await page.waitForTimeout(150);
       const closed = await page.evaluate(() => !document.querySelector(".modal"));
       t.ok(closed, "Escape closes a modal");
+
+      /* ---------------- the Mythic solo layer ---------------- */
+
+      // Solo takes the Rules slot in the bottom bar rather than adding a seventh tab.
+      const navState = await page.evaluate(() => {
+        const routes = [...document.querySelectorAll(".nav-btn")].map(b => b.dataset.route);
+        return { routes, count: routes.length };
+      });
+      t.ok(navState.routes.includes("solo") && !navState.routes.includes("rules"),
+        "the Solo tab takes the Rules slot when solo play is on");
+      t.eq(navState.count, 6, "the bottom bar still carries six tabs with solo play on");
+
+      await page.evaluate(() => { location.hash = "#/solo"; });
+      await page.waitForTimeout(160);
+      const soloEmpty = await page.evaluate(() => document.getElementById("screen").textContent.includes("No adventure open"));
+      t.ok(soloEmpty, "the Solo screen offers to start an adventure when none is open");
+
+      // Start an adventure, then ask Fate a question through the real engine.
+      const fate = await page.evaluate(async () => {
+        const Store = await import("./src/store.js");
+        const Solo = await import("./src/solo.js");
+        const adv = Store.createAdventure({ name: "Operation Nightjar" });
+        await Solo.askFate(Store.activeAdventure(), "fifty", "Is the safe already open?");
+        const after = Store.activeAdventure();
+        const log = Store.rollLog();
+        return {
+          chaos: adv.chaos,
+          scene: adv.scene,
+          journal: after.journal.length,
+          kind: after.journal[0] && after.journal[0].kind,
+          logSolo: !!(log[0] && log[0].solo),
+          outcome: log[0] && log[0].outcome,
+          modalText: (document.querySelector(".modal") || {}).textContent || ""
+        };
+      });
+      t.eq(fate.chaos, 5, "a new adventure opens at Chaos Factor 5");
+      t.ok(fate.journal >= 1 && fate.kind === "fate", "asking Fate writes a journal entry");
+      t.ok(fate.logSolo, "a Fate answer is written to the shared roll log as a solo row");
+      t.ok(["Yes", "No", "Exceptional Yes", "Exceptional No"].includes(fate.outcome),
+        "the logged outcome is one of the four Mythic answers");
+      t.ok(/Yes|No/.test(fate.modalText), "the Fate result is shown in a modal");
+
+      await page.keyboard.press("Escape");
+      await page.waitForTimeout(120);
+
+      // The solo roll log row renders without the Classified Quality columns.
+      await page.evaluate(() => { location.hash = "#/log"; });
+      await page.waitForTimeout(160);
+      const logRendered = await page.evaluate(() => {
+        const text = document.getElementById("screen").textContent;
+        return { solo: text.includes("Solo (Mythic)"), undefinedText: text.includes("undefined") };
+      });
+      t.ok(logRendered.solo, "the roll log labels a solo row as Mythic");
+      t.ok(!logRendered.undefinedText, "the solo roll-log row prints no undefined Success Quality");
+
+      // Meaning tables roll a word pair, and the Solo screen renders with an adventure open.
+      await page.evaluate(() => { location.hash = "#/solo"; });
+      await page.waitForTimeout(160);
+      const meaning = await page.evaluate(async () => {
+        const Store = await import("./src/store.js");
+        const Solo = await import("./src/solo.js");
+        await Solo.rollMeaning(Store.activeAdventure(), "espAction");
+        const words = (document.querySelector(".modal .roll-quality") || {}).textContent || "";
+        return { words, journal: Store.activeAdventure().journal[0].kind };
+      });
+      t.ok(meaning.words.split(" · ").length === 2, "a Meaning Table rolls a word pair");
+      t.eq(meaning.journal, "meaning", "a Meaning Table roll is journalled");
+      await page.keyboard.press("Escape");
+      await page.waitForTimeout(120);
+
+      // Scene boundaries store a solo-specific undo snapshot.
+      const undo = await page.evaluate(async () => {
+        const Store = await import("./src/store.js");
+        Store.pushSoloUndo(Store.soloSnapshot());
+        Store.updateAdventure(a => { a.chaos = 9; a.scene = 7; });
+        const dirty = Store.activeAdventure();
+        const applied = Store.applySoloUndo();
+        const back = Store.activeAdventure();
+        return { dirtyChaos: dirty.chaos, applied, chaos: back.chaos, scene: back.scene };
+      });
+      t.eq(undo.dirtyChaos, 9, "the Chaos Factor can be driven to the top of its range");
+      t.ok(undo.applied && undo.chaos === 5 && undo.scene === 1,
+        "the solo undo snapshot restores the Chaos Factor and scene count");
+
+      // The solo state rides along in the backup.
+      const backupSolo = await page.evaluate(async () => {
+        const Store = await import("./src/store.js");
+        const parsed = JSON.parse(Store.exportJSON());
+        return Array.isArray(parsed.soloAdventures) && parsed.soloAdventures.length > 0;
+      });
+      t.ok(backupSolo, "solo adventures are included in the JSON backup");
+
+      await page.evaluate(() => { location.hash = "#/solo"; });
+      await page.waitForTimeout(160);
+      const soloOverflow = await page.evaluate(() =>
+        document.documentElement.scrollWidth - document.documentElement.clientWidth);
+      t.ok(soloOverflow <= 1, `the Solo screen with an adventure open does not overflow horizontally (${soloOverflow}px)`);
 
       // Export produces valid JSON.
       const exportOk = await page.evaluate(async () => {

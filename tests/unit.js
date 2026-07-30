@@ -7,6 +7,9 @@ import { blankCharacter, normalize, derived, skillList, validate, creationSpend,
 import { ANIMALS } from "../data-monsters.js";
 import { OSIRIS_NPCS, ENCOUNTER_TABLES, ENCOUNTERS, NPC_CHARACTERISTIC_TABLES, NPC_SKILL_TABLES } from "../data-npcs.js";
 import { PREGENS, PREGEN_BUDGET_AUDIT } from "../data-pregens.js";
+import * as SOLO from "../data-solo.js";
+import { normalizeAdventure } from "../src/store.js";
+import { readFileSync } from "node:fs";
 
 export function unitTests(t) {
 
@@ -518,4 +521,232 @@ export function unitTests(t) {
     if (bad) { t.fail(`NPC skill table ${key} references unknown skill ${bad}`); break; }
   }
   t.pass("every NPC skill package references real skills");
+
+  soloTests(t);
+}
+
+/* ================================================================ the Mythic layer
+ * A second system and a second source (CLAUDE.md §2, §3.20). These checks never touch
+ * data.js: if a Classified value ever leaks into data-solo.js, that is the bug.
+ */
+function soloTests(t) {
+
+  t.group("Mythic — Meaning Tables");
+
+  t.eq(SOLO.MEANING_TABLES.length, 22, "22 Meaning Tables ship: 9 baseline and 13 authored");
+  t.eq(SOLO.MEANING_TABLES.filter(m => m.source === "mm38").length, 9, "nine tables are marked as coming from the supplied report");
+  t.eq(SOLO.MEANING_TABLES.filter(m => m.authored).length, 13, "thirteen tables are marked as authored for this app (S6)");
+
+  let short = null;
+  for (const m of SOLO.MEANING_TABLES) if (m.words.length !== 100) short = `${m.key} has ${m.words.length}`;
+  t.ok(!short, "every Meaning Table is exactly 100 entries" + (short ? ` (${short})` : ""));
+
+  t.eq(SOLO.MEANING_TABLES.reduce((n, m) => n + m.words.length, 0), 2200, "2,200 words in total");
+
+  let badToken = null;
+  for (const m of SOLO.MEANING_TABLES) {
+    const bad = m.words.find(w => !/^[A-Z][A-Za-z-]*$/.test(w));
+    if (bad) { badToken = `${m.key}: ${bad}`; break; }
+  }
+  t.ok(!badToken, "every entry is a single capitalised word, per the one-word rule" + (badToken ? ` (${badToken})` : ""));
+
+  // Authored tables must not repeat a word: the report says weight an outcome with
+  // synonyms, not duplicates. Baseline tables reproduce whatever the source printed.
+  let authoredDup = null;
+  for (const m of SOLO.MEANING_TABLES.filter(x => x.authored)) {
+    const dup = m.words.find((w, i) => m.words.indexOf(w) !== i);
+    if (dup) { authoredDup = `${m.key}: ${dup}`; break; }
+  }
+  t.ok(!authoredDup, "no authored table repeats a word" + (authoredDup ? ` (${authoredDup})` : ""));
+
+  // The Objects column of the supplied report repeats Information and Intriguing at 51-52.
+  // Reproduced as supplied rather than quietly corrected (S8).
+  const objects = SOLO.MEANING_BY_KEY.objects.words;
+  t.eq(objects[50], "Information", "the supplied Objects column's repeat at 51 is reproduced as printed (S8)");
+  t.eq(objects[51], "Intriguing", "the supplied Objects column's repeat at 52 is reproduced as printed (S8)");
+
+  // Every baseline word list matches the supplied report, cell for cell.
+  const report = readFileSync(new URL("./fixtures/mm38-tables.json", import.meta.url), "utf8");
+  const fixture = JSON.parse(report);
+  let mismatch = null;
+  for (const [key, words] of Object.entries(fixture)) {
+    const got = SOLO.MEANING_BY_KEY[key].words;
+    for (let i = 0; i < 100; i++) {
+      if (got[i] !== words[i]) { mismatch = `${key} ${i + 1}: source ${words[i]}, app ${got[i]}`; break; }
+    }
+    if (mismatch) break;
+  }
+  t.ok(!mismatch, "all 900 baseline words reproduce the supplied report exactly" + (mismatch ? ` (${mismatch})` : ""));
+
+  let missingAnything = null;
+  for (const m of SOLO.MEANING_TABLES.filter(x => x.authored)) {
+    const hits = SOLO.ANYTHING_WORDS.filter(w => m.words.includes(w)).length;
+    if (hits < 2 && m.key !== "espCodename") missingAnything = `${m.key} carries ${hits}`;
+  }
+  t.ok(!missingAnything, "every authored table except the codename list seeds Anything Words" + (missingAnything ? ` (${missingAnything})` : ""));
+
+  let badPair = null;
+  for (const m of SOLO.MEANING_TABLES) {
+    if (m.pairWith && !SOLO.MEANING_BY_KEY[m.pairWith]) badPair = m.key;
+  }
+  t.ok(!badPair, "every pairWith points at a real table" + (badPair ? ` (${badPair})` : ""));
+
+  const badFocusTable = Object.entries(SOLO.EVENT_MEANING_BY_FOCUS)
+    .find(([, table]) => !SOLO.MEANING_BY_KEY[table]);
+  t.ok(!badFocusTable, "every Event Focus suggests a real Meaning Table");
+
+  /* ---------------- fate ---------------- */
+
+  t.group("Mythic — Fate");
+
+  t.eq(SOLO.FATE_ODDS.length, 9, "nine odds from Certain to Impossible");
+  t.eq(SOLO.fateTarget("fifty", 5), 50, "50/50 at Chaos Factor 5 is a target of 50");
+  t.eq(SOLO.fateTarget("likely", 5), 75, "Likely at Chaos Factor 5 is 75");
+  t.eq(SOLO.fateTarget("unlikely", 5), 25, "Unlikely at Chaos Factor 5 is 25");
+  t.eq(SOLO.fateTarget("certain", 5), 99, "Certain at Chaos Factor 5 is 99, never 100");
+  t.eq(SOLO.fateTarget("impossible", 5), 1, "Impossible at Chaos Factor 5 is 1");
+
+  // Monotone along both axes: more chaos never lowers a Yes, better odds never lower it.
+  let nonMono = null;
+  for (const o of SOLO.FATE_ODDS) {
+    for (let c = 2; c <= 9; c++) {
+      if (SOLO.fateTarget(o.key, c) < SOLO.fateTarget(o.key, c - 1)) nonMono = `${o.key} at CF ${c}`;
+    }
+  }
+  t.ok(!nonMono, "a higher Chaos Factor never lowers the chance of a Yes" + (nonMono ? ` (${nonMono})` : ""));
+
+  nonMono = null;
+  for (let c = 1; c <= 9; c++) {
+    for (let i = 1; i < SOLO.FATE_ODDS.length; i++) {
+      if (SOLO.fateTarget(SOLO.FATE_ODDS[i].key, c) > SOLO.fateTarget(SOLO.FATE_ODDS[i - 1].key, c)) {
+        nonMono = `${SOLO.FATE_ODDS[i].key} at CF ${c}`;
+      }
+    }
+  }
+  t.ok(!nonMono, "worse odds never beat better odds at the same Chaos Factor" + (nonMono ? ` (${nonMono})` : ""));
+
+  // The odds axis outweighs the chaos axis, so an Impossible question stays impossible.
+  t.ok(SOLO.fateTarget("impossible", 9) < SOLO.fateTarget("fifty", 1),
+    "Impossible at maximum chaos is still less likely than 50/50 at minimum chaos");
+  t.ok(SOLO.fateTarget("impossible", 9) <= 5, "Impossible tops out at 5 even at Chaos Factor 9");
+
+  // Derived thresholds (S2).
+  t.eq(SOLO.exceptionalYes(50), 10, "Exceptional Yes is the low fifth of the Yes range");
+  t.eq(SOLO.exceptionalNo(50), 91, "Exceptional No is the top fifth of the No range");
+  t.eq(SOLO.exceptionalYes(25), 5, "Exceptional Yes at target 25");
+  t.eq(SOLO.exceptionalNo(25), 86, "Exceptional No at target 25");
+
+  let bandBreak = null;
+  for (const o of SOLO.FATE_ODDS) {
+    for (let c = 1; c <= 9; c++) {
+      const target = SOLO.fateTarget(o.key, c);
+      const y = SOLO.exceptionalYes(target);
+      const n = SOLO.exceptionalNo(target);
+      if (y < 1 || y > target) bandBreak = `${o.key}/CF${c} exceptional yes ${y} vs target ${target}`;
+      if (n <= target) bandBreak = `${o.key}/CF${c} exceptional no ${n} overlaps target ${target}`;
+    }
+  }
+  t.ok(!bandBreak, "no Fate band overlaps its neighbour at any odds or Chaos Factor" + (bandBreak ? ` (${bandBreak})` : ""));
+
+  t.eq(SOLO.fateChartAnswer(5, "fifty", 5).key, "exceptionalYes", "a 5 against a target of 50 is an Exceptional Yes");
+  t.eq(SOLO.fateChartAnswer(50, "fifty", 5).key, "yes", "rolling exactly the target is a Yes");
+  t.eq(SOLO.fateChartAnswer(51, "fifty", 5).key, "no", "one over the target is a No");
+  t.eq(SOLO.fateChartAnswer(95, "fifty", 5).key, "exceptionalNo", "a 95 against a target of 50 is an Exceptional No");
+  t.eq(SOLO.fateChartAnswer(100, "certain", 9).key, "no", "a d100 of 100 answers No even at Certain and Chaos Factor 9");
+
+  // Random Event trigger (S3).
+  t.ok(SOLO.isRandomEventRoll(33, 5), "a double at or under the Chaos Factor fires an event");
+  t.ok(!SOLO.isRandomEventRoll(77, 5), "a double above the Chaos Factor does not fire an event");
+  t.ok(!SOLO.isRandomEventRoll(34, 5), "a non-double never fires an event");
+  t.ok(SOLO.isRandomEventRoll(99, 9), "a 99 fires an event at Chaos Factor 9");
+  t.ok(!SOLO.isRandomEventRoll(100, 9), "100 is not a double and fires nothing");
+  t.ok(SOLO.fateChartAnswer(22, "fifty", 5).event, "the chart answer reports the event alongside the answer");
+
+  // Fate Check.
+  t.eq(SOLO.fateCheckAnswer(6, 5, "fifty", 5).key, "yes", "2d10 totalling 11 at 50/50 is a Yes");
+  t.eq(SOLO.fateCheckAnswer(5, 5, "fifty", 5).key, "no", "2d10 totalling 10 at 50/50 is a No");
+  t.eq(SOLO.fateCheckAnswer(9, 9, "certain", 9).key, "exceptionalYes", "a big margin makes the Yes Exceptional");
+  t.eq(SOLO.fateCheckAnswer(1, 1, "impossible", 1).key, "exceptionalNo", "a big miss makes the No Exceptional");
+  t.ok(SOLO.fateCheckAnswer(4, 4, "fifty", 5).event, "matching dice fire an event on a Fate Check");
+  t.ok(!SOLO.fateCheckAnswer(4, 5, "fifty", 5).event, "unmatched dice do not");
+
+  /* ---------------- chaos, scenes, events, lists ---------------- */
+
+  t.group("Mythic — chaos, scenes and events");
+
+  t.eq(SOLO.CHAOS_START, 5, "the Chaos Factor starts at 5");
+  t.eq(SOLO.stepChaos(1, -1), 1, "the Chaos Factor clamps at 1 (S4)");
+  t.eq(SOLO.stepChaos(9, 1), 9, "the Chaos Factor clamps at 9 (S4)");
+  t.eq(SOLO.stepChaos(5, -1), 4, "a scene the character controlled lowers it by one");
+  t.eq(SOLO.stepChaos(5, 1), 6, "a scene they did not control raises it by one");
+  t.eq(SOLO.chaosMod(5), 0, "Chaos Factor 5 is the neutral column");
+  t.eq(SOLO.chaosMod(1), -4, "Chaos Factor 1 is four steps of order");
+  t.eq(SOLO.chaosMod(9), 4, "Chaos Factor 9 is four steps of chaos");
+
+  t.eq(SOLO.sceneTest(9, 5).key, "expected", "a d10 over the Chaos Factor plays the expected scene");
+  t.eq(SOLO.sceneTest(3, 5).key, "altered", "an odd roll at or under the Chaos Factor alters the scene");
+  t.eq(SOLO.sceneTest(4, 5).key, "interrupt", "an even roll at or under the Chaos Factor interrupts it");
+  t.eq(SOLO.sceneTest(10, 9).key, "expected", "a 10 always beats the Chaos Factor");
+  t.eq(SOLO.sceneTest(1, 1).key, "altered", "at Chaos Factor 1 only a 1 disturbs the scene, and it alters it");
+
+  t.eq(SOLO.SCENE_ADJUSTMENTS.length, 10, "the Scene Adjustment table is a full d10");
+  t.eq(SOLO.SCENE_ADJUSTMENTS[SOLO.SCENE_ADJUSTMENTS.length - 1].max, 10, "the Scene Adjustment table covers 1-10");
+
+  t.eq(SOLO.EVENT_FOCUS[SOLO.EVENT_FOCUS.length - 1].max, 100, "the Event Focus table covers the whole d100");
+  let gap = null;
+  let prev = 0;
+  for (const f of SOLO.EVENT_FOCUS) {
+    if (f.max <= prev) gap = f.key;
+    prev = f.max;
+  }
+  t.ok(!gap, "Event Focus bands ascend without a gap or an overlap" + (gap ? ` (${gap})` : ""));
+  for (let r = 1; r <= 100; r++) {
+    if (!SOLO.eventFocus(r)) { t.fail(`Event Focus resolves a roll of ${r}`); break; }
+  }
+  t.pass("every d100 result resolves to an Event Focus");
+
+  t.eq(SOLO.LIST_SLOTS, 25, "an Adventure List holds 25 slots");
+  t.eq(SOLO.listSlot(1), 1, "d100 1-4 is the first slot");
+  t.eq(SOLO.listSlot(4), 1, "d100 4 is still the first slot");
+  t.eq(SOLO.listSlot(5), 2, "d100 5 starts the second slot");
+  t.eq(SOLO.listSlot(100), 25, "d100 100 is the last slot");
+  let slotBreak = null;
+  for (let r = 1; r <= 100; r++) {
+    const s = SOLO.listSlot(r);
+    if (s < 1 || s > SOLO.LIST_SLOTS) slotBreak = String(r);
+  }
+  t.ok(!slotBreak, "every d100 result lands inside the 25 slots" + (slotBreak ? ` (${slotBreak})` : ""));
+
+  t.eq(SOLO.ANYTHING_WORDS.length, 10, "the ten Anything Words are present");
+  t.eq(SOLO.TABLE_BUILD_METHOD.length, 5, "the five-step table-construction method is recorded");
+  t.ok(SOLO.SOLO_TOPICS.length >= 6, "the solo rules library carries a topic per procedure");
+  t.ok(SOLO.FATE_CHART_VERIFY && SOLO.EVENT_FOCUS_VERIFY && SOLO.SCENE_ADJUSTMENT_VERIFY,
+    "the three reconstructed tables are flagged for verification (S1)");
+
+  /* ---------------- persistence ---------------- */
+
+  t.group("Mythic — adventure records");
+
+  const fresh = normalizeAdventure({ name: "Operation Nightjar" });
+  t.eq(fresh.chaos, 5, "a new adventure starts at Chaos Factor 5");
+  t.eq(fresh.scene, 1, "a new adventure starts at scene 1");
+  t.eq(fresh.fateMode, "chart", "the Fate Chart is the default mechanic");
+  t.eq(fresh.schema, 4, "an adventure records SCHEMA_VERSION 4");
+  t.deep(fresh.threads, [], "the Threads list starts empty");
+
+  const dirty = normalizeAdventure({
+    chaos: 99, scene: -3, fateMode: "nonsense",
+    threads: new Array(40).fill(0).map((_, i) => ({ text: "t" + i, weight: 0 })),
+    journal: [{ text: "x" }]
+  });
+  t.eq(dirty.chaos, 9, "an out-of-range Chaos Factor is clamped on load");
+  t.eq(dirty.scene, 1, "a nonsense scene number falls back to 1");
+  t.eq(dirty.fateMode, "chart", "an unknown Fate mode falls back to the chart");
+  t.eq(dirty.threads.length, 25, "a list longer than 25 slots is truncated on load");
+  t.eq(dirty.threads[0].weight, 1, "a weight below 1 is corrected on load");
+  t.ok(!!dirty.journal[0].id && !!dirty.journal[0].ts, "journal entries are back-filled with an id and a timestamp");
+
+  const v3 = normalizeAdventure(undefined);
+  t.ok(!!v3.id && v3.threads.length === 0 && v3.journal.length === 0,
+    "a missing record normalizes into a legal empty adventure, so a version-3 backup imports cleanly");
 }
