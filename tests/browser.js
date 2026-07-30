@@ -964,6 +964,54 @@ export async function browserTests(t, { chromium, executablePath, baseURL }) {
       t.ok(swOk.registered, "the service worker registers when served over http");
       t.ok(swOk.checked, "the update check runs and reports a result rather than throwing");
 
+      // Wiping data: each button names its count, and neither wipe touches the other's data.
+      const wipe = await page.evaluate(async () => {
+        const Store = await import("./src/store.js");
+        if (!Store.soloAdventures().length) Store.createAdventure({ name: "Wipe me" });
+        location.hash = "#/settings";
+        await new Promise(r => setTimeout(r, 220));
+        const labels = () => [...document.querySelectorAll("#screen .btn.danger")].map(b => b.textContent);
+        const before = { labels: labels(), chars: Store.allCharacters().length, missions: Store.soloAdventures().length };
+
+        // Wipe the missions, confirm, and check the dossiers survived.
+        [...document.querySelectorAll("#screen .btn.danger")].find(b => /Wipe all missions/.test(b.textContent)).click();
+        await new Promise(r => setTimeout(r, 80));
+        const dialog = (document.querySelector(".modal") || {}).textContent || "";
+        [...document.querySelectorAll(".modal-foot .btn")].find(b => /Delete/.test(b.textContent)).click();
+        await new Promise(r => setTimeout(r, 220));
+        const afterMissions = {
+          missions: Store.soloAdventures().length,
+          chars: Store.allCharacters().length,
+          active: localStorage.getItem("classified.soloActive"),
+          undo: localStorage.getItem("classified.soloUndo")
+        };
+
+        // Now the characters.
+        [...document.querySelectorAll("#screen .btn.danger")].find(b => /Wipe all characters/.test(b.textContent)).click();
+        await new Promise(r => setTimeout(r, 80));
+        [...document.querySelectorAll(".modal-foot .btn")].find(b => /Delete/.test(b.textContent)).click();
+        await new Promise(r => setTimeout(r, 220));
+        const afterChars = {
+          chars: Store.allCharacters().length,
+          activeChar: localStorage.getItem("classified.activeCharacter"),
+          rolls: Store.rollLog().length,
+          labels: labels()
+        };
+        return { before, dialog, afterMissions, afterChars };
+      });
+      t.ok(wipe.before.labels.some(l => /Wipe all missions \(\d+\)/.test(l)), "Settings offers a mission wipe with a count");
+      t.ok(wipe.before.labels.some(l => /Wipe all characters \(\d+\)/.test(l)), "and a character wipe with a count");
+      t.ok(/not touched/.test(wipe.dialog), "the confirmation says what it will not touch");
+      t.eq(wipe.afterMissions.missions, 0, "wiping missions removes every adventure");
+      t.eq(wipe.afterMissions.active, null, "and the active-adventure pointer");
+      t.eq(wipe.afterMissions.undo, null, "and the solo undo snapshot");
+      t.eq(wipe.afterMissions.chars, wipe.before.chars, "and leaves the dossiers alone");
+      t.eq(wipe.afterChars.chars, 0, "wiping characters removes every dossier");
+      t.eq(wipe.afterChars.activeChar, null, "and the active-character pointer");
+      t.ok(wipe.afterChars.rolls > 0, "and leaves the roll log alone");
+      t.ok(wipe.afterChars.labels.includes("No missions") && wipe.afterChars.labels.includes("No characters"),
+        "with nothing left, both buttons say so and disable");
+
       // Export produces valid JSON.
       const exportOk = await page.evaluate(async () => {
         const m = await import("./src/store.js");

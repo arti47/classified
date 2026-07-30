@@ -8,7 +8,7 @@ import { ANIMALS } from "../data-monsters.js";
 import { OSIRIS_NPCS, ENCOUNTER_TABLES, ENCOUNTERS, NPC_CHARACTERISTIC_TABLES, NPC_SKILL_TABLES } from "../data-npcs.js";
 import { PREGENS, PREGEN_BUDGET_AUDIT } from "../data-pregens.js";
 import * as SOLO from "../data-solo.js";
-import { normalizeAdventure } from "../src/store.js";
+import { normalizeAdventure, wipeAdventures as Store_wipeAdventures, wipeCharacters as Store_wipeCharacters } from "../src/store.js";
 import { readFileSync } from "node:fs";
 
 export function unitTests(t) {
@@ -876,6 +876,9 @@ function soloTests(t) {
   t.eq(dirty.threads.length, 25, "a list longer than 25 slots is truncated on load");
   t.eq(dirty.threads[0].weight, 1, "a weight below 1 is corrected on load");
   t.ok(!!dirty.journal[0].id && !!dirty.journal[0].ts, "journal entries are back-filled with an id and a timestamp");
+
+  t.ok(typeof Store_wipeAdventures === "function", "the store exposes a mission wipe");
+  t.ok(typeof Store_wipeCharacters === "function", "and a character wipe");
 
   const v3 = normalizeAdventure(undefined);
   t.ok(!!v3.id && v3.threads.length === 0 && v3.journal.length === 0,

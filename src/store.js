@@ -85,6 +85,18 @@ export function deleteCharacter(id) {
   emit("character");
 }
 
+/**
+ * Delete every dossier. Irreversible and confirmed by the caller: the roll log, combat
+ * tracker and solo adventures are left alone, since none of them is a character.
+ */
+export function wipeCharacters() {
+  const n = readJSON(K_CHARS, []).length;
+  writeJSON(K_CHARS, []);
+  localStorage.removeItem(K_ACTIVE);
+  emit("character");
+  return n;
+}
+
 /** Mutate the active character through a callback and persist the result. */
 export function updateActive(mutator) {
   const c = activeCharacter();
@@ -287,6 +299,19 @@ export function updateAdventure(mutator) {
   if (!adv) return null;
   mutator(adv);
   return saveAdventure(adv);
+}
+
+/**
+ * Delete every solo adventure, and the pointer and undo snapshot that go with them.
+ * Irreversible and confirmed by the caller.
+ */
+export function wipeAdventures() {
+  const n = readJSON(K_SOLO, []).length;
+  writeJSON(K_SOLO, []);
+  localStorage.removeItem(K_SOLO_ACTIVE);
+  localStorage.removeItem(K_SOLO_UNDO);
+  emit("solo");
+  return n;
 }
 
 /* Solo keeps its own one-step undo so an End Scene and an End Mission never overwrite

@@ -819,6 +819,14 @@ limit at 360px, so when solo is on the Solo tab takes the Rules slot and Rules s
 reachable from its Home tile. `manualDice` applies to Mythic rolls too — `getD100()` is
 still the single entry point, and the Fate Check's 2d10 gets the same treatment.
 
+**Wipe data.** Two destructive buttons sit directly under Backup, because exporting is what
+makes wiping safe and the two belong to the same decision. Each carries its own count, is
+disabled when there is nothing to delete, and confirms with what it destroys *and* what it
+leaves alone: `wipeAdventures()` clears every solo mission with its active pointer and undo
+snapshot and does not touch dossiers; `wipeCharacters()` clears every dossier and the active
+pointer and does not touch the roll log or the missions. Neither is undoable, and the
+confirmation says so.
+
 ---
 
 ## 8. Data Extraction Ledger
@@ -977,7 +985,7 @@ are flagged rather than presented as extracted (S1).
       - [x] Roll-log integration through `Store.addRoll()`.
       - [x] Regression checks: chart monotonicity, derived thresholds, event trigger,
             chaos clamping, list weighting, and every table exactly 100 entries.
-- [x] **Hardening.** Committed regression harness (588 checks); accessibility pass;
+- [x] **Hardening.** Committed regression harness (740 checks); accessibility pass;
       rules-accuracy audit with every finding closed (§11).
 
 ---
@@ -1128,3 +1136,4 @@ tables are this app's own work and are marked as such (S6).
 | 2026-07-30 | Added the mission briefing as a phase before scene 1 (S14, S15) | A new adventure opened on scene 1 with empty lists, so the first Random Event had nothing to draw and the player had no premise to test a scene against. Seven rolled-and-editable rows now seed Threads and Characters, and `espCover` and `espIntel` finally have a job outside the manual roller. | 664 checks green, including a run that rolls every row, writes over one, commits, and asserts the seeding, the generated opponent, the phase move and the closed pinned accordion | `classified-v16` |
 | 2026-07-30 | The briefing's Primary Opponent gets a rolled identity, and the whole mission can be deleted (S16, S17). `SCHEMA_VERSION` 7 records which list entries a briefing seeded | Reported: the primary villain was stuck at "Villain Primary Opponent". Root cause: `generateNPC()` names an NPC `rank.npcName + stereotype.name`, and the briefing pins both to Villain and Primary Opponent, so the name was a constant while the stats behind it changed — pressing Generate looked like it did nothing. A codename off `espCodename` and a pair off `espAdversary` now go in front of the stat block. Deleting was simply missing: a briefing could be rewritten but never removed, so an adventure was stuck with the mission it opened on | 706 checks green, including four generations that must not repeat and must never read the category label, all three identity rolls kept with the row, and a delete that takes back the two seeded threads and the seeded character while leaving a hand-added thread alone, returns the phase to briefing, journals it and leaves an undo | `classified-v17` |
 | 2026-07-30 | The pinned mission briefing stopped printing every row twice (S18) | Reported with a screenshot: seven rows, each reading `Interrogate · Start` and then `Interrogate · Start` again. Root cause: the row rendered `text` and then the words underneath unconditionally, and since rolling a row writes the joined words straight into the field, an unedited row's text is exactly that word line. The words are now shown only when the text has been written over — the case where they record what the line came from — and the Copy output follows the same rule. | 716 checks green, including that no pinned row prints its own words back underneath itself, that an unedited row is a single line, and that the one row written over in the test keeps its prompt | `classified-v18` |
+| 2026-07-30 | Added Wipe data to Settings: wipe all missions and wipe all characters, each with its own count, disabled when empty, and confirmed with what it destroys and what it leaves alone. `Store.wipeAdventures()` and `Store.wipeCharacters()` back them | The user asked for it. Deleting adventures one at a time from the Adventures menu and dossiers one at a time from the sheet was the only way to start clean. The two wipes stay strictly separate — missions do not take dossiers with them, and dossiers do not take the roll log — because a player clearing one usually wants to keep the other | 740 checks green, including that each wipe empties only its own store, clears its pointers and the solo undo snapshot, leaves the roll log intact, and that both buttons report and disable themselves once there is nothing left | `classified-v19` |
