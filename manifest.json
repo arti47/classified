@@ -1,0 +1,16 @@
+{
+  "name": "Classified Player",
+  "short_name": "Classified",
+  "description": "Player companion for the Classified role-playing game of covert operations.",
+  "start_url": "./index.html",
+  "scope": "./",
+  "display": "standalone",
+  "orientation": "portrait-primary",
+  "background_color": "#e8dcc2",
+  "theme_color": "#8c1c13",
+  "categories": ["games", "utilities"],
+  "icons": [
+    { "src": "icon.svg", "sizes": "any", "type": "image/svg+xml", "purpose": "any" },
+    { "src": "icon.svg", "sizes": "any", "type": "image/svg+xml", "purpose": "maskable" }
+  ]
+}

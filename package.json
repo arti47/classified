@@ -1,0 +1,14 @@
+{
+  "name": "classified-player",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Player companion app for the Classified role-playing game. No build step; dev dependencies are for the headless regression harness only.",
+  "type": "module",
+  "scripts": {
+    "test": "node tests/run.js",
+    "serve": "node tests/serve.js"
+  },
+  "devDependencies": {
+    "playwright-core": "^1.47.0"
+  }
+}

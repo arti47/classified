@@ -1,0 +1,55 @@
+{
+  "rules": {
+    ".read": false,
+    ".write": false,
+
+    "campaigns": {
+      "$campaignId": {
+        ".read": "auth != null && data.child('members').child(auth.uid).exists()",
+
+        "meta": {
+          ".read": "auth != null",
+          ".write": "auth != null && (!data.exists() || data.child('ownerUid').val() === auth.uid)",
+          ".validate": "newData.hasChildren(['name', 'joinCode', 'ownerUid'])"
+        },
+
+        "members": {
+          "$uid": {
+            ".write": "auth != null && ($uid === auth.uid || root.child('campaigns/' + $campaignId + '/members/' + auth.uid + '/role').val() === 'gm')",
+            ".validate": "newData.hasChildren(['displayName', 'role']) && newData.child('role').val().matches(/^(player|gm)$/)"
+          }
+        },
+
+        "characters": {
+          "$characterId": {
+            ".write": "auth != null && (newData.child('owner').val() === auth.uid || data.child('owner').val() === auth.uid || root.child('campaigns/' + $campaignId + '/members/' + auth.uid + '/role').val() === 'gm')"
+          }
+        },
+
+        "pools": {
+          ".write": "auth != null && data.parent().child('members').child(auth.uid).exists()"
+        },
+
+        "combat": {
+          ".write": "auth != null && data.parent().child('members').child(auth.uid).exists()"
+        },
+
+        "tasks": {
+          ".write": "auth != null && data.parent().child('members').child(auth.uid).exists()"
+        },
+
+        "rollLog": {
+          "$pushId": {
+            ".write": "auth != null && root.child('campaigns/' + $campaignId + '/members/' + auth.uid).exists() && !data.exists()"
+          }
+        },
+
+        "broadcast": {
+          "$pushId": {
+            ".write": "auth != null && root.child('campaigns/' + $campaignId + '/members/' + auth.uid + '/role').val() === 'gm'"
+          }
+        }
+      }
+    }
+  }
+}

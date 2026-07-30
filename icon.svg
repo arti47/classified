@@ -1,0 +1,12 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" role="img" aria-label="Classified">
+  <rect width="512" height="512" rx="72" fill="#1f1b16"/>
+  <rect x="64" y="112" width="384" height="300" rx="14" fill="#e8dcc2"/>
+  <path d="M64 156 L64 126 A14 14 0 0 1 78 112 L206 112 L232 156 Z" fill="#dccfae"/>
+  <g transform="rotate(-8 256 268)">
+    <rect x="104" y="222" width="304" height="92" rx="8" fill="none" stroke="#8c1c13" stroke-width="14"/>
+    <text x="256" y="286" font-family="Courier New, monospace" font-size="56" font-weight="700"
+          letter-spacing="6" text-anchor="middle" fill="#8c1c13">CLASS</text>
+  </g>
+  <rect x="104" y="344" width="200" height="12" rx="6" fill="#c2b492"/>
+  <rect x="104" y="372" width="132" height="12" rx="6" fill="#c2b492"/>
+</svg>
