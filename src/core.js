@@ -2,7 +2,7 @@
 
 export const APP_NAME = "Classified Player";
 export const STORAGE_PREFIX = "classified.";
-export const SCHEMA_VERSION = 6;   // 4 added solo adventures, 5 their scene phase, 6 the mission briefing (§6)
+export const SCHEMA_VERSION = 7;   // 4 added solo adventures, 5 their scene phase, 6 the mission briefing, 7 its seeded-entry ids (§6)
 
 /* ---------------------------------------------------------------- DOM */
 

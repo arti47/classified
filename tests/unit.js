@@ -855,7 +855,7 @@ function soloTests(t) {
   t.eq(fresh.chaos, 5, "a new adventure starts at Chaos Factor 5");
   t.eq(fresh.scene, 1, "a new adventure starts at scene 1");
   t.eq(fresh.fateMode, "chart", "the Fate Chart is the default mechanic");
-  t.eq(fresh.schema, 6, "an adventure records SCHEMA_VERSION 6");
+  t.eq(fresh.schema, 7, "an adventure records SCHEMA_VERSION 7");
   t.deep(fresh.threads, [], "the Threads list starts empty");
   t.eq(fresh.scenePhase, "setup", "a new adventure has no scene open yet");
   t.eq(fresh.sceneKind, null, "and no scene outcome recorded");
@@ -886,4 +886,26 @@ function soloTests(t) {
   t.eq(v4.scenePhase, "setup", "a version-4 adventure loads with no scene open");
   t.eq(v4.chaos, 7, "and keeps its Chaos Factor");
   t.eq(v4.scene, 5, "and its scene count");
+
+  // A version-6 briefing predates the seeded-entry ids and must still load.
+  const v6 = normalizeAdventure({
+    id: "adv_v6", schema: 6, scenePhase: "setup",
+    briefing: { rows: { objective: { text: "Recover the case" } }, npc: { name: "x" }, writtenAt: 1 }
+  });
+  t.deep(v6.briefing.seededIds, [], "a version-6 briefing back-fills an empty seeded-entry list");
+  t.eq(v6.briefing.rows.objective.text, "Recover the case", "and keeps every row it had");
+  t.deep(normalizeAdventure({ briefing: { rows: {}, seededIds: ["li_1", "li_2"] } }).briefing.seededIds,
+    ["li_1", "li_2"], "recorded seeded ids survive a reload");
+
+  /* ---------------- the briefing's opponent ---------------- */
+
+  t.group("Mythic — the briefing's Primary Opponent");
+
+  const oppCfg = SOLO.BRIEFING_OPPONENT;
+  t.eq(oppCfg.stereotype, "opponent", "the briefing's opponent is a Primary Opponent");
+  t.eq(oppCfg.rank, "special", "at Villain rank");
+  t.ok(!!SOLO.MEANING_BY_KEY[oppCfg.aliasTable], "its codename comes off a real Meaning Table");
+  t.ok(!!SOLO.MEANING_BY_KEY[oppCfg.traitTable], "and its two describing words off another");
+  t.ok(SOLO.BRIEFING_ROWS.find(r => r.key === "opponent").placeholder !== "Villain Primary Opponent",
+    "the placeholder is no longer the generator's own category label");
 }

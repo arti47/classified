@@ -524,6 +524,18 @@ re-seeds the lists, so nothing you struck off comes back. The committed briefing
 under the primary action in an accordion that starts closed: it is reference, not a step
 (rulings S14, S15).
 
+**The Primary Opponent** is a Classified stat block with a Mythic identity in front of it.
+The stat block comes from the NPC generator by dynamic import (S15); the codename and the two
+words that say what they are come from `espCodename` and `espAdversary`. The generator alone
+names an NPC after its own stereotype and rank, which for this row is the constant string
+*Villain Primary Opponent* — a category, not a person (ruling S16).
+
+**Deleting the mission** is its own action, on the pinned accordion and in Adventure settings.
+It asks whether the Threads and Characters the briefing seeded go with it, takes back only the
+entries the briefing itself created, and returns an adventure that has not started scene 1 to
+the briefing phase. It writes a journal row and takes an undo snapshot, so it is reversible
+once, like a scene boundary (ruling S17).
+
 **Start scene** is one *locked chain*, not a dialog with options. It asks what you expect,
 rolls the scene test, and then forces whatever the test owes: the Scene Adjustment table on
 an altered scene, a Random Event on an interrupt. Every dialog in the chain carries exactly
@@ -603,6 +615,8 @@ layer carries the flag rather than the UI.
 | S11 | What an interrupt does with the scene that was planned | The event **becomes** the scene and the displaced plan is filed to Threads automatically, with a journal line. It was previously a ghost button that was easy to miss, and the scene card went on naming the plan that had just been overwritten. |
 | S14 | The briefing is not a Mythic procedure | Correct — Mythic starts from a premise you already have. The briefing is the app's own scaffolding for the first beat, built from the authored espionage tables plus the two mm38 baselines that had no other job. Marked as this app's own in its rules-library topic, like End Scene under R9. |
 | S15 | The briefing's Primary Opponent needs Classified's NPC generator, which `solo.js` is forbidden to import | Resolved by **dynamic** import at the moment the button is tapped. The rule tightens rather than loosens: `solo.js` still has no *static* dependency on `rules.js` or `data.js`, so the Mythic layer cannot reach Classified's resolution mechanic, and the one place it borrows a generator is explicit and lazy. |
+| S16 | The briefing's Primary Opponent read *Villain Primary Opponent* however many times it was generated | The Classified generator names an NPC `rank.npcName + stereotype.name`, and this row pins both, so the name was a constant while the stats underneath changed — indistinguishable from a button that does nothing. The stat block is what Classified owns; the identity is what the Meaning Tables are for, so a codename off `espCodename` and a pair off `espAdversary` are rolled alongside it and the row reads *Cormorant — ruthless spymaster*. The generator itself is untouched: NPCs made on the Combat screen still carry their category label, which is right there. |
+| S17 | A briefing could be rewritten but never removed, so an adventure was stuck with the mission it opened on | Delete the mission is its own action. It asks whether the seeded list entries go too, matches them by the ids recorded at commit — never entries added by hand — and returns a phase-1 adventure to the briefing so a new mission can be written. Deleting the *adventure* stays where it was, under Adventure settings; the two are not the same and are no longer adjacent. |
 | S13 | The Adventures button mixed switching adventures with configuring and deleting them | Split. Top level is the switcher plus *Start a new adventure*; a single **Adventure settings** row opens the Fate mechanic, the Chaos override, the dossier link, rename and delete. |
 | S12 | Whether re-rolling a Random Event's words should leave a trail | **No.** A re-roll supersedes: it deletes the journal row and roll-log row it replaces, so the record shows the reading that was kept. The Event Focus is held fixed across a re-roll — only the words change. |
 | S9 | Whether the in-scene tools should be locked while no scene is open | **No.** A solo player legitimately asks Fate a question between scenes — often to decide what the next scene even is. The tools stay live and the screen leans on emphasis instead: the primary action is the next boundary, and the in-play block is quietened until a scene is running. |
@@ -761,9 +775,10 @@ classified.soloAdventures: [ {
   chaos: 1..9,                                  // Chaos Factor, starts at 5
   scene: number,                                // scene counter, starts at 1
   scenePhase: "briefing" | "setup" | "play",    // where the loop stands (§3.20.4)
-  briefing: null | {                            // the mission, or null if skipped
+  briefing: null | {                            // the mission, or null if skipped or deleted
     rows: { <rowKey>: { text, words[], rolls[] } },
-    npc,                                        // the generated Primary Opponent
+    npc,                                        // the Primary Opponent: stat block + alias + traits
+    seededIds: [ <listEntryId> ],               // what it put on the lists, so deleting can take it back
     writtenAt },
   sceneExpected: string,                        // what you said this scene would be
   sceneKind: "expected" | "altered" | "interrupt" | null,   // how the scene test resolved
@@ -772,11 +787,11 @@ classified.soloAdventures: [ {
   journal:    [ { id, ts, kind, text, detail } ]  // kind: scene|fate|event|meaning|note
 } ]
 classified.soloActive: <adventureId>
-classified.soloUndo:   <one-step End Scene snapshot>
+classified.soloUndo:   <one-step snapshot: { ts, label, adventures, active } >
 ```
 
 Every schema addition ships with a back-fill in `normalize()` and is documented here in the
-same change. `SCHEMA_VERSION` is 6. The pre-A11 single `bandIndex` field is migrated to `heightBand` and `weightBand` on load. Version 4 added the solo keys above, version 5 the three scene-phase fields and version 6 the briefing. Version 5 records load with `briefing: null` and keep the phase they were in, so an adventure under way is never sent back to a briefing it never had. Version 5 also added the three scene-phase
+same change. `SCHEMA_VERSION` is 7. The pre-A11 single `bandIndex` field is migrated to `heightBand` and `weightBand` on load. Version 4 added the solo keys above, version 5 the three scene-phase fields, version 6 the briefing and version 7 its `seededIds`. Version 5 records load with `briefing: null` and keep the phase they were in, so an adventure under way is never sent back to a briefing it never had; a version-6 briefing back-fills an empty `seededIds`, and deleting its mission falls back to matching the seeded rows by text. The one-step undo snapshot carries a `label` so the banner names what it would revert. Version 5 also added the three scene-phase
 fields; characters are untouched by both, and `normalizeAdventure()` — in `store.js`, beside the rest of the
 persistence layer, so `derived.js` stays free of Mythic — back-fills every field, clamps the
 Chaos Factor, truncates a list past 25 slots and corrects a weight below 1. A version-3
@@ -1108,3 +1123,4 @@ tables are this app's own work and are marked as such (S6).
 | 2026-07-30 | Audited every Solo button against the sequence of play and closed six breaks (S10-S13) | Root cause: the mandatory follow-up rolls were ghost buttons beside a dismissing primary, and `scenePhase` flipped to `play` on the scene test rather than at the end of the chain, so a scene could be reported as running with its adjustment or interrupt never rolled. | 628 checks green, including a chain walk asserting every step is locked, carries one primary, and ends on the commit | `classified-v14` |
 | 2026-07-30 | Individual journal entries can be copied and deleted, and the journal gained a Copy all | Asked for. A journal you cannot prune or quote is a log file rather than a record of play. | 636 checks green, including both clipboard paths and a delete that leaves the rest of the journal alone | `classified-v15` |
 | 2026-07-30 | Added the mission briefing as a phase before scene 1 (S14, S15) | A new adventure opened on scene 1 with empty lists, so the first Random Event had nothing to draw and the player had no premise to test a scene against. Seven rolled-and-editable rows now seed Threads and Characters, and `espCover` and `espIntel` finally have a job outside the manual roller. | 664 checks green, including a run that rolls every row, writes over one, commits, and asserts the seeding, the generated opponent, the phase move and the closed pinned accordion | `classified-v16` |
+| 2026-07-30 | The briefing's Primary Opponent gets a rolled identity, and the whole mission can be deleted (S16, S17). `SCHEMA_VERSION` 7 records which list entries a briefing seeded | Reported: the primary villain was stuck at "Villain Primary Opponent". Root cause: `generateNPC()` names an NPC `rank.npcName + stereotype.name`, and the briefing pins both to Villain and Primary Opponent, so the name was a constant while the stats behind it changed — pressing Generate looked like it did nothing. A codename off `espCodename` and a pair off `espAdversary` now go in front of the stat block. Deleting was simply missing: a briefing could be rewritten but never removed, so an adventure was stuck with the mission it opened on | 706 checks green, including four generations that must not repeat and must never read the category label, all three identity rolls kept with the row, and a delete that takes back the two seeded threads and the seeded character while leaving a hand-added thread alone, returns the phase to briefing, journals it and leaves an undo | `classified-v17` |

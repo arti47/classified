@@ -169,7 +169,7 @@ function appendHeader(host, adv) {
   const undo = Store.peekSoloUndo();
   if (undo) {
     host.appendChild(el("div", { class: "banner" },
-      el("div", { class: "small", text: `Last scene boundary fired ${fmtDate(undo.ts)}.` }),
+      el("div", { class: "small", text: `${undo.label || "Last scene boundary"} · ${fmtDate(undo.ts)}` }),
       el("button", {
         class: "btn sm", type: "button", style: "margin-top:6px",
         onclick: () => { if (Store.applySoloUndo()) { showToast("Reverted", "ok"); rerender(); } }
@@ -222,13 +222,18 @@ async function openAdventureMenu(host) {
         desc: "End Scene steps it for you. This is for correcting it, not for playing." },
       { key: "__briefing", label: active.briefing ? "Edit the mission briefing" : "Write the mission briefing",
         desc: active.briefing ? "Rewrite any row. Editing never re-seeds your lists." : "Roll a mission and seed the Adventure Lists from it." },
+      active.briefing
+        ? { key: "__delbriefing", label: "Delete the mission",
+            desc: "Drops the briefing, and optionally the threads and characters it seeded. The adventure stays." }
+        : null,
       { key: "__link", label: "Link a dossier", desc: "Point this adventure at a character so PC events name them." },
       { key: "__rename", label: "Rename this adventure", desc: "" },
       { key: "__delete", label: "Delete this adventure", desc: "Its journal and lists go with it." }
-    ], { intro: active.name || "Untitled" });
+    ].filter(Boolean), { intro: active.name || "Untitled" });
     if (!key) return;
   }
   if (key === "__briefing") { openBriefing(Store.activeAdventure()); return; }
+  if (key === "__delbriefing") { deleteBriefing(Store.activeAdventure()); return; }
   if (key === "__rename") {
     const name = await promptModal("Adventure name", { title: "Rename", value: active.name || "" });
     if (name) { save(a => { a.name = name; }); }
@@ -393,7 +398,9 @@ function appendBriefing(host, adv) {
     adv.briefing.npc
       ? el("button", { class: "btn sm ghost", type: "button",
           onclick: () => import("./combat.js").then(m => m.showNPC(adv.briefing.npc)) }, "Opponent")
-      : null));
+      : null,
+    el("button", { class: "btn sm danger", type: "button",
+      onclick: () => deleteBriefing(Store.activeAdventure()) }, "Delete mission")));
 
   acc.appendChild(body);
   host.appendChild(acc);
@@ -407,6 +414,74 @@ function briefingHeadline(adv) {
   return obj || code || "written";
 }
 
+/**
+ * Delete the whole mission. The briefing goes; whether the Threads and Characters it seeded
+ * go with it is the player's call, because by the time you want a different mission those
+ * entries may have been played with for several scenes. Only the entries the briefing itself
+ * created are eligible — anything added by hand since is left alone.
+ *
+ * An adventure that has not started scene 1 goes back to the briefing phase, so the primary
+ * action offers to write a new one. One that is under way keeps its phase: the mission it was
+ * briefed on is gone, but the scene it is in is not.
+ */
+async function deleteBriefing(adv) {
+  if (!adv || !adv.briefing) return;
+  const seeded = seededEntries(adv);
+  const items = [
+    { key: "briefing", label: "Delete the briefing only",
+      desc: seeded.length
+        ? `Your lists keep the ${seeded.length} entr${seeded.length === 1 ? "y" : "ies"} it seeded.`
+        : "Nothing it seeded is still on your lists, so they are untouched." }
+  ];
+  if (seeded.length) {
+    items.push({
+      key: "both", label: "Delete it and what it seeded",
+      desc: seeded.map(s => s.item.text).join("; ")
+    });
+  }
+  const pick = await chooseModal(`Delete “${briefingHeadline(adv)}”?`, items, {
+    intro: "The codename, objective, complication, cover, intel and the generated opponent all go. The journal keeps its record, and this is undoable once."
+  });
+  if (!pick) return;
+
+  Store.pushSoloUndo(Store.soloSnapshot("Mission deleted"));
+  const alsoLists = pick === "both";
+  save(a => {
+    if (alsoLists) {
+      const ids = new Set(seeded.map(s => s.item.id));
+      for (const listKey of ["threads", "characters"]) {
+        a[listKey] = (a[listKey] || []).filter(i => !ids.has(i.id));
+      }
+    }
+    a.briefing = null;
+    if (a.scene <= 1 && a.scenePhase !== "play") a.scenePhase = "briefing";
+    journal(a, "note", alsoLists ? "Mission deleted, with the entries it seeded." : "Mission deleted.");
+  });
+  showToast("Mission deleted", "ok");
+}
+
+/**
+ * The Adventure List entries this briefing put there and that are still there. Matched by the
+ * ids recorded at commit; a briefing written before those were kept falls back to matching the
+ * row text, which is what it was seeded from.
+ */
+function seededEntries(adv) {
+  const b = adv.briefing;
+  if (!b) return [];
+  const ids = new Set(Array.isArray(b.seededIds) ? b.seededIds : []);
+  const texts = new Set(S.BRIEFING_ROWS
+    .filter(r => r.seeds)
+    .map(r => b.rows[r.key] && b.rows[r.key].text)
+    .filter(Boolean));
+  const out = [];
+  for (const listKey of ["threads", "characters"]) {
+    for (const item of adv[listKey] || []) {
+      if (ids.has(item.id) || (!ids.size && texts.has(item.text))) out.push({ list: listKey, item });
+    }
+  }
+  return out;
+}
+
 function briefingText(adv) {
   const lines = [];
   for (const row of S.BRIEFING_ROWS) {
@@ -415,6 +490,38 @@ function briefingText(adv) {
     lines.push(`${row.name}: ${val.text}` + (val.words && val.words.length ? `  (${val.words.join(" · ")})` : ""));
   }
   return `${adv.name}\n\n${lines.join("\n")}`;
+}
+
+/**
+ * The briefing's Primary Opponent: a Classified stat block with a rolled identity in front
+ * of it.
+ *
+ * The stat block comes from the Classified generator, which lives on the combat screen and
+ * is loaded on demand so the Mythic layer keeps no static dependency on Classified's rules
+ * (ruling S15). That generator names an NPC after its own stereotype and rank, so on its own
+ * it hands back "Villain Primary Opponent" every single time — the numbers changed, the name
+ * never did. The codename and the two adversary words are what make each one a person.
+ */
+async function generateOpponent() {
+  const cfg = S.BRIEFING_OPPONENT;
+  const { generateNPC } = await import("./combat.js");
+  const gen = generateNPC(cfg.stereotype, cfg.rank);
+  const alias = await rollOne(cfg.aliasTable);
+  const traits = await rollPair(cfg.traitTable);
+  return {
+    ...gen,
+    alias: alias.word,
+    traits: traits.words,
+    identityRolls: [alias.roll, ...traits.rolls],
+    name: opponentName(alias.word, traits.words)
+  };
+}
+
+/** "Cormorant — ruthless spymaster". The same word twice is amplification, so it is said once. */
+function opponentName(alias, traits) {
+  const words = traits.map(w => String(w).toLowerCase());
+  const tail = words[0] === words[1] ? words[0] : words.join(" ");
+  return `${alias} — ${tail}`;
 }
 
 /**
@@ -444,14 +551,12 @@ export async function openBriefing(adv) {
     const rollBtn = el("button", { class: "btn sm", type: "button" }, row.npc ? "Generate" : "Roll");
     rollBtn.addEventListener("click", async () => {
       if (row.npc) {
-        // The Classified generator lives on the combat screen. Loaded on demand so the
-        // Mythic layer keeps no static dependency on Classified's rules (ruling S15).
-        const { generateNPC } = await import("./combat.js");
-        npc = generateNPC(S.BRIEFING_OPPONENT.stereotype, S.BRIEFING_OPPONENT.rank);
-        state[row.key].words = [npc.stereotype, npc.rankLabel];
+        npc = await generateOpponent();
+        state[row.key].words = [npc.alias, ...npc.traits];
+        state[row.key].rolls = npc.identityRolls;
         state[row.key].text = npc.name;
         field.value = npc.name;
-        wordsEl.textContent = `${npc.rankLabel} ${npc.stereotype} · Speed ${npc.speed} · ${npc.points} Villain Points`;
+        wordsEl.textContent = `${npc.rankLabel} ${npc.stereotype} · Speed ${npc.speed} · ${npc.points} Villain Points · rolled ${npc.identityRolls.join(", ")}`;
         return;
       }
       const pair = await rollPair(row.table);
@@ -491,7 +596,8 @@ export async function openBriefing(adv) {
 
   const first = !adv.briefing;
   save(a => {
-    a.briefing = { rows: state, npc, writtenAt: Date.now() };
+    const seededIds = a.briefing && Array.isArray(a.briefing.seededIds) ? a.briefing.seededIds : [];
+    a.briefing = { rows: state, npc, writtenAt: Date.now(), seededIds };
 
     // Name the adventure from its codename if it never got one.
     if (state.codename.text && /^untitled/i.test(a.name || "")) a.name = state.codename.text;
@@ -505,7 +611,11 @@ export async function openBriefing(adv) {
         const list = (a[row.seeds] = a[row.seeds] || []);
         if (list.length >= S.LIST_SLOTS) continue;
         if (list.some(i => i.text === text)) continue;
-        list.push({ id: uid("li"), text, weight: 1 });
+        const entry = { id: uid("li"), text, weight: 1 };
+        list.push(entry);
+        // Remembered so deleting the mission can take back exactly what it put there, and
+        // nothing a player added by hand afterwards.
+        a.briefing.seededIds.push(entry.id);
       }
       a.scenePhase = "setup";
       journal(a, "note", `Mission briefing: ${state.objective.text || state.codename.text || "written"}`,
@@ -1005,6 +1115,13 @@ function drawFromList(adv, which, roll, { withItem = false } = {}) {
 }
 
 /* ---------------------------------------------------------------- meaning tables */
+
+/** A single word off one table. The pair is the default idiom; this is for the exceptions. */
+async function rollOne(tableKey) {
+  const table = S.MEANING_BY_KEY[tableKey];
+  const r = await soloD100(`${table.name} d100`);
+  return { word: table.words[r - 1], roll: r, label: table.name, tableKey };
+}
 
 async function rollPair(tableKey) {
   const table = S.MEANING_BY_KEY[tableKey];

@@ -487,7 +487,7 @@ export async function browserTests(t, { chromium, executablePath, baseURL }) {
         const Solo = await import("./src/solo.js");
         const S = await import("./data-solo.js");
         Store.updateAdventure(a => {
-          a.scenePhase = "briefing"; a.briefing = null;
+          a.scenePhase = "briefing"; a.briefing = null; a.scene = 1;
           a.threads = []; a.characters = []; a.name = "Untitled adventure";
         });
 
@@ -543,6 +543,102 @@ export async function browserTests(t, { chromium, executablePath, baseURL }) {
       t.ok(briefed.named, "an untitled adventure takes its codename as its name");
       t.ok(briefed.pinnedText, "the briefing is pinned on the Solo screen");
       t.ok(briefed.pinnedClosed, "in an accordion that starts closed");
+
+      // The opponent used to be named by the Classified generator alone, which names an NPC
+      // after its own stereotype and rank — the same three words every press.
+      const opponent = await page.evaluate(async () => {
+        const Store = await import("./src/store.js");
+        const Solo = await import("./src/solo.js");
+        const S = await import("./data-solo.js");
+        const idx = S.BRIEFING_ROWS.findIndex(r => r.key === "opponent");
+
+        const p = Solo.openBriefing(Store.activeAdventure());
+        await new Promise(r => setTimeout(r, 120));
+        const modalEl = document.querySelector(".modal");
+        const genBtn = [...modalEl.querySelectorAll(".btn.sm")][idx];
+        const label = genBtn.textContent;
+        const names = [];
+        for (let i = 0; i < 4; i++) {
+          genBtn.click();
+          await new Promise(r => setTimeout(r, 60));
+          names.push([...modalEl.querySelectorAll('input[type="text"]')][idx].value);
+        }
+        const line = modalEl.textContent;
+        [...modalEl.querySelectorAll(".modal-foot .btn")].find(b => /Commit|Save/.test(b.textContent)).click();
+        await p;
+        await new Promise(r => setTimeout(r, 150));
+        [...document.querySelectorAll(".modal-foot .btn")].forEach(b => { if (b.textContent === "OK") b.click(); });
+        await new Promise(r => setTimeout(r, 150));
+
+        const npc = Store.activeAdventure().briefing.npc;
+        return {
+          label, names, distinct: new Set(names).size,
+          statsShown: /Speed \d/.test(line) && /Villain Points/.test(line),
+          alias: npc.alias, traits: npc.traits, name: npc.name,
+          rolls: (Store.activeAdventure().briefing.rows.opponent.rolls || []).length,
+          attrs: !!npc.attrs
+        };
+      });
+      t.eq(opponent.label, "Generate", "the opponent row generates rather than rolls a word pair");
+      t.ok(!opponent.names.some(n => n === "Villain Primary Opponent"),
+        "the opponent is never the generator's own category label");
+      t.ok(opponent.distinct >= 3, "generating again gives a different opponent");
+      t.ok(opponent.statsShown, "with the stat block's Speed and Villain Points shown under the field");
+      t.ok(!!opponent.alias && opponent.traits.length === 2,
+        "the identity is a codename plus two words off the Adversary table");
+      t.ok(opponent.name.startsWith(opponent.alias + " — "),
+        "and reads as a codename followed by what they are");
+      t.eq(opponent.rolls, 3, "all three identity rolls are kept with the row");
+      t.ok(opponent.attrs, "the Classified stat block is still behind it");
+
+      // Deleting the whole mission, and taking back exactly what it seeded.
+      const deleted = await page.evaluate(async () => {
+        const Store = await import("./src/store.js");
+        Store.updateAdventure(a => {
+          a.threads = (a.threads || []).concat([{ id: "li_byhand", text: "Added by hand", weight: 1 }]);
+        });
+        location.hash = "#/home"; await new Promise(r => setTimeout(r, 80));
+        location.hash = "#/solo"; await new Promise(r => setTimeout(r, 150));
+
+        const screen = document.getElementById("screen");
+        const acc = [...screen.querySelectorAll("details.acc")]
+          .find(d => d.querySelector("summary").textContent.includes("Mission briefing"));
+        acc.open = true;
+        const before = Store.activeAdventure();
+        const btn = [...acc.querySelectorAll("button")].find(b => b.textContent === "Delete mission");
+        btn.click();
+        await new Promise(r => setTimeout(r, 120));
+
+        const chooser = document.querySelector(".modal");
+        const opts = [...chooser.querySelectorAll(".opt-btn")].map(b => b.textContent);
+        [...chooser.querySelectorAll(".opt-btn")]
+          .find(b => b.textContent.includes("Delete it and what it seeded")).click();
+        await new Promise(r => setTimeout(r, 200));
+
+        const after = Store.activeAdventure();
+        return {
+          options: opts.length,
+          threadsBefore: before.threads.length,
+          threadsAfter: after.threads.map(x => x.text),
+          charactersAfter: after.characters.length,
+          briefing: after.briefing,
+          phase: after.scenePhase,
+          journaled: after.journal.some(j => /Mission deleted/.test(j.text)),
+          undo: !!Store.peekSoloUndo(),
+          pinned: [...document.getElementById("screen").querySelectorAll("details.acc summary")]
+            .some(s => s.textContent.includes("Mission briefing"))
+        };
+      });
+      t.eq(deleted.options, 2, "deleting the mission asks whether the seeded entries go with it");
+      t.eq(deleted.threadsBefore, 3, "the objective, the complication and one thread added by hand");
+      t.deep(deleted.threadsAfter, ["Added by hand"],
+        "deleting takes back only what the briefing seeded");
+      t.eq(deleted.charactersAfter, 0, "including the opponent it put in Characters");
+      t.eq(deleted.briefing, null, "the briefing itself is gone");
+      t.eq(deleted.phase, "briefing", "and an adventure still on scene 1 can write a new one");
+      t.ok(deleted.journaled, "the journal keeps the record that it happened");
+      t.ok(deleted.undo, "and it is undoable once, like a scene boundary");
+      t.ok(!deleted.pinned, "nothing stays pinned on the Solo screen");
 
       // Journal rows can be copied and deleted one at a time.
       const journalRow = await page.evaluate(async () => {

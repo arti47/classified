@@ -215,6 +215,9 @@ function normalizeBriefing(b) {
   return {
     rows,
     npc: b.npc && typeof b.npc === "object" ? b.npc : null,
+    // Which Adventure List entries this briefing created, so deleting the mission can take
+    // back exactly those. A version-6 record has none and falls back to matching row text.
+    seededIds: Array.isArray(b.seededIds) ? b.seededIds.map(String) : [],
     writtenAt: Number(b.writtenAt) || Date.now()
   };
 }
@@ -288,8 +291,8 @@ export function updateAdventure(mutator) {
 
 /* Solo keeps its own one-step undo so an End Scene and an End Mission never overwrite
  * each other's snapshot. */
-export function soloSnapshot() {
-  return { ts: Date.now(), adventures: readJSON(K_SOLO, []), active: activeAdventureId() };
+export function soloSnapshot(label = "") {
+  return { ts: Date.now(), label, adventures: readJSON(K_SOLO, []), active: activeAdventureId() };
 }
 export function pushSoloUndo(snapshot) { writeJSON(K_SOLO_UNDO, snapshot); emit("solo"); }
 export function peekSoloUndo() { return readJSON(K_SOLO_UNDO, null); }

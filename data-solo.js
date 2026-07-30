@@ -944,12 +944,26 @@ export const BRIEFING_ROWS = [
     placeholder: "A partial manifest, source unverified",
     hint: "What you were told before you went in, and how far it can be trusted." },
   { key: "opponent", name: "Primary opponent", npc: true, seeds: "characters",
-    placeholder: "Villain Primary Opponent",
-    hint: "Generated from the Classified stereotype tables, stats and all. Goes into Characters." }
+    placeholder: "Cormorant — ruthless spymaster",
+    hint: "A codename, two words off the Adversary table, and a full Classified stat block behind them. Generate again for a different opponent." }
 ];
 
-/** Which stereotype and rank the briefing's opponent is generated at. */
-export const BRIEFING_OPPONENT = { stereotype: "opponent", rank: "special" };
+/**
+ * Which stereotype and rank the briefing's opponent is generated at, and the two Meaning
+ * Tables that give them an identity.
+ *
+ * The Classified generator names an NPC after its own stereotype and rank — every Primary
+ * Opponent at Villain rank is called "Villain Primary Opponent", which is a category rather
+ * than a person and reads as a generator that has not moved. The stat block is the part
+ * Classified owns; the identity is the part Mythic's tables are for, so the codename and
+ * the pair of adversary words are rolled alongside it.
+ */
+export const BRIEFING_OPPONENT = {
+  stereotype: "opponent",
+  rank: "special",
+  aliasTable: "espCodename",     // one word — what the file calls them
+  traitTable: "espAdversary"     // two words — what they are
+};
 
 /* ================================================================ T79 topics */
 
