@@ -548,6 +548,13 @@ layer carries the flag rather than the UI.
   and run always works.
 - **Installable PWA:** `manifest.json`, `service-worker.js` (network-first, caches the app
   shell, versioned `CACHE_VERSION`), an SVG icon, and an in-app update toast.
+- **Update discovery.** The app has no build step and no version endpoint, so the deployed
+  `service-worker.js` *is* the version marker. Registration alone only checks on a hard
+  navigation, which an installed PWA may not see for days, so `main.js` also polls
+  `registration.update()` — on return to the foreground, on focus, on coming back online, and
+  on a 15-minute heartbeat, throttled to one check a minute. When a new worker installs
+  behind an existing controller, a persistent toast offers **Reload** or **Later**; Reload
+  posts `SKIP_WAITING` and reloads. Nothing auto-reloads under the player mid-session.
 - **Storage:** `localStorage` local-only mode works with zero configuration; real keys in
   `firebase-config.js` plus the `FIREBASE_ENABLED` flag switch on cloud sync.
 - **Firebase:** Realtime Database + Storage for portraits.
@@ -603,7 +610,7 @@ No `data-<expansion>.js` — no expansions were supplied.
 | `solo.js` | The Mythic engine and the Solo screen: Fate, Chaos, scene test, Random Events, Adventure Lists, Meaning-table roller, journal, guided End Scene |
 | `screens.js` | Home, rules library, roll log, advancement, settings |
 | `router.js` | Bottom-nav routing and conditional tab gating |
-| `main.js` | Entry point and boot |
+| `main.js` | Entry point, boot, and service-worker update discovery (`checkForUpdate()`, `showUpdateToast()`) |
 
 No `power-automation.js` (§3.14).
 
@@ -859,7 +866,7 @@ are flagged rather than presented as extracted (S1).
       - [x] Roll-log integration through `Store.addRoll()`.
       - [x] Regression checks: chart monotonicity, derived thresholds, event trigger,
             chaos clamping, list weighting, and every table exactly 100 entries.
-- [x] **Hardening.** Committed regression harness (456 checks); accessibility pass;
+- [x] **Hardening.** Committed regression harness (474 checks); accessibility pass;
       rules-accuracy audit with every finding closed (§11).
 
 ---
@@ -983,3 +990,4 @@ tables are this app's own work and are marked as such (S6).
 | 2026-07-30 | Closed SA1 and SA2 | Root cause of SA1: `logRow()` read `quality` and `QUALITY_SHORT[quality]` unconditionally, and a Fate answer has no Success Quality, so the pill rendered `undefined`. SA2 was a layout limit, not a bug — six tabs is the maximum at 360px | A solo row renders as Mythic with no `undefined`; the nav carries six tabs with Solo in the Rules slot | `classified-v4` |
 | 2026-07-30 | Extended the authored Meaning Tables from 13 to 28 (T80–T82): an in-play set for combat, wounds, chases, Reactions, coercion and social play; a world set for weather, senses, terrain and institutions; and a story set for twists, scene framing, motive, leverage and aftermath. 37 tables, 3,700 words | The report's Step 1 is to define the subject, and the app's subjects are the game's own subsystems — a solo player narrating a §3.17 fight or a §3.13 chase had no table pointed at it, so every procedure that has to be narrated rather than rolled now has one. Combat Action pairs across to Espionage Description and Scene Framing to Location, so an interrupt scene arrives with a place attached | 444 checks green: every table exactly 100 single capitalised words, no repeats inside an authored table, Anything Words seeded in all but the codename list, every pairWith and Event Focus suggestion resolving, and the group index matching the roller | `classified-v5` |
 | 2026-07-30 | Replaced the reconstructed Fate Chart and Scene Adjustment table with the printed originals, supplied as images (S1 resolved; SA3, SA4); confirmed the Event Focus table and the Exceptional Yes/No derivation | Root cause of SA3: the reconstruction guessed at two things and got both wrong — it weighted the odds axis four times as heavily as the chaos axis, where the printed chart is a plain diagonal, and its middle column put Certain at 99 where the printing says 90. Root cause of SA4: the reconstruction invented ten results where the printing has six plus a 7–10 "Make 2 Adjustments" band. S2 needed rounding rather than truncation, and the printed **x** cells mean a band that cannot occur, now `null` rather than a fabricated 1 | 456 checks green, including all 81 printed cells against a new committed fixture, the diagonal property, every d100 reading as exactly one answer at all 81 cells, and every printed Scene Adjustment and Event Focus row. Driven headless at 360px: both mechanics, the 7–10 recursion, and the chart reference view | `classified-v6` |
+| 2026-07-30 | Made the app notice a deploy: `main.js` polls `registration.update()` on foreground, focus, reconnect and a 15-minute heartbeat, and raises a persistent Reload/Later toast when a new worker installs behind the current one. The service worker answers `SKIP_WAITING` so a waiting worker takes over before the reload | The update toast only fired on `updatefound`, which the browser raises on a hard navigation — an installed PWA can sit for days on stale code after a push. A worker already waiting from a previous visit was missed entirely, and the old toast auto-dismissed after 2.6 seconds, so the one thing it existed to offer could vanish before it was read | 474 checks green, plus an end-to-end deploy simulation: load, edit the served `CACHE_VERSION` and a module, force a check, toast appears, Reload brings up the new code with the old cache purged and no toast left behind. Zero console errors | `classified-v7` |

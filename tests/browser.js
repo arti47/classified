@@ -301,6 +301,47 @@ export async function browserTests(t, { chromium, executablePath, baseURL }) {
         document.documentElement.scrollWidth - document.documentElement.clientWidth);
       t.ok(soloOverflow <= 1, `the Solo screen with an adventure open does not overflow horizontally (${soloOverflow}px)`);
 
+      // The update toast: persistent, one at a time, and offering a reload.
+      const toast = await page.evaluate(async () => {
+        const main = await import("./src/main.js");
+        main.showUpdateToast();
+        main.showUpdateToast();   // must not stack
+        const nodes = document.querySelectorAll(".toast.update");
+        const t = nodes[0];
+        const labels = [...t.querySelectorAll("button")].map(b => b.textContent);
+        const clickable = getComputedStyle(t).pointerEvents;
+        return { count: nodes.length, labels, clickable, text: t.textContent, role: t.getAttribute("role") };
+      });
+      t.eq(toast.count, 1, "asking twice for the update toast shows one toast, not two");
+      t.deep(toast.labels, ["Later", "Reload"], "the update toast offers Later and Reload");
+      t.eq(toast.clickable, "auto", "the update toast accepts clicks, unlike ordinary toasts");
+      t.ok(/Update available/.test(toast.text), "the update toast says an update is available");
+      t.eq(toast.role, "status", "the update toast is announced as a status");
+
+      const dismissed = await page.evaluate(() => {
+        [...document.querySelectorAll(".toast.update button")].find(b => b.textContent === "Later").click();
+        return document.querySelectorAll(".toast.update").length;
+      });
+      t.eq(dismissed, 0, "Later dismisses the update toast");
+
+      const reshown = await page.evaluate(async () => {
+        const main = await import("./src/main.js");
+        main.showUpdateToast();
+        return document.querySelectorAll(".toast.update").length;
+      });
+      t.eq(reshown, 1, "the toast can be shown again after being dismissed");
+      await page.evaluate(() => { document.querySelectorAll(".toast.update").forEach(n => n.remove()); });
+
+      // The service worker registers and the update check is callable without throwing.
+      const swOk = await page.evaluate(async () => {
+        const main = await import("./src/main.js");
+        const reg = await navigator.serviceWorker.getRegistration();
+        const checked = await main.checkForUpdate({ force: true });
+        return { registered: !!reg, checked: typeof checked === "boolean" };
+      });
+      t.ok(swOk.registered, "the service worker registers when served over http");
+      t.ok(swOk.checked, "the update check runs and reports a result rather than throwing");
+
       // Export produces valid JSON.
       const exportOk = await page.evaluate(async () => {
         const m = await import("./src/store.js");
