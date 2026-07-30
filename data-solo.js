@@ -968,20 +968,8 @@ export const SOLO_TOPICS = [
     ]
   },
   {
-    key: "meaning",
-    title: "Meaning Tables and building your own",
-    source: "Mythic Magazine Vol. 38",
-    body: [
-      "A Meaning Table answers open questions the way Fate answers closed ones. Roll a word pair and read the first thing that fits the situation in front of you.",
-      "One word per entry is deliberate: a single word is read faster and attaches itself to context, where a phrase pins the answer down before you have thought about it.",
-      "Rolling the same word twice is amplification, not a wasted roll — take the concept to an extreme.",
-      "The ten Anything Words — Change, Continue, Decrease, Increase, Mundane, Mysterious, Start, Stop, Strange, Extra — are seeded through these tables on purpose. Mundane grounds a result; Strange is the signal to invent something well outside expectation.",
-      "To build your own: define the subject, brain-dump cold, look outside your own head, mix in neutral words as modifiers, then edit to 100 — cutting anything that clashes with the setting and using synonyms rather than repeats to weight an outcome."
-    ]
-  },
-  {
     key: "twosystems",
-    title: "Mythic and Classified side by side",
+    title: "Mythic and Classified",
     source: "This app",
     body: [
       "The solo engine never replaces a Classified roll. Fate answers questions about the world; skills, combat and damage stay on Base Chance × Difficulty Factor as always.",

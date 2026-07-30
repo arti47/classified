@@ -836,7 +836,13 @@ function soloTests(t) {
 
   t.eq(SOLO.ANYTHING_WORDS.length, 10, "the ten Anything Words are present");
   t.eq(SOLO.TABLE_BUILD_METHOD.length, 5, "the five-step table-construction method is recorded");
-  t.ok(SOLO.SOLO_TOPICS.length >= 6, "the solo rules library carries a topic per procedure");
+  t.eq(SOLO.SOLO_TOPICS.length, 6, "the solo rules library carries a topic per procedure");
+  t.ok(!SOLO.SOLO_TOPICS.some(x => x.key === "meaning"),
+    "the Meaning Tables topic is gone: the tables are on the screen, they do not need an essay");
+  t.eq(SOLO.SOLO_TOPICS.find(x => x.key === "twosystems").title, "Mythic and Classified",
+    "the two-systems topic is titled Mythic and Classified");
+  t.deep(SOLO.SOLO_TOPICS.map(x => x.key), ["fate", "chaos", "scenes", "events", "lists", "twosystems"],
+    "the topic list is Fate, chaos, scenes, events, lists and the two systems");
   t.ok(!("FATE_CHART_VERIFY" in SOLO) && !("EVENT_FOCUS_VERIFY" in SOLO) &&
        !("SCENE_ADJUSTMENT_VERIFY" in SOLO) && !("FATE_CHECK_VERIFY" in SOLO),
     "no verify flags remain: every procedure table is transcribed from a printed original (S1)");

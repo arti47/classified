@@ -340,6 +340,23 @@ export async function browserTests(t, { chromium, executablePath, baseURL }) {
       t.deep(labels, [], "no source-attribution labels render on the Solo or Rules screens" +
         (labels.length ? ` (found ${labels.join(", ")})` : ""));
 
+      // Removed reference entries stay removed.
+      const refList = await page.evaluate(async () => {
+        location.hash = "#/solo";
+        await new Promise(r => setTimeout(r, 220));
+        const text = document.getElementById("screen").textContent;
+        return {
+          meaningTopic: text.includes("Meaning Tables and building your own"),
+          buildingATable: text.includes("Building a table"),
+          sideBySide: text.includes("side by side"),
+          renamed: text.includes("Mythic and Classified")
+        };
+      });
+      t.ok(!refList.meaningTopic, "the Meaning Tables essay is gone from the Solo screen");
+      t.ok(!refList.buildingATable, "the Building a table reference row is gone");
+      t.ok(!refList.sideBySide, "the two-systems topic no longer reads side by side");
+      t.ok(refList.renamed, "it reads Mythic and Classified");
+
       const rowShape = await page.evaluate(async () => {
         location.hash = "#/solo";
         await new Promise(r => setTimeout(r, 220));
