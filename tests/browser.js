@@ -340,6 +340,32 @@ export async function browserTests(t, { chromium, executablePath, baseURL }) {
       t.deep(labels, [], "no source-attribution labels render on the Solo or Rules screens" +
         (labels.length ? ` (found ${labels.join(", ")})` : ""));
 
+      // Every accordion starts closed, on every screen that has one.
+      const accordions = await page.evaluate(async () => {
+        const out = {};
+        for (const route of ["sheet", "create", "solo", "gear"]) {
+          location.hash = "#/" + route;
+          await new Promise(r => setTimeout(r, 220));
+          const all = [...document.querySelectorAll("details.acc")];
+          out[route] = { total: all.length, open: all.filter(d => d.open).length };
+        }
+        return out;
+      });
+      for (const [route, counts] of Object.entries(accordions)) {
+        if (counts.open !== 0) { t.fail(`every accordion on ${route} starts closed (${counts.open} of ${counts.total} open)`); }
+      }
+      t.pass("every accordion starts closed on the sheet, wizard, solo and gear screens");
+      t.ok(accordions.sheet.total > 0 && accordions.solo.total > 0,
+        "those screens do render accordions to close");
+
+      // A closed accordion still holds its rows, so searching and counting keep working.
+      const closedRows = await page.evaluate(async () => {
+        location.hash = "#/sheet";
+        await new Promise(r => setTimeout(r, 220));
+        return document.querySelectorAll("details.acc .skill-row").length;
+      });
+      t.ok(closedRows > 20, "a closed accordion still holds its rows in the DOM");
+
       // Removed reference entries stay removed.
       const refList = await page.evaluate(async () => {
         location.hash = "#/solo";

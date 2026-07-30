@@ -328,7 +328,7 @@ const STEP_RENDERERS = {
     }
 
     for (const [group, list] of Object.entries(groups)) {
-      const acc = el("details", { class: "acc", open: group === "Combat" || group === "Covert" },
+      const acc = el("details", { class: "acc" },
         el("summary", { text: group }));
       const bodyEl = el("div", { class: "acc-body" });
       for (const s of list.sort((a, b) => a.name.localeCompare(b.name))) {
