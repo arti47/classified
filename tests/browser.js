@@ -1175,6 +1175,77 @@ export async function browserTests(t, { chromium, executablePath, baseURL }) {
         `which lands on the target through the accumulation table (${targeted.woundAfter})`);
       t.ok(targeted.reported, "and says what they are now");
 
+      // A Quality-as-Difficulty-Factor procedure has to offer its second half.
+      const opposed = await page.evaluate(async () => {
+        const Store = await import("./src/store.js");
+        const Roller = await import("./src/roller.js");
+        (await import("./src/ui.js")).closeAllModals();
+        await new Promise(r => setTimeout(r, 150));
+        const c = Store.activeCharacter();
+
+        const run = async (skillKey, forceRoll) => {
+          const real = Math.random;
+          Math.random = () => forceRoll;
+          Roller.openRoll({ character: c, skillKey });
+          for (let i = 0; i < 40 && !document.querySelector(".modal"); i++) await new Promise(r => setTimeout(r, 50));
+          const dlg = document.querySelector(".modal");
+          [...dlg.querySelectorAll(".modal-foot .btn")].find(b => b.textContent === "Roll").click();
+          for (let i = 0; i < 60 && !document.querySelector(".roll-quality"); i++) await new Promise(r => setTimeout(r, 50));
+          Math.random = real;
+          const text = (document.querySelector(".modal") || {}).textContent || "";
+          const btn = [...(document.querySelector(".modal") || document.body).querySelectorAll(".btn")]
+            .find(b => /^Roll .*at DF/.test(b.textContent));
+          const label = btn ? btn.textContent : "";
+          (await import("./src/ui.js")).closeAllModals();
+          await new Promise(r => setTimeout(r, 100));
+          return { text, label };
+        };
+
+        const disguised = await run("disguise", 0);        // d100 1 → Superb
+        const blown = await run("disguise", 0.99);         // d100 100 → always a failure
+        const stealthy = await run("stealth", 0);
+        return { disguised, blown, stealthy };
+      });
+      t.ok(/Observer's Perception/.test(opposed.disguised.text),
+        "a Disguise result offers the check the book says follows it");
+      t.ok(/DF 1$/.test(opposed.disguised.label),
+        `a Superb disguise is looked at on Difficulty Factor 1 (${opposed.disguised.label})`);
+      t.ok(/DF 10$/.test(opposed.blown.label),
+        `a failed disguise lets them look at Difficulty Factor 10 (${opposed.blown.label})`);
+      t.ok(/Unnoticed/.test(opposed.stealthy.text) && !opposed.stealthy.label,
+        "a Superb Stealth passes unnoticed and hands over no check at all");
+
+      // Grenades: buyable, and now throwable.
+      const grenade = await page.evaluate(async () => {
+        const Store = await import("./src/store.js");
+        const Roller = await import("./src/roller.js");
+        const D = await import("./data.js");
+        (await import("./src/ui.js")).closeAllModals();
+        await new Promise(r => setTimeout(r, 150));
+        const c = Store.activeCharacter();
+        const inc = D.GRENADE_TYPES.find(g => g.key === "incendiary");
+
+        const real = Math.random;
+        Math.random = () => 0;                              // d100 1: a Superb, on target
+        Roller.openGrenadeThrow(c, inc);
+        for (let i = 0; i < 40 && !document.querySelector(".modal"); i++) await new Promise(r => setTimeout(r, 50));
+        const setup = document.querySelector(".modal");
+        const range = /10 feet per point of Strength/.test(setup.textContent);
+        [...setup.querySelectorAll(".modal-foot .btn")].find(b => b.textContent === "Throw").click();
+        for (let i = 0; i < 60 && !document.querySelector(".roll-quality"); i++) await new Promise(r => setTimeout(r, 50));
+        Math.random = real;
+        const out = (document.querySelector(".modal") || {}).textContent || "";
+        const applies = [...(document.querySelector(".modal") || document.body).querySelectorAll(".btn")]
+          .some(b => /^Apply to /.test(b.textContent));
+        (await import("./src/ui.js")).closeAllModals();
+        await new Promise(r => setTimeout(r, 100));
+        return { range, onTarget: /On target/.test(out), dr: /Area Damage Rank K/.test(out), applies, out };
+      });
+      t.ok(grenade.range, "the throw dialog works the range out from Strength rather than asking");
+      t.ok(grenade.onTarget, "a Superb throw lands where it was aimed");
+      t.ok(grenade.dr, "the blast carries the grenade's own Area Damage Rank");
+      t.ok(grenade.applies, "and the wound it works out can be applied rather than read out");
+
       // Phase 5: the campaign panel, the party, and the portrait. With no Firebase keys the
       // flow still runs against a local campaign record, which is what makes it testable.
       const campaign = await page.evaluate(async () => {

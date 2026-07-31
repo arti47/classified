@@ -56,7 +56,8 @@ export const HELP = {
       "Tap a characteristic to roll a straight check on it.",
       "Open a skill group and tap a skill to roll it — the dialog carries the Difficulty Factor ladder and your modifiers.",
       "The chips above the screen are your resources: tap Hero to spend or gain, Wound to take damage or heal.",
-      "Roll opens every procedure the book defines; Attack goes straight to your weapons.",
+      "Roll opens every procedure the book defines — including throwing a grenade and tailing someone; Attack goes straight to your weapons.",
+      "A Disguise or Stealth roll offers the check that opposes it, at the Difficulty Factor your own Quality sets.",
       "Untrained skills roll at −3 Difficulty Factor; hide them with Show all if the list is long."
     ],
     note: "Base Chance × Difficulty Factor = Success Chance, read on the Success Quality Table for Superb, Great, Good, Fair or a failure."
@@ -67,7 +68,7 @@ export const HELP = {
     what: "What you carry, what it weighs, and what it costs.",
     steps: [
       "+ Add opens the catalogue: search it, tap an entry to add it to the dossier.",
-      "Tap Use on a weapon to attack with it without leaving the screen.",
+      "Tap Use on a weapon to attack with it without leaving the screen, or Throw on a grenade for range, scatter and the blast.",
       "Adjust changes cash; a minus sign spends.",
       "The weight card turns red past your Strength's carrying maximum."
     ],

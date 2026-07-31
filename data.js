@@ -595,6 +595,11 @@ export const DRAW_NOTE =
 
 /* Grenades [Ch.7] */
 export const GRENADE_SCATTER = { 1: 0, 2: 0.2, 3: 0.3, 4: 0.4, 5: 0.5 };
+export const GRENADE_THROW_FT_PER_STR = 10;      // throw range [Ch.7]
+export const GRENADE_SKILL = "handtohand";       // thrown weapons use Hand-to-Hand [Ch.4]
+export const GRENADE_DUD_ROLL = [98, 99];        // a dud
+export const GRENADE_EARLY_ROLL = 100;           // detonates early
+export const GRENADE_SCATTER_DIRECTIONS = 10;    // d10 around the clock
 export const GRENADE_NOTES = [
   "Throw range is 10 feet per point of Strength.",
   "Scatter distance is a percentage of the throw length; direction is d10 around the clock.",
@@ -684,6 +689,46 @@ export const TAILING = {
   df: 5,
   desc: "Tail with the appropriate movement skill at DF 5. Any success works, but the target may spot you with a Sixth Sense check at DF equal to twice your Quality."
 };
+
+/**
+ * The Quality-as-Difficulty-Factor family [Ch.4, Ch.5]. Each is the same shape: the actor
+ * rolls, and the actor's Success Quality becomes the Difficulty Factor of the check that
+ * opposes it. Seduction and the chase manoeuvres carry their own staged flows; these three
+ * are the plain ones, and they are structured here so the roller can offer the second half
+ * instead of leaving the player to look it up.
+ *
+ *   dfFrom "quality"    — the opposing Difficulty Factor is the actor's Quality
+ *   multiplier          — twice the Quality, for the checks the book doubles
+ *   failureDF           — what the opponent rolls at when the actor fails outright
+ *   onlyOnQuality       — the procedure only fires on that Quality; better is clean, worse
+ *                         is automatic detection
+ */
+export const QUALITY_OPPOSED = [
+  {
+    key: "disguise", skill: "disguise", name: "Disguise",
+    opponent: "Observer's Perception", opponentAttr: "per",
+    multiplier: 1, failureDF: 10,
+    desc: "Anyone looking closely rolls Perception at a Difficulty Factor equal to your disguise Quality. A failed disguise lets them look at Difficulty Factor 10.",
+    chapter: "Ch.4"
+  },
+  {
+    key: "stealth", skill: "stealth", name: "Stealth",
+    opponent: "Observer's Perception", opponentAttr: "per",
+    multiplier: 1, failureDF: null, onlyOnQuality: 4, fixedDF: 5,
+    desc: "Superb, Great or Good passes unnoticed. A Fair result gives observers a Difficulty Factor 5 Perception check; a failure is noticed automatically.",
+    chapter: "Ch.4"
+  },
+  {
+    key: "tailing", skill: null, name: "Tailing",
+    opponent: "Target's Sixth Sense", opponentSkill: "sixthsense",
+    actorDF: 5, multiplier: 2, failureDF: 10,
+    desc: "Tail with the appropriate movement skill at Difficulty Factor 5. The target may spot you with a Sixth Sense check at a Difficulty Factor of twice your Quality.",
+    chapter: "Ch.4"
+  }
+];
+export const QUALITY_OPPOSED_BY_SKILL = Object.fromEntries(
+  QUALITY_OPPOSED.filter(x => x.skill).map(x => [x.skill, x])
+);
 
 /* ---------------------------------------------------------------- 14. INTERACTIONS */
 

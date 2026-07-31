@@ -698,7 +698,15 @@ export function renderGear(host) {
            w && w.cm !== null && w.cm !== undefined ? "Conceal " + signed(w.cm) : null,
            item.equipped ? "equipped" : null].filter(Boolean).join(" · ") })
       ));
-      if (item.kind === "weapon" && w) {
+      const grenadeType = item.key && String(item.key).startsWith("gren_")
+        ? D.GRENADE_TYPES.find(g => g.key === String(item.key).slice(5))
+        : null;
+      if (grenadeType) {
+        // Buyable with mechanics you could not reach: scatter lived on the GM screen, which
+        // is off by default (A16).
+        row.appendChild(el("button", { class: "btn sm", type: "button",
+          onclick: () => import("./roller.js").then(m => m.openGrenadeThrow(c, grenadeType)) }, "Throw"));
+      } else if (item.kind === "weapon" && w) {
         row.appendChild(el("button", { class: "btn sm", type: "button", onclick: () => openAttack(c, w) }, "Use"));
       }
       row.appendChild(el("button", {

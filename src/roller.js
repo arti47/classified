@@ -114,7 +114,10 @@ export function presentResult(res, { character, onDone, extra, title } = {}) {
   }
 
   const extraSlot = el("div", {});
-  if (extra) extraSlot.appendChild(extra(res));
+  // An extra renderer may have nothing to add for this result — a clean Stealth has no
+  // observer's check — so a null return is legitimate rather than an error.
+  const drawExtra = () => { const node = extra ? extra(res) : null; if (node) extraSlot.appendChild(node); };
+  drawExtra();
   body.appendChild(extraSlot);
 
   const heroSlot = el("div", {});
@@ -130,7 +133,7 @@ export function presentResult(res, { character, onDone, extra, title } = {}) {
     bandsEl.replaceWith(fresh);
     Object.assign(bandsEl, fresh);
     clear(extraSlot);
-    if (extra) extraSlot.appendChild(extra(res));
+    drawExtra();
     drawHero();
   }
 
@@ -341,7 +344,12 @@ export function openRoll(opts = {}) {
           });
           presentResult(res, {
             character,
-            extra: opts.extra,
+            extra: r => {
+              const own = opts.extra ? opts.extra(r) : null;
+              const opposed = opposedPanel(character, skillKey, r);
+              if (own && opposed) return el("div", {}, own, opposed);
+              return own || opposed;
+            },
             onDone: opts.onResult
           });
         }
@@ -686,6 +694,70 @@ export async function applyDamageToCharacter(character, incomingWound) {
  * Generic two-stage opposed procedure: the actor rolls, and the actor's Quality
  * becomes the opponent's Difficulty Factor.
  */
+/**
+ * The second half of a Quality-as-Difficulty-Factor procedure, offered on the result of the
+ * first. Disguise and Stealth both end with somebody looking; before this the roller printed
+ * the Quality and stopped, and the player had to find the rule and set up the opposing check
+ * themselves (finding A15).
+ */
+function opposedPanel(character, skillKey, res) {
+  const proc = skillKey ? D.QUALITY_OPPOSED_BY_SKILL[skillKey] : null;
+  if (!proc) return null;
+
+  const wrap = el("div", { style: "margin-top:12px" });
+  const failed = res.quality >= D.QUALITY.FAILURE;
+
+  // Stealth only hands the observer a check on a Fair; better is clean, worse is automatic.
+  if (proc.onlyOnQuality) {
+    if (failed) {
+      wrap.appendChild(el("div", { class: "banner warn" },
+        el("b", { text: "Noticed" }),
+        el("div", { class: "small", text: "A failure is spotted automatically — no check for the observer." })));
+      return wrap;
+    }
+    if (res.quality !== proc.onlyOnQuality) {
+      wrap.appendChild(el("div", { class: "banner ok" },
+        el("b", { text: "Unnoticed" }),
+        el("div", { class: "small", text: proc.desc })));
+      return wrap;
+    }
+  }
+
+  const df = failed
+    ? proc.failureDF
+    : (proc.fixedDF !== undefined && proc.fixedDF !== null
+        ? proc.fixedDF
+        : D.clampDF(res.quality * (proc.multiplier || 1)));
+
+  wrap.appendChild(el("div", { class: "banner" },
+    el("b", { text: proc.opponent }),
+    el("div", { class: "small", text: `${proc.desc} That is Difficulty Factor ${dfLabel(df)} here.` })));
+  wrap.appendChild(el("button", {
+    class: "btn sm block", type: "button", style: "margin-top:8px",
+    onclick: () => rollOpposingCheck(proc, df)
+  }, `Roll ${proc.opponent.toLowerCase()} at DF ${dfLabel(df)}`));
+  return wrap;
+}
+
+/** The observer's side. Their Base Chance is theirs, so it is asked for rather than assumed. */
+async function rollOpposingCheck(proc, df) {
+  const typed = await promptModal(`${proc.opponent} — their Base Chance`, {
+    title: proc.name, type: "number", value: "10",
+    okLabel: "Roll"
+  });
+  if (typed === null) return;
+  const base = clamp(parseInt(typed, 10) || 0, 1, D.MAX_BASE_CHANCE);
+  const rollValue = await getD100(`${proc.opponent} d100`);
+  const res = resolve({ baseChance: base, df, rollValue, label: proc.opponent });
+  presentResult(res, {
+    title: proc.opponent,
+    extra: r => el("p", { class: "small muted", style: "margin-top:10px", text:
+      r.quality >= D.QUALITY.FAILURE
+        ? "They do not see through it."
+        : "They see through it — the procedure is over and the fiction moves on." })
+  });
+}
+
 export async function opposedByQuality(opts) {
   const { character, skillKey, label, actorDF = D.BASE_DIFFICULTY_FACTOR, modifiers = [],
     opponentLabel, opponentBase, failureDF = 10, multiplier = 1, onComplete } = opts;
@@ -1317,6 +1389,190 @@ async function runControlChecks(character, mv, state, veh, mods, count) {
   }
 }
 
+/* ---------------------------------------------------------------- grenades */
+
+/**
+ * Throw a grenade. The book has all of this — throw range by Strength, scatter as a
+ * percentage of the throw by Success Quality, direction on a d10, duds and early
+ * detonations — but it was only reachable from the GM screen, which is off by default, and
+ * that screen asked the player to type in the Quality they had just rolled (finding A16).
+ *
+ * Thrown weapons use Hand-to-Hand, which is what makes this an ordinary check with an
+ * unusual consequence chain rather than a system of its own.
+ */
+export function openGrenadeThrow(character, type) {
+  const dv = derived(character);
+  const maxFt = (Number(character.attributes.str) || 0) * D.GRENADE_THROW_FT_PER_STR;
+  const state = { distance: Math.min(maxFt, 60), df: D.BASE_DIFFICULTY_FACTOR };
+
+  const body = el("div", {});
+  body.appendChild(el("div", { class: "banner" },
+    el("b", { text: type.name }),
+    el("div", { class: "small", text: type.desc }),
+    el("div", { class: "small muted", text: `Radius ${type.radius} ft` + (type.dr ? ` · Area Damage Rank ${type.dr}` : "") })));
+
+  const distLabel = el("div", { class: "small muted" });
+  const dist = el("input", { type: "range", min: 5, max: Math.max(10, maxFt), step: 5, value: String(state.distance) });
+  const setDist = () => {
+    state.distance = parseInt(dist.value, 10) || 5;
+    distLabel.textContent = `${state.distance} ft of a possible ${maxFt} — 10 feet per point of Strength ${character.attributes.str}.`;
+  };
+  dist.addEventListener("input", setDist);
+  setDist();
+  body.appendChild(el("label", { class: "field", style: "margin-top:12px" },
+    el("span", { text: "Throw distance" }), dist));
+  body.appendChild(distLabel);
+
+  const ladder = el("div", { class: "df-ladder", style: "margin-top:12px" });
+  const drawLadder = () => {
+    clear(ladder);
+    for (const step of D.DIFFICULTY_FACTORS) {
+      ladder.appendChild(el("button", {
+        class: "df-step" + (step === state.df ? " on" : ""), type: "button",
+        onclick: () => { state.df = step; drawLadder(); }
+      }, dfLabel(step)));
+    }
+  };
+  drawLadder();
+  body.appendChild(el("div", { class: "field-label", style: "margin-top:12px", text: "Difficulty Factor" }));
+  body.appendChild(ladder);
+  for (const n of D.GRENADE_NOTES) body.appendChild(el("p", { class: "small muted", text: n }));
+
+  const m = modal({
+    title: "Throw " + type.name,
+    body,
+    actions: [
+      { label: "Cancel", kind: "ghost" },
+      { label: "Throw", kind: "primary", close: false, onClick: async () => {
+        m.close();
+        const mods = [];
+        if (Settings.autoConditions()) {
+          for (const cond of conditionSummary(character)) if (cond.dfMod) mods.push({ name: cond.name, value: cond.dfMod });
+        }
+        const skillKey = D.GRENADE_SKILL;
+        if (!isTrained(character, skillKey)) mods.push({ name: "Untrained", value: D.UNTRAINED_DF_PENALTY });
+
+        const rollValue = await getD100();
+        const res = resolve({
+          baseChance: baseChanceFor(character, skillKey), df: state.df, modifiers: mods,
+          rollValue, label: "Throw " + type.name, skillKey
+        });
+        presentResult(res, { character, extra: r => grenadePanel(character, type, state, r, rollValue) });
+      } }
+    ]
+  });
+}
+
+function grenadePanel(character, type, state, res, rollValue) {
+  const wrap = el("div", { style: "margin-top:12px" });
+
+  if (rollValue === D.GRENADE_EARLY_ROLL) {
+    wrap.appendChild(el("div", { class: "banner warn" },
+      el("b", { text: "It goes off early" }),
+      el("div", { class: "small", text: "The grenade detonates before it leaves your hand." })));
+  } else if (D.GRENADE_DUD_ROLL.includes(rollValue)) {
+    wrap.appendChild(el("div", { class: "banner warn" },
+      el("b", { text: "Dud" }),
+      el("div", { class: "small", text: "It lands and does nothing." })));
+    return wrap;
+  }
+
+  const pct = D.GRENADE_SCATTER[res.quality] ?? 0.5;
+  const off = Math.round(state.distance * pct);
+  const dir = die(D.GRENADE_SCATTER_DIRECTIONS);
+  wrap.appendChild(el("div", { class: off === 0 ? "banner ok" : "banner" },
+    el("b", { text: off === 0 ? "On target" : `${off} feet off target` }),
+    el("div", { class: "small", text: off === 0
+      ? "It lands where you aimed."
+      : `${Math.round(pct * 100)}% of a ${state.distance}-foot throw, ${dir} o'clock on the scatter dial.` }),
+    el("div", { class: "small muted", text: `Everything within ${type.radius} feet of where it lands is in the blast.` })));
+
+  if (type.dr) {
+    const wound = R.woundFromHit(res.quality, type.dr);
+    wrap.appendChild(el("div", { class: "banner warn", style: "margin-top:8px" },
+      el("b", { text: `Area Damage Rank ${type.dr}` }),
+      el("div", { class: "small", text: `Anyone caught in it takes a ${R.woundLevel(wound).name}.` })));
+    wrap.appendChild(applyToTargetRow(wound, character));
+  } else {
+    wrap.appendChild(el("p", { class: "small muted", style: "margin-top:8px", text:
+      "This type deals no Damage Rank of its own — read its description for what it does to anyone inside the radius." }));
+  }
+  return wrap;
+}
+
+/** Where a blast lands: any combatant in the tracker, or the thrower themselves. */
+function applyToTargetRow(wound, character) {
+  const row = el("div", { class: "btn-row", style: "margin-top:8px" });
+  const s = Store.combatState();
+  for (const cb of (s.active ? s.combatants : [])) {
+    row.appendChild(el("button", { class: "btn sm", type: "button", onclick: e => {
+      const applied = applyWoundToCombatant(cb.id, wound);
+      if (applied) {
+        e.currentTarget.disabled = true;
+        e.currentTarget.textContent = `${applied.name}: ${R.woundLevel(applied.wound).name}`;
+        if (applied.characterId === character.id) applyDamageToCharacter(character, wound);
+      }
+    } }, `Apply to ${cb.name}`));
+  }
+  if (!s.active) {
+    row.appendChild(el("button", { class: "btn sm danger", type: "button",
+      onclick: () => applyDamageToCharacter(character, wound) },
+      `Apply to ${character.identity.name || "me"}`));
+  }
+  return row;
+}
+
+/** Which grenade. Carried ones first, since those are the ones you can actually throw. */
+export function openGrenadePicker(character) {
+  const carried = new Set((character.inventory.items || [])
+    .filter(i => i.key && String(i.key).startsWith("gren_"))
+    .map(i => String(i.key).slice(5)));
+  const items = D.GRENADE_TYPES.map(g => ({
+    key: g.key, label: g.name,
+    right: carried.has(g.key) ? "carried" : "",
+    desc: `Radius ${g.radius} ft${g.dr ? " · Area Damage Rank " + g.dr : ""} — ${g.desc}`
+  }));
+  items.sort((a, b) => (b.right ? 1 : 0) - (a.right ? 1 : 0));
+  chooseModal("Throw a grenade", items).then(key => {
+    if (!key) return;
+    openGrenadeThrow(character, D.GRENADE_TYPES.find(g => g.key === key));
+  });
+}
+
+/**
+ * Tailing: a movement skill at Difficulty Factor 5, and the target's Sixth Sense at twice
+ * your Quality against it. Sixth Sense is GM-rolled, which is exactly why the app rolls it
+ * here rather than the player invoking it.
+ */
+export function openTailing(character) {
+  const proc = D.QUALITY_OPPOSED.find(x => x.key === "tailing");
+  const movement = D.SKILLS.filter(sk => ["driving", "boating", "piloting", "riding", "evasion", "stealth"].includes(sk.key));
+  chooseModal("Tail them with", movement.map(sk => ({
+    key: sk.key, label: sk.name, right: String(baseChanceFor(character, sk.key)),
+    desc: sk.desc || ""
+  })), { intro: proc.desc }).then(skillKey => {
+    if (!skillKey) return;
+    openRoll({
+      character, skillKey, df: proc.actorDF, label: "Tailing — " + R.skillName(skillKey),
+      onResult: async r => {
+        const df = r.quality >= D.QUALITY.FAILURE ? proc.failureDF : D.clampDF(r.quality * proc.multiplier);
+        const typed = await promptModal("Their Sixth Sense Base Chance", {
+          title: proc.opponent, type: "number", value: "10", okLabel: "Roll"
+        });
+        if (typed === null) return;
+        const base = clamp(parseInt(typed, 10) || 0, 1, D.MAX_BASE_CHANCE);
+        const rollValue = await getD100(`${proc.opponent} d100`);
+        const res = resolve({ baseChance: base, df, rollValue, label: proc.opponent });
+        presentResult(res, {
+          title: proc.opponent,
+          extra: o => el("p", { class: "small muted", style: "margin-top:10px", text:
+            o.quality >= D.QUALITY.FAILURE ? "They do not spot you." : "They have spotted you." })
+        });
+      }
+    });
+  });
+}
+
 /* ---------------------------------------------------------------- quick tools */
 
 export function openQuickRoll(character) {
@@ -1331,6 +1587,8 @@ export function openQuickRoll(character) {
     { key: "reputation", label: "Reputation check", desc: "Can that professional place your face?" },
     { key: "gamble", label: "Gambling", desc: "Baccarat, Blackjack, Chemin de Fer or Poker." },
     { key: "chase", label: "Chase manoeuvre", desc: "Bid, manoeuvre, and resolve any accident." },
+    { key: "grenade", label: "Throw a grenade", desc: "Range by Strength, scatter by Quality, and the blast." },
+    { key: "tailing", label: "Tail someone", desc: "A movement skill at Difficulty Factor 5, and their Sixth Sense against it." },
     { key: "damage", label: "Take damage", desc: "Apply a wound with the full consequence chain." }
   ];
   chooseModal("Roll", items).then(key => {
@@ -1346,6 +1604,8 @@ export function openQuickRoll(character) {
       case "reputation": openReputationCheck(character); break;
       case "gamble": openGambling(character); break;
       case "chase": openChaseManeuver(character); break;
+      case "grenade": openGrenadePicker(character); break;
+      case "tailing": openTailing(character); break;
       case "damage": openTakeDamage(character); break;
     }
   });

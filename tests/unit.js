@@ -185,6 +185,35 @@ export function unitTests(t) {
 
   /* ---------------- chases ---------------- */
 
+  t.group("Quality as Difficulty Factor");
+
+  const disguise = D.QUALITY_OPPOSED_BY_SKILL.disguise;
+  t.ok(!!disguise, "Disguise carries its opposed procedure in the data layer");
+  t.eq(disguise.failureDF, 10, "a failed disguise lets the observer look at Difficulty Factor 10");
+  t.eq(disguise.multiplier, 1, "and a successful one at the disguise Quality");
+  const stealth = D.QUALITY_OPPOSED_BY_SKILL.stealth;
+  t.eq(stealth.onlyOnQuality, 4, "Stealth only hands over a check on a Fair result");
+  t.eq(stealth.fixedDF, 5, "at the printed Difficulty Factor 5");
+  const tail = D.QUALITY_OPPOSED.find(x => x.key === "tailing");
+  t.eq(tail.actorDF, D.TAILING.df, "tailing rolls at the Difficulty Factor the book prints");
+  t.eq(tail.multiplier, 2, "and the target's Sixth Sense at twice the Quality");
+  t.eq(tail.opponentSkill, "sixthsense", "which is the skill a player may never invoke themselves");
+  t.ok(D.QUALITY_OPPOSED.every(x => D.clampDF(4 * (x.multiplier || 1)) <= 10),
+    "every doubled Quality still lands on the legal ladder");
+
+  t.group("Grenades");
+
+  t.eq(D.GRENADE_SCATTER[1], 0, "a Superb throw lands on target");
+  t.eq(D.GRENADE_SCATTER[5], 0.5, "a failed throw scatters by half the throw length");
+  t.eq(D.GRENADE_THROW_FT_PER_STR, 10, "throw range is 10 feet per point of Strength");
+  t.eq(D.GRENADE_SKILL, "handtohand", "thrown weapons are Hand-to-Hand, not Fire Combat");
+  t.ok(D.GRENADE_DUD_ROLL.includes(98) && D.GRENADE_DUD_ROLL.includes(99), "98-99 is a dud");
+  t.eq(D.GRENADE_EARLY_ROLL, 100, "and 100 goes off early");
+  t.ok(D.GRENADE_TYPES.every(g => g.radius > 0), "every grenade has a blast radius");
+  const inc = D.GRENADE_TYPES.find(g => g.key === "incendiary");
+  t.eq(inc.dr, "K", "the incendiary carries its Area Damage Rank");
+  t.eq(R.woundFromHit(1, "K"), "killed", "which kills on a Superb, straight off the Wound Rank Table");
+
   t.group("Chases");
 
   t.eq(D.CHASE_START_BID, 7, "chase bidding starts at Difficulty Factor 7");
