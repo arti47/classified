@@ -592,6 +592,20 @@ export async function openBriefing(adv) {
         wordsEl.textContent = `${npc.rankLabel} ${npc.stereotype} · Speed ${npc.speed} · ${npc.points} Villain Points · rolled ${npc.identityRolls.join(", ")}`;
         return;
       }
+      if (row.hidden) {
+        // Whether the mission conceals anything, and what it hangs on. A hit opens a mystery
+        // when the briefing is committed — with no clues yet, so nothing says when it breaks.
+        const r = await soloD100("Hidden truth d100");
+        const hit = S.hiddenTruth(r);
+        // The roll itself carries the subject, so the row has no prompt words to print under
+        // its own line the way a word-pair row does.
+        state[row.key].words = [];
+        state[row.key].rolls = [r];
+        state[row.key].text = hit.text;
+        field.value = hit.text;
+        wordsEl.textContent = `Hidden truth · rolled ${r}`;
+        return;
+      }
       const pair = await rollPair(row.table);
       state[row.key].words = pair.words;
       state[row.key].rolls = pair.rolls;
@@ -653,6 +667,22 @@ export async function openBriefing(adv) {
       a.scenePhase = "setup";
       journal(a, "note", `Mission briefing: ${state.objective.text || state.codename.text || "written"}`,
         [state.genre.text, state.cover.text].filter(Boolean).join(" · "));
+
+      // A Hidden truth hit opens a mystery on whatever it named, at zero clues. You start
+      // knowing the mission conceals something, and nothing else about it.
+      const hiddenSubject = state.hidden.rolls.length
+        ? S.hiddenTruth(state.hidden.rolls[0]).subject
+        : null;
+      if (hiddenSubject && S.MYSTERY_SUBJECT_BY_KEY[hiddenSubject]) {
+        const source = hiddenSubject === "opponent"
+          ? (npc ? (npc.alias || npc.name) : "The primary opponent")
+          : (state[hiddenSubject] && state[hiddenSubject].text) || S.MYSTERY_SUBJECT_BY_KEY[hiddenSubject].name;
+        (a.mysteries = a.mysteries || []).push({
+          id: uid("mys"), subject: hiddenSubject, label: source, sourceId: null,
+          clues: 0, createdAt: Date.now(), revealedAt: null, reveal: null
+        });
+        journal(a, "note", `Mystery opened: ${source}`, state.hidden.text);
+      }
     } else {
       journal(a, "note", "Mission briefing revised.");
     }
@@ -815,17 +845,15 @@ export async function askFate(adv, oddsKey, question) {
     body.appendChild(b);
   }
 
-  // An Exceptional answer is the oracle giving more than was asked for, which reads as a break
-  // in the case (S20). One open mystery ticks itself; several are offered as a choice below.
+  // An Exceptional answer is the oracle giving more than was asked for, which reads as a lead
+  // (S20). One open mystery takes it; several are offered as a choice below. The clue is
+  // marked when this dialog closes, so its own Fate question does not land on top of this one.
   const openMys = openMysteries(adv);
-  if (res.exceptional && openMys.length === 1) {
-    const after = tickMystery(openMys[0].id, "exceptional");
-    if (after) {
-      body.appendChild(el("div", { class: "banner ok" },
-        el("b", { text: `A break in the case: ${after.label}` }),
-        el("div", { class: "small", text: `Clock ${after.filled}/${after.size}` +
-          (after.filled >= after.size ? " — reveal it from the Mysteries panel." : "") })));
-    }
+  const leadOn = res.exceptional && openMys.length === 1 ? openMys[0] : null;
+  if (leadOn) {
+    body.appendChild(el("div", { class: "banner ok" },
+      el("b", { text: `A lead on: ${leadOn.label}` }),
+      el("div", { class: "small", text: "Marked as a clue when you close this — then Fate says whether it breaks open." })));
   }
 
   if (res.exceptional) {
@@ -866,7 +894,9 @@ export async function askFate(adv, oddsKey, question) {
   logSolo(adv, label, res.mechanic === "check" ? res.total : res.roll, res.answer,
     `${odds.name} · Chaos Factor ${adv.chaos}` + (res.event ? " · Random Event" : ""));
 
-  modal({ title: "Fate", body, actions, locked: !!res.event });
+  const m = modal({ title: "Fate", body, actions, locked: !!res.event,
+    onClose: () => { if (leadOn) tickMystery(leadOn.id, "exceptional"); } });
+  return m;
 }
 
 /* ---------------------------------------------------------------- scenes */
@@ -1088,6 +1118,10 @@ export async function rollRandomEvent(adv, opts = {}) {
         : `"${opts.interruptedBy}" was displaced but the Threads list is at ${S.LIST_SLOTS} entries, so it was not filed.` })));
   }
 
+  // Clues the event turned up. They are marked once this dialog is done with, so the
+  // mystery's own Fate question never lands on top of the event.
+  const pendingTicks = [];
+
   // The event usually tells you to change a list. Offer that here rather than making the
   // player leave the flow and remember to do it.
   const actions = [opts.chain
@@ -1114,14 +1148,12 @@ export async function rollRandomEvent(adv, opts = {}) {
   // An event pointing at the mystery's own thread is the kind of clue the clock exists for,
   // so it ticks itself rather than waiting to be noticed.
   if (drawn && drawn.item && focus.list === "threads") {
-    const mys = (adv.mysteries || []).find(m => !m.revealedAt && m.filled < m.size && m.sourceId === drawn.item.id);
+    const mys = (adv.mysteries || []).find(m => !m.revealedAt && m.sourceId === drawn.item.id);
     if (mys) {
-      const after = tickMystery(mys.id, "event");
-      if (after) {
-        body.appendChild(el("div", { class: "banner ok" },
-          el("b", { text: `A break in the case: ${after.label}` }),
-          el("div", { class: "small", text: `Clock ${after.filled}/${after.size}` })));
-      }
+      body.appendChild(el("div", { class: "banner ok" },
+        el("b", { text: `A lead on: ${mys.label}` }),
+        el("div", { class: "small", text: "Marked as a clue — the question is asked when this dialog closes." })));
+      pendingTicks.push({ id: mys.id, source: "event" });
     }
   }
 
@@ -1143,7 +1175,8 @@ export async function rollRandomEvent(adv, opts = {}) {
       onClick: () => addToList("threads", "Threads", pair.words.join(" "))
     });
   }
-  modal({ title: "Random Event", body, actions, locked: !!opts.chain });
+  modal({ title: "Random Event", body, actions, locked: !!opts.chain,
+    onClose: () => { for (const t of pendingTicks) tickMystery(t.id, t.source); } });
 }
 
 /** Add to an Adventure List, letting the player edit the suggested wording first. */
@@ -1241,40 +1274,36 @@ function mysteryCard(adv, m) {
   const subject = S.MYSTERY_SUBJECT_BY_KEY[m.subject] || S.MYSTERY_SUBJECT_BY_KEY.thread;
   const card = el("div", { class: "card" });
 
+  const oddsKey = S.mysteryOdds(m.clues);
   card.appendChild(el("div", { class: "row" },
     el("div", { class: "grow" },
       el("div", { style: "font-weight:600", text: m.label }),
       el("div", { class: "small muted", text: subject.name })),
     m.revealedAt
       ? el("span", { class: "pill q1", text: "Revealed" })
-      : el("span", { class: "mono small", text: `${m.filled}/${m.size}` })));
+      : el("span", { class: "mono small", text: `${m.clues} clue${m.clues === 1 ? "" : "s"}` })));
 
   if (!m.revealedAt) {
-    const track = el("div", { class: "progress-track" });
-    for (let i = 0; i < m.size; i++) {
-      track.appendChild(el("button", {
-        class: "progress-pip" + (i < m.filled ? " on" : ""), type: "button",
-        "aria-label": `Set the clock to ${i + 1} of ${m.size}`,
-        onclick: () => save(a => {
-          const x = a.mysteries.find(y => y.id === m.id);
-          if (x) x.filled = (i + 1 === x.filled) ? i : i + 1;
-        })
-      }));
-    }
-    card.appendChild(track);
+    card.appendChild(el("p", { class: "small muted", style: "margin-top:4px", text: oddsKey
+      ? `Next clue asks Fate at ${S.oddsLabel(oddsKey, adv.fateMode)} — it can break open on any of them, or hold.`
+      : "No clues yet. The first one starts the odds at their longest." }));
 
     const row = el("div", { class: "btn-row", style: "margin-top:6px" });
-    if (m.filled >= m.size) {
-      row.appendChild(el("button", { class: "btn sm primary", type: "button", onclick: () => revealMystery(adv, m.id) }, "Reveal it"));
-    } else {
-      row.appendChild(el("button", {
-        class: "btn sm", type: "button", onclick: () => tickMystery(m.id, "clue")
-      }, "+ Clue"));
-    }
+    row.appendChild(el("button", {
+      class: "btn sm primary", type: "button", onclick: () => tickMystery(m.id, "clue")
+    }, "+ Clue"));
+    row.appendChild(el("button", {
+      class: "btn sm ghost", type: "button",
+      disabled: m.clues <= 0,
+      onclick: () => save(a => {
+        const x = a.mysteries.find(y => y.id === m.id);
+        if (x) x.clues = Math.max(0, x.clues - 1);
+      })
+    }, "− Clue"));
     row.appendChild(el("button", {
       class: "btn sm ghost", type: "button",
       onclick: async () => {
-        if (await confirmModal(`Drop “${m.label}”? The clock and anything rolled on it go with it.`,
+        if (await confirmModal(`Drop “${m.label}”? The clues and anything rolled on it go with it.`,
           { title: "Drop this mystery", danger: true, okLabel: "Drop it" })) {
           save(a => { a.mysteries = a.mysteries.filter(y => y.id !== m.id); });
         }
@@ -1287,6 +1316,9 @@ function mysteryCard(adv, m) {
       el("div", { class: "small", text: m.reveal.shapeDesc }),
       m.reveal.words.length
         ? el("div", { class: "roll-formula", style: "text-align:left", text: m.reveal.words.join(" · ") })
+        : null,
+      m.reveal.exceptional
+        ? el("div", { class: "small muted", text: "It broke wide open — the extra words came with it." })
         : null));
     card.appendChild(el("div", { class: "btn-row", style: "margin-top:6px" },
       el("button", {
@@ -1305,7 +1337,7 @@ function mysteryCard(adv, m) {
 async function newMystery(adv) {
   const items = [];
   const b = adv.briefing ? adv.briefing.rows : null;
-  for (const key of ["objective", "complication"]) {
+  for (const key of ["objective", "complication", "intel"]) {
     const row = b && b[key];
     if (row && row.text) {
       items.push({ key: "row:" + key, label: S.MYSTERY_SUBJECT_BY_KEY[key].name, desc: row.text });
@@ -1341,42 +1373,95 @@ async function newMystery(adv) {
     label = typed.trim();
   }
 
-  const sizeKey = await chooseModal("How long should it stay open?", S.MYSTERY_SIZES.map(x => ({
-    key: String(x.size), label: x.name, desc: x.desc
-  })));
-  if (!sizeKey) return;
-
-  save(a => {
-    (a.mysteries = a.mysteries || []).push({
-      id: uid("mys"), subject, label, sourceId,
-      size: Number(sizeKey), filled: 0, createdAt: Date.now(), revealedAt: null, reveal: null
-    });
-    journal(a, "note", `Mystery opened: ${label}`, `${sizeKey}-segment clock`);
-  });
-  showToast("Mystery opened", "ok");
+  openMystery({ subject, label, sourceId });
 }
 
 /**
  * Fill one segment. Returns the mystery as it stands after the tick, or null if there was
  * nothing to tick — the automatic sources use that to stay quiet.
  */
-export function tickMystery(id, source = "clue") {
+export function openMystery({ subject, label, sourceId = null, silent = false }) {
+  const id = uid("mys");
+  save(a => {
+    (a.mysteries = a.mysteries || []).push({
+      id, subject, label, sourceId, clues: 0,
+      createdAt: Date.now(), revealedAt: null, reveal: null
+    });
+    journal(a, "note", `Mystery opened: ${label}`, (S.MYSTERY_SUBJECT_BY_KEY[subject] || {}).name || "");
+  });
+  if (!silent) showToast("Mystery opened", "ok");
+  return id;
+}
+
+/**
+ * Mark a clue, then ask whether this is the moment.
+ *
+ * Clues do not count down to anything: they set the odds, and the Fate Chart decides. That is
+ * the whole point of the redesign — a visible clock told the player which clue would break the
+ * mystery open, which is a countdown rather than a mystery.
+ *
+ * The question is rolled by the app rather than asked by the player, so it does not fire the
+ * doubles Random Event a Fate question would: End Scene can tick several mysteries in one
+ * commit, and chaining events out of that would bury the boundary (ruling S21).
+ */
+export async function tickMystery(id, source = "clue") {
   const adv = Store.activeAdventure();
   if (!adv) return null;
   const before = (adv.mysteries || []).find(m => m.id === id);
-  if (!before || before.revealedAt || before.filled >= before.size) return null;
+  if (!before || before.revealedAt) return null;
 
   const reason = (S.MYSTERY_TICKS.find(x => x.key === source) || S.MYSTERY_TICKS[0]).name;
-  const after = save(a => {
+  save(a => {
     const m = a.mysteries.find(x => x.id === id);
-    m.filled = Math.min(m.size, m.filled + 1);
-    journal(a, "note", `Clue: ${m.label} (${m.filled}/${m.size})`, reason);
-  }).mysteries.find(x => x.id === id);
+    m.clues = Math.min(S.MYSTERY_MAX_CLUES, m.clues + 1);
+    journal(a, "note", `Clue: ${m.label} (${m.clues})`, reason);
+  });
 
-  showToast(after.filled >= after.size
-    ? `${after.label} — the clock is full`
-    : `${after.label} ${after.filled}/${after.size}`, "ok");
-  return after;
+  return testMystery(id);
+}
+
+/** Ask the chart whether the mystery breaks open now, at the odds its clues have earned. */
+export async function testMystery(id) {
+  const adv = Store.activeAdventure();
+  const m = (adv.mysteries || []).find(x => x.id === id);
+  if (!m || m.revealedAt) return null;
+
+  const oddsKey = S.mysteryOdds(m.clues);
+  if (!oddsKey) return m;
+
+  let res;
+  if (adv.fateMode === "check") {
+    const a = Settings.manualDice() ? await soloD10("first d10") : die(10);
+    const b = Settings.manualDice() ? await soloD10("second d10") : die(10);
+    res = S.fateCheckAnswer(a, b, oddsKey, adv.chaos);
+  } else {
+    const roll = await soloD100(`${m.label} — ${S.MYSTERY_QUESTION}`);
+    res = S.fateChartAnswer(roll, oddsKey, adv.chaos);
+  }
+
+  const outcome = S.MYSTERY_ANSWERS[res.key];
+  logSolo(adv, `${m.label} — ${S.MYSTERY_QUESTION}`,
+    res.mechanic === "check" ? res.total : res.roll, outcome,
+    `${S.oddsLabel(oddsKey, adv.fateMode)} on ${m.clues} clue${m.clues === 1 ? "" : "s"} · Chaos Factor ${adv.chaos}`);
+
+  if (res.yes) {
+    save(a => { journal(a, "event", `${m.label} — ${outcome}`, `${S.oddsLabel(oddsKey, adv.fateMode)} on ${m.clues} clues`); });
+    await revealMystery(Store.activeAdventure(), id, { exceptional: res.key === "exceptionalYes" });
+    return Store.activeAdventure().mysteries.find(x => x.id === id);
+  }
+
+  // An Exceptional No is a lead going cold: it costs the clue that raised it.
+  if (res.key === "exceptionalNo") {
+    save(a => {
+      const x = a.mysteries.find(y => y.id === id);
+      x.clues = Math.max(0, x.clues - 1);
+      journal(a, "note", `${x.label} — the lead goes cold`, `back to ${x.clues} clue${x.clues === 1 ? "" : "s"}`);
+    });
+    showToast(`${m.label}: the lead goes cold`, "err");
+  } else {
+    showToast(`${m.label}: not yet — ${m.clues} clue${m.clues === 1 ? "" : "s"}`, "");
+  }
+  return Store.activeAdventure().mysteries.find(x => x.id === id);
 }
 
 /** Ask which open mystery a clue belongs to, when the app cannot tell. */
@@ -1386,7 +1471,7 @@ async function pickMysteryToTick(source) {
   if (!open.length) { showToast("No mystery is open", "err"); return; }
   if (open.length === 1) { tickMystery(open[0].id, source); return; }
   const pick = await chooseModal("Which mystery does this bear on?", open.map(m => ({
-    key: m.id, label: m.label, right: `${m.filled}/${m.size}`,
+    key: m.id, label: m.label, right: `${m.clues} clue${m.clues === 1 ? "" : "s"}`,
     desc: (S.MYSTERY_SUBJECT_BY_KEY[m.subject] || {}).name || ""
   })));
   if (pick) tickMystery(pick, source);
@@ -1394,7 +1479,7 @@ async function pickMysteryToTick(source) {
 
 /** Any mystery still open, for the automatic tick sources. */
 function openMysteries(adv) {
-  return (adv.mysteries || []).filter(m => !m.revealedAt && m.filled < m.size);
+  return (adv.mysteries || []).filter(m => !m.revealedAt);
 }
 
 /**
@@ -1402,7 +1487,7 @@ function openMysteries(adv) {
  * subject. Nothing was decided in advance, which is the point — the answer cannot contradict
  * what has already been played.
  */
-export async function revealMystery(adv, id) {
+export async function revealMystery(adv, id, opts = {}) {
   const m = (adv.mysteries || []).find(x => x.id === id);
   if (!m) return;
   const subject = S.MYSTERY_SUBJECT_BY_KEY[m.subject] || S.MYSTERY_SUBJECT_BY_KEY.thread;
@@ -1410,18 +1495,22 @@ export async function revealMystery(adv, id) {
   const shapeRoll = await soloD100("Reveal d100");
   const shape = S.revealShape(shapeRoll);
   const pair = await rollPair(subject.table);
+  // An Exceptional Yes brings more than the truth: a second pair comes with it.
+  const extra = opts.exceptional ? await rollPair(subject.table) : null;
+  const words = extra ? [...pair.words, ...extra.words] : pair.words;
 
   save(a => {
     const x = a.mysteries.find(y => y.id === id);
     x.revealedAt = Date.now();
     x.reveal = {
       shapeKey: shape.key, shapeName: shape.name, shapeDesc: shape.desc,
-      words: pair.words, rolls: [shapeRoll, ...pair.rolls]
+      words, rolls: [shapeRoll, ...pair.rolls, ...(extra ? extra.rolls : [])],
+      exceptional: !!opts.exceptional
     };
     journal(a, "event", `Revealed: ${x.label} — ${shape.name}`,
-      `d100 ${shapeRoll} · ${pair.label} ${pair.rolls.join("/")} · ${pair.words.join(" ")}`);
+      `d100 ${shapeRoll} · ${pair.label} · ${words.join(" ")}`);
   });
-  logSolo(adv, `Mystery revealed — ${m.label}`, shapeRoll, shape.name, `${pair.words.join(" · ")} · ${subject.name}`);
+  logSolo(adv, `Mystery revealed — ${m.label}`, shapeRoll, shape.name, `${words.join(" · ")} · ${subject.name}`);
 
   const body = el("div", {});
   body.appendChild(el("div", { class: "banner" },
@@ -1429,15 +1518,17 @@ export async function revealMystery(adv, id) {
     el("div", { class: "small", text: shape.desc }),
     el("div", { class: "small muted", text: `Reveal d100 ${shapeRoll}` })));
   body.appendChild(el("div", { class: "roll-result" },
-    el("div", { class: "roll-quality", style: "font-size:20px", text: pair.words.join(" · ") }),
-    el("div", { class: "roll-formula", text: `${pair.label} · rolled ${pair.rolls.join(" and ")}` })));
+    el("div", { class: "roll-quality", style: "font-size:20px", text: words.join(" · ") }),
+    el("div", { class: "roll-formula", text: extra
+      ? `${pair.label}, twice over — it broke wide open`
+      : `${pair.label} · rolled ${pair.rolls.join(" and ")}` })));
   body.appendChild(el("p", { class: "small muted", text:
     "Read the shape and the words together, and say what is true. It was not written down before now." }));
 
   const actions = [{ label: "Done", kind: "primary" }];
   actions.unshift({
     label: "+ Thread from this", kind: "ghost", close: false,
-    onClick: () => addToList("threads", "Threads", pair.words.join(" "))
+    onClick: () => addToList("threads", "Threads", words.join(" "))
   });
 
   // A mystery on the objective can rewrite what the mission is for — the one reveal that
@@ -1653,7 +1744,7 @@ export async function endScene(adv) {
         }),
         el("div", { class: "grow" },
           el("div", { class: "t-name", text: m.label }),
-          el("div", { class: "t-desc", text: `Clock ${m.filled}/${m.size} — ticking fills one segment` })));
+          el("div", { class: "t-desc", text: `${m.clues} clue${m.clues === 1 ? "" : "s"} — ticking marks one more and asks Fate` })));
       card.appendChild(label);
     }
     box.appendChild(card);
@@ -1694,14 +1785,6 @@ export async function endScene(adv) {
       }
     }
 
-    for (const id of mysteryTicks) {
-      const m = (a.mysteries || []).find(x => x.id === id);
-      if (!m || m.revealedAt || m.filled >= m.size) continue;
-      m.filled = Math.min(m.size, m.filled + 1);
-      journal(a, "note", `Clue: ${m.label} (${m.filled}/${m.size})`, "A scene that bore on it");
-      changes.push(`${m.label}: clock ${m.filled}/${m.size}${m.filled >= m.size ? " — ready to reveal" : ""}.`);
-    }
-
     a.scene = (a.scene || 1) + 1;
     a.scenePhase = "setup";
     a.sceneKind = null;
@@ -1711,11 +1794,19 @@ export async function endScene(adv) {
   changes.unshift(`Chaos Factor ${before} → ${updated.chaos}.`);
   changes.push(`Scene ${updated.scene} is next — start it when you know what you expect.`);
 
+  for (const id of mysteryTicks) {
+    const m = (updated.mysteries || []).find(x => x.id === id);
+    if (m && !m.revealedAt) changes.push(`${m.label}: a clue from this scene — Fate is asked once you close this.`);
+  }
+
   modal({
     title: "Scene ended",
     body: el("div", {}, ...changes.map(t => el("p", { class: "small", text: "• " + t })),
       el("p", { class: "small muted", style: "margin-top:10px", text: "Undo is on the Solo screen if that was not what you meant." })),
-    actions: [{ label: "OK", kind: "primary" }]
+    actions: [{ label: "OK", kind: "primary" }],
+    // The clues this scene earned are marked one at a time after the boundary is read, so a
+    // mystery that breaks open does so on its own dialog rather than inside the summary.
+    onClose: async () => { for (const id of mysteryTicks) await tickMystery(id, "scene"); }
   });
 }
 

@@ -878,15 +878,43 @@ function soloTests(t) {
 
   t.group("Mysteries — house aid");
 
-  t.deep(SOLO.MYSTERY_SIZES.map(x => x.size), [4, 6, 8], "clocks come in four, six and eight segments");
-  t.eq(SOLO.MYSTERY_DEFAULT_SIZE, 6, "six is the middle default");
-  t.deep(SOLO.MYSTERY_SUBJECTS.map(x => x.key), ["objective", "complication", "opponent", "thread"],
-    "a mystery can be about the objective, the complication, the opponent or a thread");
+  // Clues set the odds; Fate decides the moment. A visible clock would say which clue breaks
+  // it open, which is a countdown rather than a mystery (S21).
+  t.eq(SOLO.mysteryOdds(0), null, "no clues, no question — the first clue starts it");
+  t.eq(SOLO.mysteryOdds(1), "veryunl", "one clue is a long shot");
+  t.eq(SOLO.mysteryOdds(2), "unlikely", "two are unlikely");
+  t.eq(SOLO.mysteryOdds(3), "fifty", "three are even money");
+  t.eq(SOLO.mysteryOdds(4), "likely", "four are likely");
+  t.eq(SOLO.mysteryOdds(5), "verylikely", "five very likely");
+  t.eq(SOLO.mysteryOdds(6), "nearcert", "six nearly certain");
+  t.eq(SOLO.mysteryOdds(20), "nearcert", "and it tops out there rather than becoming a certainty");
+  t.ok(SOLO.MYSTERY_ODDS_LADDER.every(r => !!SOLO.FATE_ODDS_BY_KEY[r.odds]),
+    "every rung of the ladder is a real odds row on the chart");
+  t.ok(!("MYSTERY_SIZES" in SOLO), "the segment clock is gone: no sizes to pick");
+  t.ok(!!SOLO.MYSTERY_QUESTION && !!SOLO.MYSTERY_ANSWERS.exceptionalNo,
+    "the break-open question and its four answers are named in the data");
+
+  t.deep(SOLO.MYSTERY_SUBJECTS.map(x => x.key), ["objective", "complication", "opponent", "intel", "thread"],
+    "a mystery can be about the objective, the complication, the opponent, the intel or a thread");
   t.ok(SOLO.MYSTERY_SUBJECTS.every(x => !!SOLO.MEANING_BY_KEY[x.table]),
     "every subject's reveal colour comes from a real Meaning Table");
   t.ok(SOLO.MYSTERY_SUBJECT_BY_KEY.objective.rewrites, "only the objective's reveal can rewrite the mission");
   t.ok(!SOLO.MYSTERY_SUBJECT_BY_KEY.opponent.rewrites, "the opponent's cannot");
-  t.eq(SOLO.MYSTERY_TICKS.length, 4, "four things fill a segment");
+  t.eq(SOLO.MYSTERY_TICKS.length, 4, "four things mark a clue");
+
+  // The briefing can roll whether the mission hides anything at all.
+  t.eq(SOLO.BRIEFING_HIDDEN_TRUTH[SOLO.BRIEFING_HIDDEN_TRUTH.length - 1].max, 100,
+    "the Hidden truth table covers the whole d100");
+  t.eq(SOLO.hiddenTruth(1).subject, null, "a low roll hides nothing");
+  t.ok(SOLO.BRIEFING_HIDDEN_TRUTH.some(r => r.subject === "objective"), "it can hang on the objective");
+  t.ok(SOLO.BRIEFING_HIDDEN_TRUTH.some(r => r.subject === "opponent"), "or the opponent");
+  let hiddenBad = null;
+  for (const r of SOLO.BRIEFING_HIDDEN_TRUTH) {
+    if (r.subject && !SOLO.MYSTERY_SUBJECT_BY_KEY[r.subject]) hiddenBad = r.subject;
+    if (!r.text) hiddenBad = "empty text";
+  }
+  t.ok(!hiddenBad, "every hit names a real mystery subject" + (hiddenBad ? ` (${hiddenBad})` : ""));
+  t.ok(SOLO.BRIEFING_ROWS.some(r => r.key === "hidden"), "and the briefing carries the row that rolls it");
 
   t.eq(SOLO.REVEAL_SHAPES[SOLO.REVEAL_SHAPES.length - 1].max, 100, "the Reveal table covers the whole d100");
   let revealGap = null;
@@ -902,22 +930,23 @@ function soloTests(t) {
   }
   t.pass("every d100 result resolves to a revelation");
   t.ok(/house aid/i.test(SOLO.MYSTERY_NOTE), "the note on screen calls it a house aid (S20)");
-  t.ok(/Blades|Brindlewood/.test(SOLO.MYSTERY_NOTE), "and names where the two ideas come from");
+  t.ok(/clues|odds/i.test(SOLO.MYSTERY_NOTE), "and says the clues set the odds rather than counting down");
 
   const mysTopic = SOLO.SOLO_TOPICS.find(x => x.key === "mysteries");
   t.ok(!!mysTopic, "the solo reference carries a mysteries topic");
   t.ok(/house aid/i.test(mysTopic.title + mysTopic.body.join(" ")), "which says the same thing");
 
   const mys = normalizeAdventure({ mysteries: [
-    { subject: "objective", label: "Who wants the film", size: 99, filled: 40 },
-    { subject: "nonsense", label: "x", size: 4, filled: -3 },
-    { subject: "thread", label: "y", size: 8, filled: 8, revealedAt: 123,
+    { subject: "objective", label: "Who wants the film", size: 6, filled: 3 },
+    { subject: "nonsense", label: "x", clues: -3 },
+    { subject: "thread", label: "y", clues: 99, revealedAt: 123,
       reveal: { shapeKey: "planted", shapeName: "It was planted", words: ["Deceive", "Urgently"], rolls: [30, 1, 2] } }
   ] }).mysteries;
-  t.eq(mys[0].size, 6, "an impossible clock size falls back to six");
-  t.eq(mys[0].filled, 6, "and a count past the end is clamped to it");
+  t.eq(mys[0].clues, 3, "a version-8 clock's filled segments carry over as that many clues");
+  t.eq(mys[0].size, undefined, "and the clock itself is dropped");
   t.eq(mys[1].subject, "thread", "an unknown subject falls back to a thread");
-  t.eq(mys[1].filled, 0, "and a negative count to zero");
+  t.eq(mys[1].clues, 0, "and a negative clue count to zero");
+  t.eq(mys[2].clues, 12, "an absurd count is capped");
   t.eq(mys[2].reveal.shapeName, "It was planted", "a revealed mystery keeps its rolled answer");
   t.deep(mys[2].reveal.words, ["Deceive", "Urgently"], "words and all");
   t.deep(normalizeAdventure({}).mysteries, [], "an adventure from before version 8 simply has none");
@@ -955,7 +984,7 @@ function soloTests(t) {
   t.eq(fresh.chaos, 5, "a new adventure starts at Chaos Factor 5");
   t.eq(fresh.scene, 1, "a new adventure starts at scene 1");
   t.eq(fresh.fateMode, "chart", "the Fate Chart is the default mechanic");
-  t.eq(fresh.schema, 8, "an adventure records SCHEMA_VERSION 8");
+  t.eq(fresh.schema, 9, "an adventure records SCHEMA_VERSION 9");
   t.deep(fresh.threads, [], "the Threads list starts empty");
   t.eq(fresh.scenePhase, "setup", "a new adventure has no scene open yet");
   t.eq(fresh.sceneKind, null, "and no scene outcome recorded");

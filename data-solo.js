@@ -943,6 +943,9 @@ export const BRIEFING_ROWS = [
   { key: "intel", name: "Intel", table: "espIntel", pair: true,
     placeholder: "A partial manifest, source unverified",
     hint: "What you were told before you went in, and how far it can be trusted." },
+  { key: "hidden", name: "Hidden truth", hidden: true,
+    placeholder: "Nothing hidden — the mission is what it says",
+    hint: "Whether this mission conceals something, and what it hangs on. A hit opens a mystery on that element, with no clues yet and no idea what it is." },
   { key: "opponent", name: "Primary opponent", npc: true, seeds: "characters",
     placeholder: "Cormorant — ruthless spymaster",
     hint: "A codename, two words off the Adversary table, and a full Classified stat block behind them. Generate again for a different opponent." }
@@ -977,15 +980,35 @@ export const BRIEFING_OPPONENT = {
  * and an answer rolled at the reveal cannot contradict what has already been played.
  */
 
-export const MYSTERY_SIZES = [
-  { size: 4, name: "Four segments", desc: "A question that will not stay open long." },
-  { size: 6, name: "Six segments", desc: "The usual: something worked at across most of a mission." },
-  { size: 8, name: "Eight segments", desc: "The thing the whole adventure is really about." }
+/**
+ * A mystery has no clock. A clock tells you which clue breaks it open, and a question whose
+ * answer arrives on schedule is a countdown rather than a mystery — so the clues you gather
+ * set the *odds*, and Fate decides the moment.
+ *
+ * One clue is a long shot; six is nearly certain. After every clue the app asks the chart
+ * "does it break open now?" at the current Chaos Factor, which means a case can crack on the
+ * second clue and another can hold out past the sixth.
+ */
+export const MYSTERY_ODDS_LADDER = [
+  { clues: 1, odds: "veryunl" },
+  { clues: 2, odds: "unlikely" },
+  { clues: 3, odds: "fifty" },
+  { clues: 4, odds: "likely" },
+  { clues: 5, odds: "verylikely" },
+  { clues: 6, odds: "nearcert" }
 ];
 
-export const MYSTERY_DEFAULT_SIZE = 6;
+export const MYSTERY_MAX_CLUES = 12;
 
-/** What a mystery can be about, and which Meaning Table colours its reveal. */
+/** The odds a mystery breaks open on, for the clues gathered so far. */
+export function mysteryOdds(clues) {
+  const n = Math.max(0, Math.min(MYSTERY_MAX_CLUES, Number(clues) || 0));
+  if (n <= 0) return null;
+  let odds = MYSTERY_ODDS_LADDER[0].odds;
+  for (const row of MYSTERY_ODDS_LADDER) if (n >= row.clues) odds = row.odds;
+  return odds;
+}
+
 export const MYSTERY_SUBJECTS = [
   { key: "objective", name: "The objective", table: "espTwist", rewrites: true,
     desc: "What the mission is actually for. Revealing it can rewrite the objective." },
@@ -993,6 +1016,8 @@ export const MYSTERY_SUBJECTS = [
     desc: "What is in the way, and why it is really in the way." },
   { key: "opponent", name: "The primary opponent", table: "espMotive",
     desc: "Who they are, who they answer to, or what they want." },
+  { key: "intel", name: "The intel", table: "espIntel",
+    desc: "What you were told before you went in, and who wanted you told it." },
   { key: "thread", name: "A thread", table: "espMotive",
     desc: "Any open question on the Threads list." }
 ];
@@ -1003,9 +1028,23 @@ export const MYSTERY_SUBJECT_BY_KEY = Object.fromEntries(MYSTERY_SUBJECTS.map(s 
 export const MYSTERY_TICKS = [
   { key: "clue", name: "A clue you mark", desc: "One tap, when the fiction produced something that moved it." },
   { key: "scene", name: "A scene that bore on it", desc: "Ticked at End Scene, alongside the list upkeep." },
-  { key: "exceptional", name: "An Exceptional Fate answer", desc: "The oracle handing you more than you asked for reads as a break in the case." },
+  { key: "exceptional", name: "An Exceptional Fate answer", desc: "The oracle handing you more than you asked for reads as a lead." },
   { key: "event", name: "An event that drew its thread", desc: "A Random Event pointing at the mystery's own thread." }
 ];
+
+/** What the break-open question is called wherever it is rolled or logged. */
+export const MYSTERY_QUESTION = "Does it break open now?";
+
+/**
+ * The bands of that question, which are the chart's own. An Exceptional Yes brings more than
+ * the truth; an Exceptional No is a lead going cold, and costs the clue that raised it.
+ */
+export const MYSTERY_ANSWERS = {
+  exceptionalYes: "It breaks wide open",
+  yes: "It breaks open",
+  no: "Not yet",
+  exceptionalNo: "The lead goes cold"
+};
 
 /**
  * The shape of the revelation, rolled when the last segment fills. Authored for this app's
@@ -1046,10 +1085,28 @@ export function revealShape(roll) {
 }
 
 export const MYSTERY_NOTE =
-  "A house aid, not a Mythic procedure: a segment clock in the manner of Blades in the Dark, " +
-  "and an answer generated at the reveal rather than written in advance, in the manner of " +
-  "Brindlewood Bay. Nothing is decided until the last segment fills, so the truth can never " +
-  "contradict what you have already played.";
+  "A house aid, not a Mythic procedure: clues gathered in play set the odds, and the Fate " +
+  "Chart decides whether this is the moment. Nothing is written down until it breaks open, " +
+  "so the answer cannot contradict what you have already played — and nothing tells you which " +
+  "clue will be the one.";
+
+/**
+ * The briefing's Hidden truth row: whether this mission conceals something, and what it hangs
+ * on. Authored for this app, like the rest of the briefing.
+ */
+export const BRIEFING_HIDDEN_TRUTH = [
+  { max: 35,  subject: null,           text: "Nothing hidden — the mission is what it says" },
+  { max: 55,  subject: "objective",    text: "The objective is not what it appears" },
+  { max: 72,  subject: "complication", text: "The complication is not what it appears" },
+  { max: 88,  subject: "opponent",     text: "The opponent is not who they appear to be" },
+  { max: 100, subject: "intel",        text: "The intel was shaped by someone" }
+];
+
+export function hiddenTruth(roll) {
+  const n = Number(roll);
+  for (const row of BRIEFING_HIDDEN_TRUTH) if (n <= row.max) return row;
+  return BRIEFING_HIDDEN_TRUTH[BRIEFING_HIDDEN_TRUTH.length - 1];
+}
 
 /* ================================================================ T79 topics */
 
@@ -1121,11 +1178,11 @@ export const SOLO_TOPICS = [
     title: "Mysteries (house aid)",
     source: "This app",
     body: [
-      "Neither Classified nor Mythic prints this. It is the app's own aid, in the way End Scene on the Combat screen is: a segment clock, and a truth that is rolled when the clock fills rather than decided in advance.",
-      "Start one on the objective, the complication, the primary opponent or any thread, and pick four, six or eight segments for how long the question should stay open.",
-      "Segments fill four ways: a clue you mark by hand, a scene that bore on it ticked at End Scene, an Exceptional Fate answer, and a Random Event that draws the mystery's own thread.",
-      "When the last segment fills, the reveal rolls a shape — someone you trusted, it was planted, the wrong target — and then a word pair from the table that fits the subject. Read the two together.",
-      "Because nothing is written down in advance, the answer cannot contradict what you have already played. That is the whole reason it works solo."
+      "Neither Classified nor Mythic prints this. It is the app's own aid, in the way End Scene on the Combat screen is.",
+      "A mystery is a question you cannot answer yet. Start one on the objective, the complication, the opponent, the intel or any thread — or let the briefing's Hidden truth row roll whether the mission has one at all.",
+      "Clues do not count down to anything. Each clue raises the odds — one is a long shot, three is even money, six is nearly certain — and after every clue the app asks the Fate Chart whether it breaks open now, at the current Chaos Factor. A case can crack on the second clue and another can hold out past the sixth.",
+      "An Exceptional Yes brings more than the truth: a second word pair comes with it. An Exceptional No is a lead going cold, and costs you the clue that raised it.",
+      "When it does break open, the reveal rolls a shape — someone you trusted, it was planted, the wrong target — and a word pair from the table that fits the subject. Nothing was decided in advance, so it cannot contradict what you have already played."
     ]
   },
   {

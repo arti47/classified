@@ -572,22 +572,25 @@ destructive control is never adjacent to the thing you tap to change adventure (
 #### 3.20.6 Mysteries — the app's own aid (house aid)
 
 Neither book carries this, so it ships explicitly labelled, exactly as End Scene does under
-R9 (ruling S20). Two borrowed ideas, both well tested elsewhere:
+R9 (ruling S20). The truth is **generated at the reveal** rather than written in advance, in
+the manner of Brindlewood Bay: an answer decided up front is one the player already knows, and
+one rolled at the end cannot contradict what has already been played.
 
-- a **segment clock**, in the manner of Blades in the Dark: 4, 6 or 8 segments, visible on
-  the panel, filling as play turns the question up;
-- an answer **generated at the reveal** rather than written in advance, in the manner of
-  Brindlewood Bay. This is the part that matters solo: an answer decided up front is an
-  answer the player already knows, and one rolled at the end cannot contradict what has
-  already been played.
+**There is no clock.** The first build used a 4/6/8 segment clock, in the manner of Blades in
+the Dark, and it was wrong for this: a visible clock says *which clue* breaks the mystery open,
+which makes it a countdown rather than a mystery (ruling S21). Clues now set the **odds** and
+Fate decides the moment.
 
 | Piece | Behaviour |
 |---|---|
-| **Subject** | The objective, the complication, the primary opponent, any thread, or a question you type. The subject decides which Meaning Table colours the reveal. |
-| **Filling** | Four sources: a clue marked by hand, a scene ticked at End Scene, an Exceptional Fate answer, and a Random Event that draws the mystery's own thread. The last two fill themselves and say so; tapping a segment directly corrects the count. |
-| **Reveal** | Only when the clock is full. A d100 on the authored `REVEAL_SHAPES` table gives the shape — *someone you trusted*, *it was planted*, *the wrong target* — then a word pair from the subject's table colours it. Both go to the journal and the shared roll log. |
-| **The objective's twist** | A mystery on the objective is the one reveal that can change what the mission is *for*: the modal shows the standing objective and offers to rewrite it, filing the old wording to Threads as unfinished business. Declining leaves the mission as it was. |
-| **Afterwards** | The mystery stays on the panel marked Revealed, with its answer readable, and offers to open a thread from what it found. Clearing it is one tap. |
+| **Subject** | The objective, the complication, the primary opponent, the intel, any thread, or a question you type. The subject decides which Meaning Table colours the reveal. |
+| **Opening one** | By hand from the panel, or rolled: the briefing's **Hidden truth** row rolls d100 for whether this mission conceals anything and what it hangs on, and a hit opens the mystery at zero clues. You start knowing something is off, and nothing else. |
+| **Clues** | Four sources: marked by hand, ticked at End Scene, an Exceptional Fate answer, and a Random Event that draws the mystery's own thread. Each one raises the odds — 1 clue Very Unlikely, 2 Unlikely, 3 50/50, 4 Likely, 5 Very Likely, 6+ Nearly Certain (`mysteryOdds()`). |
+| **Breaking open** | Every clue asks the chart *does it break open now?* at those odds and the current Chaos Factor, logged like any other roll. A case can crack on the second clue and another can hold past the sixth. |
+| **The bands** | An **Exceptional Yes** brings a second word pair — it breaks wide open. An **Exceptional No** is a lead going cold and costs the clue that raised it. |
+| **Reveal** | A d100 on the authored `REVEAL_SHAPES` table gives the shape — *someone you trusted*, *it was planted*, *the wrong target* — then a word pair from the subject's table. Journal and shared roll log both get it. |
+| **The objective's twist** | A mystery on the objective is the one reveal that can change what the mission is *for*: the modal shows the standing objective and offers to rewrite it, filing the old wording to Threads as unfinished business. |
+| **Afterwards** | It stays on the panel marked Revealed, with its answer readable, and offers to open a thread from what it found. Clearing it is one tap. |
 
 #### 3.20.5 Scene boundaries, and how they differ from R9
 
@@ -644,6 +647,7 @@ layer carries the flag rather than the UI.
 | S15 | The briefing's Primary Opponent needs Classified's NPC generator, which `solo.js` is forbidden to import | Resolved by **dynamic** import at the moment the button is tapped. The rule tightens rather than loosens: `solo.js` still has no *static* dependency on `rules.js` or `data.js`, so the Mythic layer cannot reach Classified's resolution mechanic, and the one place it borrows a generator is explicit and lazy. |
 | S16 | The briefing's Primary Opponent read *Villain Primary Opponent* however many times it was generated | The Classified generator names an NPC `rank.npcName + stereotype.name`, and this row pins both, so the name was a constant while the stats underneath changed — indistinguishable from a button that does nothing. The stat block is what Classified owns; the identity is what the Meaning Tables are for, so a codename off `espCodename` and a pair off `espAdversary` are rolled alongside it and the row reads *Cormorant — ruthless spymaster*. The generator itself is untouched: NPCs made on the Combat screen still carry their category label, which is right there. |
 | S17 | A briefing could be rewritten but never removed, so an adventure was stuck with the mission it opened on | Delete the mission is its own action. It asks whether the seeded list entries go too, matches them by the ids recorded at commit — never entries added by hand — and returns a phase-1 adventure to the briefing so a new mission can be written. Deleting the *adventure* stays where it was, under Adventure settings; the two are not the same and are no longer adjacent. |
+| S21 | The first mystery build showed a 4/6/8 clock, so the player could see that the fourth clue would break it open | **The clock is gone.** A question whose answer arrives on schedule is a countdown, not a mystery. Clues now set the odds of a Fate question the app rolls after every clue, so the case can crack early or hold out. Two consequences recorded here: the question is rolled by the app rather than asked by the player, so it does **not** fire the doubles Random Event a Fate question would — End Scene can tick several mysteries in one commit and chaining events out of that would bury the boundary; and the clue that fires it is marked when the dialog that produced it closes, so a mystery never opens its own dialog on top of another. |
 | S20 | Mystery clocks are in neither book — the clock is Blades in the Dark's, the answer-at-the-reveal is Brindlewood Bay's | Shipped as a **house aid**, labelled as one on the panel, in its how-to entry and in its rules-library topic, on the R9 precedent. It rolls only on the app's own authored tables and the existing Meaning Tables, so nothing is presented as sourced from Classified or Mythic. |
 | S19 | Start an adventure opened a name prompt, and then a dossier chooser, before anything existed | **Both removed.** The name was the wrong question a tap too early: the briefing's codename row names the adventure a moment later, so the app was asking the player to invent the thing it was about to hand them. The dossier is whichever is already open. Adventure settings still holds rename and the dossier link. |
 | S18 | Every pinned briefing row printed twice — the line, then the words under it | The words go straight into the field, so an unedited row's text is the words joined and the two lines were the same sentence in two typefaces. The words are shown only when the player has written over them, which is the one case where they say something the line does not. Compared on letters alone, so the joiner and case never make an unedited row look edited. |
@@ -815,8 +819,8 @@ classified.soloAdventures: [ {
     writtenAt },
   sceneExpected: string,                        // what you said this scene would be
   sceneKind: "expected" | "altered" | "interrupt" | null,   // how the scene test resolved
-  mysteries:  [ { id, subject, label, sourceId, size, filled,
-                  revealedAt, reveal: { shapeKey, shapeName, shapeDesc, words[], rolls[] } } ],
+  mysteries:  [ { id, subject, label, sourceId, clues,
+                  revealedAt, reveal: { shapeKey, shapeName, shapeDesc, words[], rolls[], exceptional } } ],
   threads:    [ { id, text, weight } ],         // Adventure List, 25 slots
   characters: [ { id, text, weight } ],         // Adventure List, 25 slots
   journal:    [ { id, ts, kind, text, detail } ]  // kind: scene|fate|event|meaning|note
@@ -826,7 +830,7 @@ classified.soloUndo:   <one-step snapshot: { ts, label, adventures, active } >
 ```
 
 Every schema addition ships with a back-fill in `normalize()` and is documented here in the
-same change. `SCHEMA_VERSION` is 8. The pre-A11 single `bandIndex` field is migrated to `heightBand` and `weightBand` on load. Version 4 added the solo keys above, version 5 the three scene-phase fields, version 6 the briefing, version 7 its `seededIds` and version 8 the mystery clocks — a record from any earlier version simply has none. Version 5 records load with `briefing: null` and keep the phase they were in, so an adventure under way is never sent back to a briefing it never had; a version-6 briefing back-fills an empty `seededIds`, and deleting its mission falls back to matching the seeded rows by text. The one-step undo snapshot carries a `label` so the banner names what it would revert. Version 5 also added the three scene-phase
+same change. `SCHEMA_VERSION` is 9. The pre-A11 single `bandIndex` field is migrated to `heightBand` and `weightBand` on load. Version 4 added the solo keys above, version 5 the three scene-phase fields, version 6 the briefing, version 7 its `seededIds` and version 8 the mysteries and version 9 their clue-driven odds — a version-8 clock's filled segments carry over as that many clues — a record from any earlier version simply has none. Version 5 records load with `briefing: null` and keep the phase they were in, so an adventure under way is never sent back to a briefing it never had; a version-6 briefing back-fills an empty `seededIds`, and deleting its mission falls back to matching the seeded rows by text. The one-step undo snapshot carries a `label` so the banner names what it would revert. Version 5 also added the three scene-phase
 fields; characters are untouched by both, and `normalizeAdventure()` — in `store.js`, beside the rest of the
 persistence layer, so `derived.js` stays free of Mythic — back-fills every field, clamps the
 Chaos Factor, truncates a list past 25 slots and corrects a weight below 1. A version-3
@@ -978,7 +982,7 @@ carry `verify: true` in the data; authored tables are marked and carry `authored
 - [x] **T81** Authored world set — Weather & Time, Sensory Detail, Terrain & Environment, Organisation & Faction *(400 words, authored)*
 - [x] **T82** Authored story set — Mission Twist, Scene Framing, Motive & Secret, Leverage & Money, Consequence & Aftermath *(500 words, authored)*
 
-- [x] **T83** Mysteries — clock sizes, subjects, tick sources and the authored Reveal table *(house aid, S20)*
+- [x] **T83** Mysteries — the clue-to-odds ladder, subjects, clue sources, the authored Reveal table and the briefing's Hidden truth table *(house aid, S20, S21)*
 
 **Every box is ticked.** The supplied report is fully represented — 900 baseline words
 reproduced cell for cell and checked against a committed fixture extracted from the report
@@ -1026,7 +1030,7 @@ are flagged rather than presented as extracted (S1).
       - [x] Roll-log integration through `Store.addRoll()`.
       - [x] Regression checks: chart monotonicity, derived thresholds, event trigger,
             chaos clamping, list weighting, and every table exactly 100 entries.
-- [x] **Hardening.** Committed regression harness (856 checks); accessibility pass;
+- [x] **Hardening.** Committed regression harness (872 checks); accessibility pass;
       rules-accuracy audit with every finding closed (§11).
 
 ---
@@ -1182,3 +1186,4 @@ tables are this app's own work and are marked as such (S6).
 | 2026-07-31 | Fixed the Advancement screen, which threw for any open character: it read `R.REPUTATION_TABLE`, and `rules.js` does not re-export that table | Root cause: the reference was wrong from the start, and the screen's own empty-state guard hid it — the route sweep only ever visited Advancement with no character open, so it returned early and never reached the line. Adding a how-to panel to the screen is what made the harness open it with a character | A regression check renders Advancement with a character and asserts the Reputation band and the raise buttons are there | `classified-v20` |
 | 2026-07-31 | Start an adventure no longer prompts for a name or a dossier: the tap creates the adventure, links the dossier already open, and lands on the briefing (S19) | Reported, and right: the name prompt asked the player to invent the one thing the app was about to roll for them, since the briefing's codename row names an untitled adventure on commit. The dossier chooser was the same mistake in a different key — the open dossier is the answer unless the player is deliberately switching, and Adventure settings holds both | 805 checks green, including that the tap opens no modal at all, that the adventure exists immediately at the briefing phase with the open dossier linked, and that its name is still Untitled until a codename lands | `classified-v21` |
 | 2026-07-31 | Added Mysteries to the Solo screen (T83, ruling S20): a 4/6/8-segment clock on the objective, the complication, the opponent or any thread, filled by clues, scenes, Exceptional Fate answers and events that draw its thread, revealing a shape off a new authored table plus a word pair from the subject's Meaning Table — and, on the objective, offering to rewrite what the mission is for | The user asked for a counter towards a reveal, and for the objective to be able to twist. Researched how other systems do it: Blades in the Dark's clocks make the pressure visible, Ironsworn's progress tracks add a second resolution roll beside Fate, and Brindlewood Bay generates the truth at the reveal instead of writing it down first. The last is the one that matters solo — a pre-written answer is one the player already knows, and a rolled one cannot contradict what has been played — so the clock is Blades' and the reveal is Brindlewood's. Neither book has any of it, so it is labelled a house aid on the panel, in its how-to entry and in its topic | 856 checks green: the Reveal table covers the whole d100 with no gap, every subject's colour table resolves, clocks clamp at both ends and refuse to overfill, a version-7 adventure loads with no mysteries, and a browser run fills a four-segment clock, reveals it, and confirms the objective's rewrite action, the roll-log row and the Exceptional-answer tick | `classified-v22` |
+| 2026-07-31 | Replaced the mystery clock with clues that set the odds of a Fate roll, and added the briefing's Hidden truth row (S21, T83, `SCHEMA_VERSION` 9) | Reported, and right: a visible 4/6/8 clock told the player that the fourth clue would break the mystery open, which is a countdown rather than a mystery. Clues now raise the odds — 1 Very Unlikely through 6+ Nearly Certain — and after every clue the app asks the chart whether this is the moment, at the current Chaos Factor, so a case can crack on the second clue or hold past the sixth. An Exceptional Yes brings a second word pair; an Exceptional No is a lead going cold and costs the clue. The briefing gained an eighth row that rolls whether the mission conceals anything and what it hangs on, opening the mystery at zero clues | 872 checks green, including the odds ladder rung by rung against real chart rows, the Hidden truth table's coverage and subjects, a version-8 clock migrating to clues, and a browser run that marks clues until Fate breaks the mystery open and checks the question is logged in its own words | `classified-v23` |
