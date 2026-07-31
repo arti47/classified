@@ -10,6 +10,7 @@ import { derived, conditionSummary } from "./derived.js";
 import { generateNPC, showNPC } from "./combat.js";
 import { ENCOUNTER_TABLES, ENCOUNTERS, NPC_STEREOTYPES, NPC_CHARACTERISTIC_TABLES, NPC_CREATION_STEPS, INTERACTION_MODIFIER_NOTE, OSIRIS_OVERVIEW, OSIRIS_NPCS } from "../data-npcs.js";
 import { ANIMALS } from "../data-monsters.js";
+import { appendHelp } from "./help.js";
 
 export function renderGM(host) {
   clear(host);
@@ -18,6 +19,8 @@ export function renderGM(host) {
     el("h1", { text: "GM Screen" }),
     el("p", { class: "small muted", text: "Party state, the book's generators, and every rollable table in one place." })
   ));
+
+  appendHelp(host, "gm");
 
   // Party
   const party = Store.allCharacters();

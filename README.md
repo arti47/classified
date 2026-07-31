@@ -60,6 +60,9 @@ fully offline after the first load.
   actually has — combat, wounds, chases, reactions, interrogation, social play, the world
   around them, and the shape of the story. Fate never replaces a Classified roll — it settles
   what is true, and you still roll skills the ordinary way.
+- **How to use it** — every screen and every Solo panel carries a collapsed "How to use"
+  accordion, and a Tutorial screen walks one solo mission from creating the operative to the
+  after-action report. Both switch off in Settings once you know your way around.
 - **Backup** — JSON export and import in Settings.
 - **Update prompt** — the app checks for a new deploy when it comes back to the foreground
   (and on a slow timer while open), and offers a Reload toast rather than reloading under you.
@@ -72,6 +75,7 @@ fully offline after the first load.
 | `data-monsters.js` | The book's five animals |
 | `data-npcs.js` | NPC stereotypes and generation tables, the OSIRIS antagonists, and the random encounter system |
 | `data-pregens.js` | The five published pre-generated characters |
+| `data-help.js` | The how-to copy for every screen and Solo panel, and the solo tutorial |
 | `data-solo.js` | The Mythic layer: Fate, Chaos Factor, scenes, Random Events, Adventure Lists and all 37 Meaning Tables. No Classified rules live in this file |
 
 No rules value is hardcoded anywhere in `src/`. If a number is wrong, it is wrong in a data

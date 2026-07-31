@@ -17,6 +17,7 @@ import {
 } from "./roller.js";
 import { openRulesTopic } from "./screens.js";
 import { navigate } from "./router.js";
+import { appendHelp } from "./help.js";
 
 /* ---------------------------------------------------------------- resource header */
 
@@ -324,6 +325,8 @@ export function renderSheet(host) {
   const dv = derived(c);
   const rankRow = R.RANK_BY_KEY[c.identity.rank];
 
+  appendHelp(host, "sheet");
+
   // Identity
   const head = el("div", { class: "card" });
   head.appendChild(el("div", { class: "row" },
@@ -556,6 +559,8 @@ export function renderGear(host) {
   if (!c) { host.appendChild(el("div", { class: "empty" }, el("p", { text: "No character." }))); return; }
 
   const dv = derived(c);
+
+  appendHelp(host, "gear");
 
   const moneyCard = el("div", { class: "card" },
     el("div", { class: "row" },

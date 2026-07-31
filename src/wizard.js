@@ -10,6 +10,7 @@ import { blankCharacter, creationSpend, validate, derived, normalize } from "./d
 import { navigate } from "./router.js";
 import { PREGENS } from "../data-pregens.js";
 import { renderResourceHeader } from "./sheet.js";
+import { appendHelp } from "./help.js";
 
 const STEPS = [
   { key: "rank", name: "Rank" },
@@ -35,6 +36,8 @@ export function hasDraft() { return !!draft; }
 export function renderWizard(host) {
   if (!draft) startWizard();
   clear(host);
+
+  appendHelp(host, "create");
 
   // Step chips
   const steps = el("div", { class: "wizard-steps" });
@@ -626,6 +629,8 @@ export function renderCreate(host) {
     renderWizard(host);
     return;
   }
+
+  appendHelp(host, "create");
 
   host.appendChild(el("div", { class: "section" },
     el("div", { class: "section-title", text: "New operative" }),

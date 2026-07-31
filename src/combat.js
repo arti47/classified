@@ -13,6 +13,7 @@ import { derived, conditionSummary } from "./derived.js";
 import { openAttack, applyDamageToCharacter, getD100, resolve, presentResult, openChaseManeuver } from "./roller.js";
 import { openRulesTopic } from "./screens.js";
 import { renderResourceHeader } from "./sheet.js";
+import { appendHelp } from "./help.js";
 
 /* ---------------------------------------------------------------- combat screen */
 
@@ -20,6 +21,8 @@ export function renderCombat(host) {
   clear(host);
   const state = Store.combatState();
   const c = Store.activeCharacter();
+
+  appendHelp(host, "combat");
 
   if (!state.active) {
     host.appendChild(el("div", { class: "section" },

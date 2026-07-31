@@ -15,6 +15,7 @@ import { modal, showToast, confirmModal, promptModal, chooseModal } from "./ui.j
 import * as S from "../data-solo.js";
 import * as Store from "./store.js";
 import { Settings } from "./settings.js";
+import { appendHelp } from "./help.js";
 
 /* ---------------------------------------------------------------- dice */
 
@@ -86,11 +87,17 @@ export function renderSolo(host) {
       el("h2", { text: "No adventure open" }),
       el("p", { class: "muted", text: "An adventure holds the Chaos Factor, the scene count, your threads and characters, and the journal." }),
       el("button", { class: "btn primary", type: "button", onclick: () => newAdventure(host) }, "Start an adventure")));
+    appendHelp(host, "solo", {
+      actions: [{ label: "Open the tutorial", onClick: () => import("./router.js").then(m => m.navigate("tutorial")) }]
+    });
     appendTopics(host);
     return;
   }
 
   appendHeader(host, adv);
+  appendHelp(host, "solo", {
+    actions: [{ label: "Open the tutorial", onClick: () => import("./router.js").then(m => m.navigate("tutorial")) }]
+  });
   appendPrimary(host, adv);
   appendBriefing(host, adv);
   appendInPlay(host, adv);
@@ -301,6 +308,7 @@ async function newAdventure(host) {
  * something you reach for during a scene, so only this one changes with the phase.
  */
 function appendPrimary(host, adv) {
+  appendHelp(host, "solo.scene");
   const phase = phaseOf(adv);
   const card = el("div", { class: "card" });
 
@@ -368,6 +376,7 @@ function appendPrimary(host, adv) {
  */
 function appendBriefing(host, adv) {
   if (!adv.briefing) return;
+  appendHelp(host, "solo.briefing");
   const rows = S.BRIEFING_ROWS
     .map(r => ({ row: r, val: adv.briefing.rows[r.key] }))
     .filter(x => x.val && x.val.text);
@@ -681,6 +690,7 @@ function appendInPlay(host, adv) {
 }
 
 function appendEvents(host, adv) {
+  appendHelp(host, "solo.events");
   const sec = section("Random Events", "A doubles roll within the Chaos Factor fires one on its own. Roll one here when the fiction needs a push.");
   sec.appendChild(el("button", {
     class: "btn block", type: "button", onclick: () => rollRandomEvent(adv)
@@ -694,6 +704,7 @@ function appendEvents(host, adv) {
 /* ---------------------------------------------------------------- ask fate */
 
 function appendFate(host, adv) {
+  appendHelp(host, "solo.fate");
   const sec = section("Ask Fate", "A closed question the fiction cannot already answer. Skill checks stay on the Classified engine — this settles what is true, not what you manage.");
 
   const state = { odds: S.FATE_DEFAULT_ODDS, question: "" };
@@ -1152,6 +1163,7 @@ async function rollPair(tableKey) {
 }
 
 function appendMeaning(host, adv) {
+  appendHelp(host, "solo.meaning");
   const sec = section("Meaning Tables", "Roll a word pair and read the first thing that fits. The same word twice is amplification, not a wasted roll.");
 
   const groups = {};
@@ -1202,7 +1214,9 @@ export async function rollMeaning(adv, tableKey) {
 /* ---------------------------------------------------------------- adventure lists */
 
 function appendLists(host, adv) {
+  appendHelp(host, "solo.threads");
   host.appendChild(listSection(adv, "threads", "Threads", "Everything the character is trying to do. Strike one off when it closes."));
+  appendHelp(host, "solo.characters");
   host.appendChild(listSection(adv, "characters", "Characters", "Everyone who matters. Enter a name twice to make it come up twice as often."));
 }
 
@@ -1420,6 +1434,7 @@ function upkeepBlock(adv, which, title, pending) {
 /* ---------------------------------------------------------------- journal */
 
 function appendJournal(host, adv) {
+  appendHelp(host, "solo.journal");
   const entries = adv.journal || [];
   const sec = section("Journal", "Every Fate answer, event and scene boundary, newest first.");
 

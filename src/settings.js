@@ -15,7 +15,8 @@ const DEFAULTS = {
   multiplayer: false,
   seatbelts: true,
   airbags: true,
-  solo: false                   // the Mythic solo layer, a second system (CLAUDE.md §3.20)
+  solo: false,                  // the Mythic solo layer, a second system (CLAUDE.md §3.20)
+  showHelp: true                // the only toggle that starts ON: help is for new players
 };
 
 let cache = null;
@@ -58,7 +59,8 @@ export const Settings = {
   multiplayer: () => !!get("multiplayer"),
   seatbelts: () => !!get("seatbelts"),
   airbags: () => !!get("airbags"),
-  solo: () => !!get("solo")
+  solo: () => !!get("solo"),
+  showHelp: () => !!get("showHelp")
 };
 
 /* ---------------------------------------------------------------- theme */
@@ -87,5 +89,6 @@ export const TOGGLE_ROWS = [
   { key: "heroPointPrompt", name: "Offer Hero Point spends", desc: "After each roll, offer to shift the Success Quality with Hero Points." },
   { key: "seatbelts", name: "Assume seat belts worn", desc: "Reduces accident damage to occupants by one further Wound Rank." },
   { key: "airbags", name: "Assume airbags fitted", desc: "Reduces a single three-rank accident hit by one further Wound Rank." },
+  { key: "showHelp", name: "Show how-to panels", desc: "A collapsed \"How to use\" accordion at the top of every screen and every Solo panel. Turn it off once you know your way around." },
   { key: "solo", name: "Solo play (Mythic)", desc: "Adds a Solo tab running the Mythic Game Master Emulator: Fate questions, the Chaos Factor, scene tests, Random Events and 22 Meaning Tables. A second system, not part of Classified. Takes the Rules tab's place in the bottom bar; Rules stays on Home." }
 ];
