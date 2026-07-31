@@ -248,6 +248,48 @@ export async function browserTests(t, { chromium, executablePath, baseURL }) {
       await page.keyboard.press("Escape");
       await page.waitForTimeout(120);
 
+      // Starting an adventure asks nothing: the briefing names it a moment later.
+      const startFlow = await page.evaluate(async () => {
+        const Store = await import("./src/store.js");
+        const Solo = await import("./src/solo.js");
+        for (const a of Store.soloAdventures()) Store.deleteAdventure(a.id);
+        location.hash = "#/home";
+        await new Promise(r => setTimeout(r, 140));
+        location.hash = "#/solo";
+        await new Promise(r => setTimeout(r, 240));
+        const empty = document.getElementById("screen").textContent.includes("No adventure open");
+        [...document.querySelectorAll("#screen .btn.primary")].find(b => /Start an adventure/.test(b.textContent)).click();
+        await new Promise(r => setTimeout(r, 260));
+        const adv = Store.activeAdventure();
+        return {
+          empty,
+          prompted: !!document.querySelector(".modal"),
+          created: !!adv,
+          name: adv && adv.name,
+          phase: adv && adv.scenePhase,
+          linked: !!(adv && adv.characterId),
+          primary: [...document.querySelectorAll("#screen .solo-primary")].map(b => b.textContent)
+        };
+      });
+      t.ok(startFlow.empty, "with nothing open the Solo screen offers to start an adventure");
+      t.ok(!startFlow.prompted, "tapping it asks no questions — no name prompt, no dossier chooser");
+      t.ok(startFlow.created, "the adventure exists straight away");
+      t.eq(startFlow.name, "Untitled adventure", "unnamed until the briefing names it");
+      t.eq(startFlow.phase, "briefing", "and it opens on the briefing");
+      t.ok(startFlow.linked, "linked to the dossier that is already open");
+      t.deep(startFlow.primary, ["Write the mission briefing"], "whose primary action is writing that briefing");
+
+      // The codename row names the adventure, which is why the prompt was redundant.
+      const named = await page.evaluate(async () => {
+        const Store = await import("./src/store.js");
+        Store.updateAdventure(a => { a.name = "Untitled adventure"; });
+        const before = Store.activeAdventure().name;
+        Store.updateAdventure(a => { a.name = "Operation Nightjar"; });   // what committing a codename does
+        return { before, after: Store.activeAdventure().name };
+      });
+      t.eq(named.before, "Untitled adventure", "an adventure starts untitled");
+      t.eq(named.after, "Operation Nightjar", "and takes the codename the briefing rolls");
+
       // The sequence of play: the primary action is the next boundary, and nothing else.
       const loop = await page.evaluate(async () => {
         const Store = await import("./src/store.js");
