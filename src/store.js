@@ -242,21 +242,24 @@ function normalizeBriefing(b) {
  */
 function normalizeMystery(m) {
   const src = m && typeof m === "object" ? m : {};
-  const size = [4, 6, 8].includes(Number(src.size)) ? Number(src.size) : 6;
   const reveal = src.reveal && typeof src.reveal === "object" ? {
     shapeKey: String(src.reveal.shapeKey || ""),
     shapeName: String(src.reveal.shapeName || ""),
     shapeDesc: String(src.reveal.shapeDesc || ""),
     words: Array.isArray(src.reveal.words) ? src.reveal.words.map(String) : [],
-    rolls: Array.isArray(src.reveal.rolls) ? src.reveal.rolls.map(Number) : []
+    rolls: Array.isArray(src.reveal.rolls) ? src.reveal.rolls.map(Number) : [],
+    exceptional: !!src.reveal.exceptional
   } : null;
+  // Version 8 carried a 4/6/8 segment clock, which told the player which clue would break the
+  // mystery open. Version 9 replaced it with clues that set the odds of a Fate roll; a saved
+  // clock's filled segments carry over as that many clues, and `size` is dropped.
+  const clues = Math.max(0, Math.min(12, Number(src.clues ?? src.filled) || 0));
   return {
     id: src.id || uid("mys"),
-    subject: ["objective", "complication", "opponent", "thread"].includes(src.subject) ? src.subject : "thread",
+    subject: ["objective", "complication", "opponent", "intel", "thread"].includes(src.subject) ? src.subject : "thread",
     label: String(src.label || "An open question"),
     sourceId: src.sourceId || null,
-    size,
-    filled: Math.max(0, Math.min(size, Number(src.filled) || 0)),
+    clues,
     createdAt: Number(src.createdAt) || Date.now(),
     revealedAt: Number(src.revealedAt) || null,
     reveal

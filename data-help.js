@@ -140,7 +140,7 @@ export const HELP = {
       "Start scene N: say what you expect, and the Chaos Factor decides whether you get it.",
       "Play the scene with the tools under the button: Ask Fate, Random Events, the Meaning Tables.",
       "End scene N: say whether you were in control, tidy your lists, and the Chaos Factor steps itself.",
-      "Open a Mystery for anything you do not know yet — the clock fills as you play and the answer is rolled when it is full.",
+      "Open a Mystery for anything you do not know yet — clues raise the odds and Fate decides when it breaks open.",
       "Repeat until the mission is done, then End Mission on the Combat screen for the experience."
     ],
     note: "Fate answers what is true; skills, combat and damage stay on the ordinary Classified rules. The full walkthrough is on the Tutorial screen."
@@ -219,15 +219,15 @@ export const HELP = {
 
   "solo.mysteries": {
     title: "How to use Mysteries",
-    what: "A question you cannot answer yet, on a clock. The app's own aid, not a Mythic procedure.",
+    what: "A question you cannot answer yet. Clues set the odds; Fate decides the moment. The app's own aid, not a Mythic procedure.",
     steps: [
-      "+ New starts one on the objective, the complication, the opponent or a thread, at four, six or eight segments.",
-      "+ Clue fills a segment when play turned the question up; tap a segment directly to correct the count.",
-      "Segments also fill at End Scene, on an Exceptional Fate answer, and when an event draws the mystery's own thread.",
-      "When the last one falls, Reveal it rolls the shape of the truth and a word pair to colour it.",
-      "A mystery on the objective can rewrite what the mission is for; the old objective files itself to Threads."
+      "+ New starts one on the objective, the complication, the opponent, the intel or a thread — or let the briefing's Hidden truth row roll whether the mission has one.",
+      "+ Clue marks what play turned up, then asks the chart whether it breaks open now: one clue is a long shot, three even money, six nearly certain.",
+      "Clues also come from End Scene, an Exceptional Fate answer and an event that draws the mystery's own thread.",
+      "It breaks open when Fate says so, which can be the second clue or the seventh. An Exceptional No is a lead going cold and costs you a clue.",
+      "The reveal rolls the shape of the truth and a word pair; on the objective it offers to rewrite what the mission is for."
     ],
-    note: "Nothing is decided in advance, so the answer can never contradict what you have already played."
+    note: "There is no clock on purpose — a clock would tell you which clue breaks it open, and nothing is written down until it does."
   },
 
   "solo.threads": {
@@ -364,13 +364,13 @@ export const TUTORIAL = {
     },
     {
       n: 9,
-      title: "Put the question you cannot answer on a clock",
+      title: "Put the question you cannot answer to Fate",
       body: [
-        "The forged manifest raised a question the mission could not answer yet: who wanted the film. That went on a six-segment mystery clock against the objective.",
-        "Segments filled as play turned it up — a clue marked by hand, a scene at End Scene that bore on it, one Exceptional Fate answer. When the last fell, the reveal rolled Not what it claimed, coloured Delusion · Friendship: the courier had been running the film for a friend who no longer existed.",
-        "Because the app rolls the answer at the reveal rather than storing one in advance, it cannot contradict anything already played. On the objective it also offers to rewrite the mission, filing the old objective to Threads."
+        "The forged manifest raised a question the mission could not answer yet: who wanted the film. That went on the objective as a mystery — and the briefing's Hidden truth row had already hinted the objective was not what it appeared.",
+        "Clues came in as play turned it up: one marked by hand, one from a scene at End Scene, one from an Exceptional Fate answer. Each clue asks the chart whether it breaks open now, at odds the clues have earned — one clue is a long shot, three even money, six nearly certain. This one held out to the fourth.",
+        "The reveal rolled Not what it claimed, coloured Delusion · Friendship: the courier had been running the film for a friend who no longer existed. Because the answer is rolled at the reveal rather than stored in advance, it could not contradict anything already played — and because Fate decides the moment, nothing had told me which clue would be the one."
       ],
-      tap: "Mysteries → + New → the objective → six segments → Reveal it"
+      tap: "Mysteries → + New → the objective → + Clue"
     },
     {
       n: 10,
