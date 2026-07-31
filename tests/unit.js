@@ -888,6 +888,18 @@ function soloTests(t) {
   t.eq(SOLO.mysteryOdds(5), "verylikely", "five very likely");
   t.eq(SOLO.mysteryOdds(6), "nearcert", "six nearly certain");
   t.eq(SOLO.mysteryOdds(20), "nearcert", "and it tops out there rather than becoming a certainty");
+
+  t.eq(SOLO.MYSTERY_FALSE_LEAD.after, 2, "two plain refusals in a row read as a planted trail");
+  t.ok(!!SOLO.MEANING_BY_KEY[SOLO.MYSTERY_FALSE_LEAD.table], "and the false lead rolls off a real table");
+  t.ok(SOLO.MYSTERY_STALE_SCENES >= 2, "a mystery has to be cold for several scenes before it feeds Chaos");
+  t.eq(SOLO.MYSTERY_TELL.interaction.length, 5,
+    "an opponent's tell can land on any of the five Interaction Modifiers");
+  t.ok(SOLO.MYSTERY_TELL.modifiers.every(n => n > 0),
+    "and only ever makes them easier to work on, which is what an Interaction Modifier means");
+  t.ok(SOLO.REVEAL_SHAPES.filter(s => s.implicates).length >= 3,
+    "several reveal shapes name a person, so the reveal can draw one off the Characters list");
+  t.ok(SOLO.REVEAL_SHAPES.find(s => s.key === "trusted").implicates,
+    "Someone you trusted is one of them");
   t.ok(SOLO.MYSTERY_ODDS_LADDER.every(r => !!SOLO.FATE_ODDS_BY_KEY[r.odds]),
     "every rung of the ladder is a real odds row on the chart");
   t.ok(!("MYSTERY_SIZES" in SOLO), "the segment clock is gone: no sizes to pick");
@@ -951,6 +963,25 @@ function soloTests(t) {
   t.deep(mys[2].reveal.words, ["Deceive", "Urgently"], "words and all");
   t.deep(normalizeAdventure({}).mysteries, [], "an adventure from before version 8 simply has none");
 
+  // Version 9 knew the count but not what any of it was.
+  t.deep(mys[0].clueLog, [], "a version-9 mystery back-fills an empty clue log");
+  t.eq(mys[0].misses, 0, "with no refusals recorded");
+  t.eq(mys[0].lastScene, 0, "and no scene, so it is judged cold only once play moves on");
+  t.eq(mys[2].reveal.implicated, "", "an older reveal names nobody");
+  t.eq(mys[2].reveal.tell, null, "and carries no tell");
+
+  const clued = normalizeAdventure({ mysteries: [{
+    subject: "opponent", label: "z", clues: 2, misses: 1, lastScene: 4,
+    clueLog: [{ text: "Countersigned twice", source: "clue" }, { junk: true }, null],
+    revealedAt: 5, reveal: { shapeKey: "trusted", implicated: "Halloran", tell: { kind: "weakness", name: "Greed", desc: "d" } }
+  }] }).mysteries[0];
+  t.eq(clued.clueLog.length, 2, "clue lines survive a reload, and junk entries are dropped");
+  t.ok(!!clued.clueLog[0].id && !!clued.clueLog[0].ts, "each one back-filled with an id and a timestamp");
+  t.eq(clued.misses, 1, "consecutive refusals survive too");
+  t.eq(clued.lastScene, 4, "and the scene the last clue landed in");
+  t.eq(clued.reveal.implicated, "Halloran", "a reveal keeps who it ran through");
+  t.eq(clued.reveal.tell.name, "Greed", "and the tell it put on the stat block");
+
   t.eq(SOLO.LIST_SLOTS, 25, "an Adventure List holds 25 slots");
   t.eq(SOLO.listSlot(1), 1, "d100 1-4 is the first slot");
   t.eq(SOLO.listSlot(4), 1, "d100 4 is still the first slot");
@@ -984,7 +1015,7 @@ function soloTests(t) {
   t.eq(fresh.chaos, 5, "a new adventure starts at Chaos Factor 5");
   t.eq(fresh.scene, 1, "a new adventure starts at scene 1");
   t.eq(fresh.fateMode, "chart", "the Fate Chart is the default mechanic");
-  t.eq(fresh.schema, 9, "an adventure records SCHEMA_VERSION 9");
+  t.eq(fresh.schema, 10, "an adventure records SCHEMA_VERSION 10");
   t.deep(fresh.threads, [], "the Threads list starts empty");
   t.eq(fresh.scenePhase, "setup", "a new adventure has no scene open yet");
   t.eq(fresh.sceneKind, null, "and no scene outcome recorded");

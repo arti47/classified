@@ -317,6 +317,18 @@ export function generateNPC(stereotypeKey, rankKey) {
   };
 }
 
+/**
+ * One Weakness off the book's list, at random. Lives here rather than in the Mythic layer
+ * because the list is Classified's: the solo screen reaches it by dynamic import, the same
+ * way it reaches the NPC generator (ruling S15).
+ */
+export function rollWeakness(exclude = []) {
+  const taken = new Set(exclude.map(String));
+  const pool = D.WEAKNESSES.filter(w => !taken.has(w.name) && !taken.has(w.key));
+  const list = pool.length ? pool : D.WEAKNESSES;
+  return list[Math.floor(Math.random() * list.length)];
+}
+
 export function showNPC(npc) {
   const body = el("div", {});
 

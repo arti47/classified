@@ -223,12 +223,13 @@ export const HELP = {
     what: "A question you cannot answer yet. Clues set the odds; Fate decides the moment. The app's own aid, not a Mythic procedure.",
     steps: [
       "+ New starts one on the objective, the complication, the opponent, the intel or a thread — or let the briefing's Hidden truth row roll whether the mission has one.",
-      "+ Clue marks what play turned up, then asks the chart whether it breaks open now: one clue is a long shot, three even money, six nearly certain.",
+      "+ Clue asks what you found, writes it down, then asks the chart whether it breaks open now: one clue is a long shot, three even money, six nearly certain.",
+      "Tap a mystery's own title to reword it — one opened on a rolled thread starts life as a word pair.",
       "Clues also come from End Scene, an Exceptional Fate answer and an event that draws the mystery's own thread.",
-      "It breaks open when Fate says so, which can be the second clue or the seventh. An Exceptional No is a lead going cold and costs you a clue.",
-      "The reveal rolls the shape of the truth and a word pair; on the objective it offers to rewrite what the mission is for."
+      "It breaks open when Fate says so, which can be the second clue or the seventh. An Exceptional No is a lead going cold and costs you a clue; two plain refusals mean the trail was planted, and that gets rolled too.",
+      "The reveal rolls the shape of the truth and a word pair, and shows it against the clues you wrote. A shape that names a person draws one off your Characters list; a reveal on the opponent adds a tell to their stat block; on the objective it offers to rewrite what the mission is for."
     ],
-    note: "There is no clock on purpose — a clock would tell you which clue breaks it open, and nothing is written down until it does."
+    note: "There is no clock on purpose — a clock would tell you which clue breaks it open, and nothing is written down until it does. A mystery nobody has touched for four scenes offers the Chaos Factor a step at End Scene."
   },
 
   "solo.threads": {

@@ -248,7 +248,15 @@ function normalizeMystery(m) {
     shapeDesc: String(src.reveal.shapeDesc || ""),
     words: Array.isArray(src.reveal.words) ? src.reveal.words.map(String) : [],
     rolls: Array.isArray(src.reveal.rolls) ? src.reveal.rolls.map(Number) : [],
-    exceptional: !!src.reveal.exceptional
+    exceptional: !!src.reveal.exceptional,
+    // Who it runs through, when the shape named a person, and what the reveal did to the
+    // opponent's stat block. Both are version 10; an older reveal simply has neither.
+    implicated: src.reveal.implicated ? String(src.reveal.implicated) : "",
+    tell: src.reveal.tell && typeof src.reveal.tell === "object" ? {
+      kind: String(src.reveal.tell.kind || ""),
+      name: String(src.reveal.tell.name || ""),
+      desc: String(src.reveal.tell.desc || "")
+    } : null
   } : null;
   // Version 8 carried a 4/6/8 segment clock, which told the player which clue would break the
   // mystery open. Version 9 replaced it with clues that set the odds of a Fate roll; a saved
@@ -260,6 +268,21 @@ function normalizeMystery(m) {
     label: String(src.label || "An open question"),
     sourceId: src.sourceId || null,
     clues,
+    // What each clue actually was. The count sets the odds; these are what the reveal gets
+    // read against. Version 9 and earlier have none, so a migrated mystery shows its count
+    // with no lines under it, which is exactly what it knew.
+    clueLog: Array.isArray(src.clueLog)
+      ? src.clueLog.filter(c => c && typeof c === "object").map(c => ({
+          id: c.id || uid("clue"),
+          ts: Number(c.ts) || Date.now(),
+          text: String(c.text || ""),
+          source: String(c.source || "clue")
+        }))
+      : [],
+    // Consecutive plain refusals, for the false-lead roll, and the scene a clue last landed
+    // in, so End Scene can spot a mystery nobody has touched.
+    misses: Math.max(0, Number(src.misses) || 0),
+    lastScene: Math.max(0, Number(src.lastScene) || 0),
     createdAt: Number(src.createdAt) || Date.now(),
     revealedAt: Number(src.revealedAt) || null,
     reveal

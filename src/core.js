@@ -2,7 +2,7 @@
 
 export const APP_NAME = "Classified Player";
 export const STORAGE_PREFIX = "classified.";
-export const SCHEMA_VERSION = 9;   // 4 solo adventures, 5 scene phase, 6 briefing, 7 seeded ids, 8 mysteries, 9 their clue odds (§6)
+export const SCHEMA_VERSION = 10;  // 8 mysteries, 9 their clue odds, 10 clue lines, misses and reveal tells (§6)
 
 /* ---------------------------------------------------------------- DOM */
 

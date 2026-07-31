@@ -1036,6 +1036,48 @@ export const MYSTERY_TICKS = [
 export const MYSTERY_QUESTION = "Does it break open now?";
 
 /**
+ * A clue is worth writing down. The count sets the odds, but the *lines* are what the reveal
+ * is read against — the shape and the words have to answer something, and a bare number
+ * answers nothing. Optional: a clue with no line still counts.
+ */
+export const MYSTERY_CLUE_PROMPT = "What did you find?";
+
+/**
+ * Two askings and two refusals is not silence, it is a pattern. The trail was laid for you,
+ * and that is a fact about the fiction rather than a dead roll — so it is rolled as one.
+ */
+export const MYSTERY_FALSE_LEAD = {
+  after: 2,
+  name: "The trail was planted",
+  desc: "Twice asked and twice refused. What you have been following was laid down for you to follow.",
+  table: "espTwist"
+};
+
+/**
+ * A mystery nobody has touched for this many scenes is a thing running away from you, which
+ * is exactly what the Chaos Factor measures. Offered at End Scene, never applied silently.
+ */
+export const MYSTERY_STALE_SCENES = 4;
+
+/**
+ * What a reveal on the primary opponent hands you besides the truth: a *tell*, which changes
+ * how they play rather than only what they are. Half the time a Weakness off Classified's own
+ * list, half the time an Interaction Modifier — the shape of the house aid lives here, the
+ * Weakness list stays behind the dynamic import (ruling S15).
+ */
+export const MYSTERY_TELL = {
+  interaction: [
+    { key: "reaction", name: "Reaction" },
+    { key: "persuasion", name: "Persuasion" },
+    { key: "seduction", name: "Seduction" },
+    { key: "interrogation", name: "Interrogation" },
+    { key: "torture", name: "Torture" }
+  ],
+  modifiers: [1, 2, 3, 4],
+  note: "An Interaction Modifier applies when a player character uses that skill on them."
+};
+
+/**
  * The bands of that question, which are the chart's own. An Exceptional Yes brings more than
  * the truth; an Exceptional No is a lead going cold, and costs the clue that raised it.
  */
@@ -1052,7 +1094,7 @@ export const MYSTERY_ANSWERS = {
  * it matters most, so the reveal rolls this first and then a pair from the subject's table.
  */
 export const REVEAL_SHAPES = [
-  { max: 8,   key: "trusted",    name: "Someone you trusted",
+  { max: 8,   key: "trusted",    name: "Someone you trusted", implicates: true,
     desc: "It runs through a name already on your Characters list. Draw one if you cannot pick." },
   { max: 18,  key: "cover",      name: "Not what it claimed",
     desc: "The subject is a front. What it appears to be is a cover for another party's work." },
@@ -1066,13 +1108,13 @@ export const REVEAL_SHAPES = [
     desc: "What is at issue is larger than the mission stated. The briefing was not wrong, just small." },
   { max: 64,  key: "olddebt",    name: "An old debt",
     desc: "This reaches back into something that predates the mission, and someone is still owed." },
-  { max: 72,  key: "wrongtarget",name: "The wrong target",
+  { max: 72,  key: "wrongtarget",name: "The wrong target", implicates: true,
     desc: "The person or object at the centre of it is not the one that matters." },
   { max: 80,  key: "price",      name: "A price attached",
     desc: "The truth is available, and it costs something you would rather keep." },
   { max: 86,  key: "nobody",     name: "Nobody is behind it",
     desc: "Coincidence, incompetence or accident. There is no hand on it, and that is its own problem." },
-  { max: 93,  key: "personal",   name: "It is personal",
+  { max: 93,  key: "personal",   name: "It is personal", implicates: true,
     desc: "The subject is aimed at the operative, their agency or someone they answer to, specifically." },
   { max: 100, key: "worse",      name: "Worse than you feared",
     desc: "The plain reading was right all along, and the scale of it is worse." }

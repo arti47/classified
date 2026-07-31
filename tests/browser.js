@@ -253,6 +253,9 @@ export async function browserTests(t, { chromium, executablePath, baseURL }) {
         const Store = await import("./src/store.js");
         const Solo = await import("./src/solo.js");
         for (const a of Store.soloAdventures()) Store.deleteAdventure(a.id);
+        // Nothing earlier may leave a dialog on top of the screen this block clicks through.
+        (await import("./src/ui.js")).closeAllModals();
+        await new Promise(r => setTimeout(r, 60));
         location.hash = "#/home";
         await new Promise(r => setTimeout(r, 140));
         location.hash = "#/solo";
@@ -640,30 +643,49 @@ export async function browserTests(t, { chromium, executablePath, baseURL }) {
       t.eq(objRow.length, 3, "a row that was written over keeps the words that prompted it");
       t.ok(objRow[2].includes("·"), "and shows them as the word pair they were");
 
-      // A list entry seeded from a word pair has to be rewordable in place.
+      // A list entry seeded from a word pair has to be rewordable in place. On its own
+      // adventure: this block drives the DOM, and a screen still holding an earlier
+      // adventure's rows would have it clicking a row that no longer exists.
       const reworded = await page.evaluate(async () => {
         const Store = await import("./src/store.js");
-        location.hash = "#/home"; await new Promise(r => setTimeout(r, 80));
-        location.hash = "#/solo"; await new Promise(r => setTimeout(r, 150));
-
-        const before = Store.activeAdventure().threads[0];
-        const btn = [...document.querySelectorAll(".row-edit")]
-          .find(b => b.textContent.includes(before.text));
-        const clickable = !!btn;
-        btn.click();
-        await new Promise(r => setTimeout(r, 120));
-        const input = document.getElementById("promptInput");
-        const prefilled = input.value === before.text;
-        input.value = "Get the case to the safe house before dawn";
-        [...document.querySelectorAll(".modal-foot .btn")].find(b => b.textContent === "OK").click();
+        (await import("./src/ui.js")).closeAllModals();
         await new Promise(r => setTimeout(r, 200));
 
-        const after = Store.activeAdventure().threads;
+        const adv = Store.createAdventure({ name: "Reword test", characterId: null });
+        Store.updateAdventure(a => {
+          a.scenePhase = "setup";
+          a.threads = [{ id: "li_reword", text: "Deliver · Evaluate", weight: 1 }];
+          a.characters = [];
+        });
+        location.hash = "#/home"; await new Promise(r => setTimeout(r, 100));
+        location.hash = "#/solo"; await new Promise(r => setTimeout(r, 250));
+
+        const find = () => [...document.querySelectorAll(".row-edit")]
+          .find(b => b.getAttribute("aria-label") === "Reword Deliver · Evaluate");
+        for (let i = 0; i < 40 && !find(); i++) await new Promise(r => setTimeout(r, 50));
+        const btn = find();
+        const clickable = !!btn;
+        btn.click();
+        for (let i = 0; i < 40 && !document.querySelector("#promptInput"); i++) {
+          await new Promise(r => setTimeout(r, 50));
+        }
+        const input = [...document.querySelectorAll("#promptInput")].pop();
+        const prefilled = input.value === "Deliver · Evaluate";
+        input.value = "Get the case to the safe house before dawn";
+        const dlg = input.closest(".modal");
+        [...dlg.querySelectorAll(".modal-foot .btn")].find(b => b.textContent === "OK").click();
+        for (let i = 0; i < 40 && Store.getAdventure(adv.id).threads[0].text === "Deliver · Evaluate"; i++) {
+          await new Promise(r => setTimeout(r, 50));
+        }
+
+        const after = Store.getAdventure(adv.id).threads;
+        const onScreen = document.getElementById("screen").textContent
+          .includes("Get the case to the safe house before dawn");
+        Store.deleteAdventure(adv.id);
         return {
-          clickable, prefilled,
-          text: after[0].text, weight: after[0].weight, id: after[0].id === before.id,
-          count: after.length,
-          onScreen: document.getElementById("screen").textContent.includes("Get the case to the safe house before dawn")
+          clickable, prefilled, onScreen,
+          text: after[0].text, weight: after[0].weight, id: after[0].id === "li_reword",
+          count: after.length
         };
       });
       t.ok(reworded.clickable, "a list entry's own text is the control that rewords it");
@@ -671,7 +693,7 @@ export async function browserTests(t, { chromium, executablePath, baseURL }) {
       t.eq(reworded.text, "Get the case to the safe house before dawn", "and keeps what you write");
       t.ok(reworded.id, "the entry keeps its identity, so a mystery or a seeded id still points at it");
       t.eq(reworded.weight, 1, "and its weight");
-      t.eq(reworded.count, 2, "rewording adds nothing to the list");
+      t.eq(reworded.count, 1, "rewording adds nothing to the list");
       t.ok(reworded.onScreen, "the screen shows the new wording straight away");
 
       // The opponent used to be named by the Classified generator alone, which names an NPC
@@ -918,6 +940,189 @@ export async function browserTests(t, { chromium, executablePath, baseURL }) {
       t.ok(!!mystery.shape, `the reveal rolls the shape of the truth (${mystery.shape})`);
       t.ok(mystery.words >= 2, "with a word pair to colour it");
       t.ok(mystery.revealLogged, "and the reveal is written to the shared roll log");
+
+      // Clues are worth writing down: the count sets the odds, the lines are what the reveal
+      // gets read against.
+      const clues = await page.evaluate(async () => {
+        const Store = await import("./src/store.js");
+        const Solo = await import("./src/solo.js");
+        const UI = await import("./src/ui.js");
+        UI.closeAllModals();
+        await new Promise(r => setTimeout(r, 60));
+        Store.updateAdventure(a => {
+          a.scene = 6; a.chaos = 5;
+          a.mysteries = [{ id: "mys_clue", subject: "thread", label: "Deliver · Evaluate",
+            sourceId: null, clues: 0, clueLog: [], misses: 0, lastScene: 6,
+            createdAt: Date.now(), revealedAt: null, reveal: null }];
+        });
+        // A mid roll is a plain No at these odds, so the clue stands rather than being spent
+        // by an Exceptional No — the point of the check is the line, not the answer.
+        const real = Math.random;
+        Math.random = () => 0.5;
+        try { await Solo.tickMystery("mys_clue", "clue", "The manifest is countersigned twice"); }
+        finally { Math.random = real; }
+        for (let i = 0; i < 6 && document.querySelector(".modal"); i++) {
+          const btn = [...document.querySelector(".modal").querySelectorAll(".modal-foot .btn")].pop();
+          if (btn) btn.click(); else break;
+          await new Promise(r => setTimeout(r, 40));
+        }
+        location.hash = "#/home"; await new Promise(r => setTimeout(r, 100));
+        location.hash = "#/solo"; await new Promise(r => setTimeout(r, 200));
+
+        const m = Store.activeAdventure().mysteries.find(x => x.id === "mys_clue");
+        const screen = document.getElementById("screen").textContent;
+
+        // The title is the control that rewords a mystery opened on a word pair.
+        const btn = [...document.querySelectorAll(".row-edit")].find(b => b.textContent.includes("Deliver · Evaluate"));
+        const renameable = !!btn;
+        if (btn) {
+          btn.click();
+          await new Promise(r => setTimeout(r, 120));
+          document.getElementById("promptInput").value = "Who is countersigning the manifests?";
+          [...document.querySelectorAll(".modal-foot .btn")].find(b => b.textContent === "OK").click();
+          await new Promise(r => setTimeout(r, 180));
+        }
+        const after = Store.activeAdventure().mysteries.find(x => x.id === "mys_clue");
+        return {
+          logged: m ? m.clueLog.length : 0,
+          text: m && m.clueLog[0] && m.clueLog[0].text,
+          lastScene: m && m.lastScene,
+          onScreen: screen.includes("The manifest is countersigned twice"),
+          renameable, label: after && after.label,
+          clueKept: after && after.clueLog.length
+        };
+      });
+      t.eq(clues.logged, 1, "a clue records the line that produced it, not just a count");
+      t.eq(clues.text, "The manifest is countersigned twice", "in the player's own words");
+      t.eq(clues.lastScene, 6, "and the scene it landed in, so a cold case can be spotted");
+      t.ok(clues.onScreen, "the clue reads back on the mystery's card");
+      t.ok(clues.renameable, "a mystery's own title is the control that rewords it");
+      t.eq(clues.label, "Who is countersigning the manifests?", "so one opened on a word pair can be written as a question");
+      t.eq(clues.clueKept, 1, "and rewording leaves its clues alone");
+
+      // Two plain refusals is a pattern, not silence.
+      const planted = await page.evaluate(async () => {
+        const Store = await import("./src/store.js");
+        const Solo = await import("./src/solo.js");
+        const clear = async () => {
+          (await import("./src/ui.js")).closeAllModals();
+          await new Promise(r => setTimeout(r, 60));
+        };
+        await clear();
+        Store.updateAdventure(a => {
+          const m = a.mysteries.find(x => x.id === "mys_clue");
+          m.clues = 1; m.misses = 1; m.revealedAt = null; m.reveal = null;   // one refusal already
+        });
+        const real = Math.random;
+        Math.random = () => 0.5;                      // a plain No, neither Yes nor Exceptional
+        try { await Solo.testMystery("mys_clue"); } finally { Math.random = real; }
+        await new Promise(r => setTimeout(r, 120));
+        const shown = document.querySelector(".modal") ? document.querySelector(".modal").textContent : "";
+        await clear();
+        const adv = Store.activeAdventure();
+        const m = adv.mysteries.find(x => x.id === "mys_clue");
+        const row = adv.journal.find(j => /trail was planted/i.test(j.text));
+        const fired = row ? { detail: row.detail, misses: m.misses, clues: m.clues } : null;
+        const log = Store.rollLog();
+        return {
+          fired: !!fired, shown: /twice refused/i.test(shown),
+          words: fired ? fired.detail.split(" · ").length : 0,
+          misses: fired ? fired.misses : null,
+          clues: fired ? fired.clues : null,
+          logged: log.some(r => /trail was planted/i.test(r.label || ""))
+        };
+      });
+      t.ok(planted.fired, "a second plain refusal rolls the trail as planted");
+      t.ok(planted.shown, "and says on the dialog why two dead askings are a pattern");
+      t.eq(planted.words, 2, "with a word pair saying who laid it");
+      t.eq(planted.misses, 0, "the count starts again from there");
+      t.eq(planted.clues, 1, "and the clues already gathered still stand");
+      t.ok(planted.logged, "the false lead is written to the shared roll log");
+
+      // A shape that names a person draws one; a reveal on the opponent changes their sheet.
+      const namedReveal = await page.evaluate(async () => {
+        const Store = await import("./src/store.js");
+        const Solo = await import("./src/solo.js");
+        (await import("./src/ui.js")).closeAllModals();
+        await new Promise(r => setTimeout(r, 60));
+        const real = Math.random;
+        Math.random = () => 0;          // d100 → 1: shape "Someone you trusted", first list slot
+        try {
+          Store.updateAdventure(a => {
+            a.characters = [{ id: "li_named", text: "Halloran, the station chief", weight: 1 }];
+            a.briefing = a.briefing || { rows: {}, npc: null, seededIds: [], writtenAt: Date.now() };
+            a.briefing.npc = { name: "Cormorant — ruthless spymaster", alias: "Cormorant",
+              attrs: { str: 8, dex: 8, wil: 8, per: 8, int: 8 }, weaknesses: [],
+              interaction: { reaction: 0, persuasion: 0, seduction: 0, interrogation: 0, torture: 0 } };
+            a.mysteries.push({ id: "mys_opp", subject: "opponent", label: "Who does Cormorant answer to?",
+              sourceId: null, clues: 3, clueLog: [], misses: 0, lastScene: a.scene,
+              createdAt: Date.now(), revealedAt: null, reveal: null });
+          });
+          await Solo.revealMystery(Store.activeAdventure(), "mys_opp", {});
+          await new Promise(r => setTimeout(r, 120));
+        } finally { Math.random = real; }
+
+        const adv = Store.activeAdventure();
+        const m = adv.mysteries.find(x => x.id === "mys_opp");
+        const text = document.querySelector(".modal") ? document.querySelector(".modal").textContent : "";
+        (await import("./src/ui.js")).closeAllModals();
+        await new Promise(r => setTimeout(r, 60));
+        return {
+          shape: m.reveal.shapeName,
+          implicated: m.reveal.implicated,
+          tellKind: m.reveal.tell && m.reveal.tell.kind,
+          tellName: m.reveal.tell && m.reveal.tell.name,
+          npcWeaknesses: adv.briefing.npc.weaknesses.length,
+          shownWho: text.includes("It runs through Halloran, the station chief"),
+          shownTell: /Tell:/.test(text)
+        };
+      });
+      t.eq(namedReveal.shape, "Someone you trusted", "a shape can name a person rather than a thing");
+      t.eq(namedReveal.implicated, "Halloran, the station chief",
+        "and when it does, the reveal draws one off the Characters list");
+      t.ok(namedReveal.shownWho, "the reveal says who it runs through");
+      t.eq(namedReveal.tellKind, "weakness", "a reveal on the opponent also hands you a tell");
+      t.eq(namedReveal.npcWeaknesses, 1, "which is written onto their stat block, not just described");
+      t.ok(!!namedReveal.tellName, `and named on the reveal (${namedReveal.tellName})`);
+      t.ok(namedReveal.shownTell, "the reveal shows the tell it added");
+
+      // A mystery nobody has touched is a thing running away from you.
+      const stale = await page.evaluate(async () => {
+        const Store = await import("./src/store.js");
+        const Solo = await import("./src/solo.js");
+        const S = await import("./data-solo.js");
+        (await import("./src/ui.js")).closeAllModals();
+        await new Promise(r => setTimeout(r, 60));
+        Store.updateAdventure(a => {
+          a.scene = 10; a.chaos = 5; a.scenePhase = "play";
+          a.mysteries = [{ id: "mys_cold", subject: "thread", label: "The cold case",
+            sourceId: null, clues: 1, clueLog: [], misses: 0,
+            lastScene: 10 - S.MYSTERY_STALE_SCENES,
+            createdAt: Date.now(), revealedAt: null, reveal: null }];
+        });
+        const before = Store.activeAdventure().chaos;
+        const p = Solo.endScene(Store.activeAdventure());
+        await new Promise(r => setTimeout(r, 150));
+
+        const dlg = document.querySelector(".modal");
+        const offered = dlg.textContent.includes("A mystery is getting away from you");
+        const box = [...dlg.querySelectorAll('input[type="checkbox"]')][0];
+        box.click();                                    // the stale bump is the first row
+        [...dlg.querySelectorAll(".chip")].find(c => /No —/.test(c.textContent)).click();
+        await new Promise(r => setTimeout(r, 40));
+        const preview = dlg.querySelector("p.small.muted").textContent;
+        [...dlg.querySelectorAll(".modal-foot .btn")].find(b => /End scene/.test(b.textContent)).click();
+        await p;
+        await new Promise(r => setTimeout(r, 200));
+        const summary = document.querySelector(".modal") ? document.querySelector(".modal").textContent : "";
+        (await import("./src/ui.js")).closeAllModals();
+        await new Promise(r => setTimeout(r, 60));
+        return { offered, before, after: Store.activeAdventure().chaos, preview, summary };
+      });
+      t.ok(stale.offered, "End Scene names a mystery no clue has touched for four scenes");
+      t.eq(stale.after, stale.before + 2, "and its step stacks with the control question");
+      t.ok(/5 → 7/.test(stale.preview), "the dialog shows where the Chaos Factor will land before you commit");
+      t.ok(/getting away/.test(stale.summary), "and the summary says the cold case cost a step of its own");
 
       // The briefing can roll whether the mission hides anything at all.
       const hidden = await page.evaluate(async () => {
