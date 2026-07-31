@@ -85,7 +85,7 @@ export function renderSolo(host) {
     host.appendChild(el("div", { class: "empty" },
       el("div", { class: "big", text: "🎲" }),
       el("h2", { text: "No adventure open" }),
-      el("p", { class: "muted", text: "An adventure holds the Chaos Factor, the scene count, your threads and characters, and the journal." }),
+      el("p", { class: "muted", text: "An adventure holds the Chaos Factor, the scene count, your threads and characters, and the journal. It opens on the mission briefing, which names it." }),
       el("button", { class: "btn primary", type: "button", onclick: () => newAdventure(host) }, "Start an adventure")));
     appendHelp(host, "solo", {
       actions: [{ label: "Open the tutorial", onClick: () => import("./router.js").then(m => m.navigate("tutorial")) }]
@@ -202,7 +202,7 @@ async function openAdventureMenu(host) {
     right: `CF ${a.chaos} · sc ${a.scene}`,
     desc: `${count(a.threads, "thread")}, ${count(a.characters, "character")} · updated ${fmtDate(a.updatedAt)}`
   }));
-  items.push({ key: "__new", label: "+ Start a new adventure", desc: "Chaos Factor 5, scene 1, empty lists." });
+  items.push({ key: "__new", label: "+ Start a new adventure", desc: "Opens on the mission briefing, which names it. Chaos Factor 5, scene 1, empty lists." });
 
   // Switching adventures is a play action and stays one tap. Everything that configures the
   // adventure rather than plays it sits one level down, so the two never mix.
@@ -285,20 +285,29 @@ async function openAdventureMenu(host) {
   rerender();
 }
 
-async function newAdventure(host) {
-  const name = await promptModal("What is this adventure called?", { title: "New adventure", placeholder: "Operation Nightjar" });
-  if (name === null) return;
+/**
+ * Start an adventure, and nothing else: no name prompt, no dossier chooser.
+ *
+ * Both questions used to be asked here and both were the wrong question at the wrong time.
+ * The very next screen is the briefing, whose first row rolls a codename and names the
+ * adventure with it — so asking for a name one tap earlier is asking the player to invent
+ * the thing the app is about to hand them. The dossier is whichever one is already open,
+ * which is the answer in every case but a deliberate switch, and Adventure settings holds
+ * both if the guess is wrong.
+ */
+function newAdventure(host) {
   const chars = Store.allCharacters();
-  let characterId = null;
-  if (chars.length === 1) characterId = chars[0].id;
-  else if (chars.length > 1) {
-    const pick = await chooseModal("Link a dossier", chars.map(c => ({
-      key: c.id, label: c.identity.name || "Unnamed", desc: ""
-    })).concat([{ key: "__none", label: "No dossier", desc: "Link one later from the Adventures menu." }]));
-    if (pick && pick !== "__none") characterId = pick;
-  }
-  const adv = Store.createAdventure({ name: name || "Untitled adventure", characterId });
+  const active = Store.activeId();
+  const characterId = (active && chars.some(c => c.id === active)) ? active
+    : (chars.length === 1 ? chars[0].id : null);
+
+  const adv = Store.createAdventure({ characterId });
   save(a => { journal(a, "note", `Adventure opened at Chaos Factor ${adv.chaos}.`); });
+
+  const linked = characterId ? Store.getCharacter(characterId) : null;
+  showToast(linked
+    ? `Adventure started for ${linked.identity.name || "your operative"}`
+    : "Adventure started", "ok");
 }
 
 /* ---------------------------------------------------------------- the next step */
