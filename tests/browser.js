@@ -1175,6 +1175,46 @@ export async function browserTests(t, { chromium, executablePath, baseURL }) {
         `which lands on the target through the accumulation table (${targeted.woundAfter})`);
       t.ok(targeted.reported, "and says what they are now");
 
+      // A deleted dossier must not leave live-looking controls pointing at nothing.
+      const orphans = await page.evaluate(async () => {
+        const Store = await import("./src/store.js");
+        (await import("./src/ui.js")).closeAllModals();
+        await new Promise(r => setTimeout(r, 150));
+
+        const keep = Store.activeId();
+        const doomed = Store.createCharacter("agent");
+        Store.updateActive(x => { x.identity.name = "Doomed"; });
+        const adv = Store.createAdventure({ name: "Orphan run", characterId: doomed.id });
+        Store.saveCombat({ active: true, round: 1, phase: "declaration", combatants: [
+          { id: "cb_orphan", name: "Doomed", speed: 2, tiebreak: 5, wound: "none",
+            acted: false, stunRounds: 0, npc: null, characterId: doomed.id }
+        ]});
+
+        Store.deleteCharacter(doomed.id);
+        const combat = Store.combatState();
+        const solo = Store.getAdventure(adv.id);
+
+        Store.setActive(keep);
+        location.hash = "#/home"; await new Promise(r => setTimeout(r, 100));
+        location.hash = "#/combat"; await new Promise(r => setTimeout(r, 300));
+        const labels = [...document.querySelectorAll("#screen .btn")].map(b => b.textContent);
+
+        Store.deleteAdventure(adv.id);
+        Store.clearCombat();
+        return {
+          stillThere: combat.combatants.length,
+          detached: combat.combatants.every(x => !x.characterId),
+          soloUnlinked: solo.characterId === null,
+          offersAttackThis: labels.includes("Attack this"),
+          noDeadAttack: !labels.includes("Attack")
+        };
+      });
+      t.eq(orphans.stillThere, 1, "deleting a dossier leaves the body in the encounter");
+      t.ok(orphans.detached, "but cuts the reference to the dossier that is gone");
+      t.ok(orphans.soloUnlinked, "and unlinks the solo adventure that pointed at it");
+      t.ok(orphans.noDeadAttack && orphans.offersAttackThis,
+        "so the card offers the control that works instead of one that does nothing");
+
       // The garage: vehicles you own, what they are fitted with, and what a crash does.
       const garage = await page.evaluate(async () => {
         const Store = await import("./src/store.js");

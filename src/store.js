@@ -81,8 +81,38 @@ export function createCharacter(rank = "rookie") {
 export function deleteCharacter(id) {
   const list = readJSON(K_CHARS, []).filter(c => c.id !== id);
   writeJSON(K_CHARS, list);
+  detachCharacter([id]);
   if (activeId() === id) setActive(list.length ? list[0].id : null);
   emit("character");
+}
+
+/**
+ * Cut every reference to a dossier that no longer exists.
+ *
+ * Without this a deleted character left a combatant in the encounter whose Attack button
+ * looked live and did nothing, and a solo adventure pointing at an id that could never
+ * resolve. The combatant stays — they are still a body in the fight — but becomes an
+ * ordinary entry, so the card offers the controls that do work (finding A19).
+ */
+function detachCharacter(ids) {
+  const gone = new Set(ids);
+  if (!gone.size) return;
+
+  const combat = readJSON(K_COMBAT, null);
+  if (combat && Array.isArray(combat.combatants)) {
+    let touched = false;
+    for (const cb of combat.combatants) {
+      if (cb.characterId && gone.has(cb.characterId)) { cb.characterId = null; touched = true; }
+    }
+    if (touched) { writeJSON(K_COMBAT, combat); emit("combat"); }
+  }
+
+  const advs = readJSON(K_SOLO, []);
+  let soloTouched = false;
+  for (const a of advs) {
+    if (a && a.characterId && gone.has(a.characterId)) { a.characterId = null; soloTouched = true; }
+  }
+  if (soloTouched) { writeJSON(K_SOLO, advs); emit("solo"); }
 }
 
 /**
@@ -90,11 +120,12 @@ export function deleteCharacter(id) {
  * tracker and solo adventures are left alone, since none of them is a character.
  */
 export function wipeCharacters() {
-  const n = readJSON(K_CHARS, []).length;
+  const all = readJSON(K_CHARS, []);
   writeJSON(K_CHARS, []);
+  detachCharacter(all.map(c => c.id));
   localStorage.removeItem(K_ACTIVE);
   emit("character");
-  return n;
+  return all.length;
 }
 
 /** Mutate the active character through a callback and persist the result. */

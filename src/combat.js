@@ -131,12 +131,16 @@ function combatantCard(cb, state, host) {
     onclick: () => openCombatantDamage(cb, host)
   }, "Damage"));
 
+  // A combatant whose dossier has been deleted is detached by the store, so this only ever
+  // holds a dossier that still exists — and if one vanishes another way, the button says so
+  // rather than doing nothing when tapped (A19).
   if (cb.characterId) {
     row.appendChild(el("button", {
       class: "btn sm primary", type: "button",
       onclick: () => {
         const ch = Store.getCharacter(cb.characterId);
         if (ch) import("./roller.js").then(m => m.openWeaponPicker(ch));
+        else showToast(`${cb.name}'s dossier is no longer on this device`, "err");
       }
     }, "Attack"));
   } else {
