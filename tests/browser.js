@@ -871,6 +871,90 @@ export async function browserTests(t, { chromium, executablePath, baseURL }) {
       });
       t.ok(scrolls, "the page still scrolls with zoom disabled");
 
+      // The Advancement screen renders for a real character — it reached for a table that
+      // rules.js does not re-export, and only the empty-state guard hid it.
+      const advance = await page.evaluate(async () => {
+        location.hash = "#/advance";
+        await new Promise(r => setTimeout(r, 250));
+        const text = document.getElementById("screen").textContent;
+        return { failed: text.includes("failed to load"), band: /band/.test(text), raises: document.querySelectorAll("#screen .btn").length };
+      });
+      t.ok(!advance.failed, "the Advancement screen renders with a character open");
+      t.ok(advance.band, "including the Reputation band");
+      t.ok(advance.raises > 0, "and its raise buttons");
+
+      // How-to panels: on every screen, closed, and gone when the toggle is off.
+      const help = await page.evaluate(async () => {
+        const out = { screens: {}, soloPanels: 0, openByDefault: 0 };
+        for (const route of ["home", "create", "sheet", "gear", "combat", "advance", "rules", "log", "gm", "solo", "settings"]) {
+          location.hash = "#/" + route;
+          await new Promise(r => setTimeout(r, 200));
+          const accs = [...document.querySelectorAll("details.help-acc")];
+          out.screens[route] = accs.length;
+          out.openByDefault += accs.filter(a => a.open).length;
+          if (route === "solo") out.soloPanels = accs.length;
+        }
+        return out;
+      });
+      for (const [route, n] of Object.entries(help.screens)) {
+        if (!n) { t.fail(`${route} carries a how-to panel`); }
+      }
+      t.pass("every screen carries a how-to panel");
+      t.eq(help.openByDefault, 0, "and every one of them starts closed");
+      t.ok(help.soloPanels >= 6, `the Solo screen carries one per panel (${help.soloPanels})`);
+
+      const helpContent = await page.evaluate(async () => {
+        location.hash = "#/solo";
+        await new Promise(r => setTimeout(r, 220));
+        const acc = [...document.querySelectorAll("details.help-acc")]
+          .find(a => /How to use Ask Fate/.test(a.querySelector("summary").textContent));
+        acc.open = true;
+        return { steps: acc.querySelectorAll(".help-steps li").length, text: acc.textContent };
+      });
+      t.ok(helpContent.steps >= 3, "opening one shows numbered steps");
+      t.ok(/Exceptional/.test(helpContent.text), "and the note explaining the rule behind the panel");
+
+      const helpOff = await page.evaluate(async () => {
+        const S = await import("./src/settings.js");
+        S.set("showHelp", false);
+        const counts = {};
+        for (const route of ["home", "sheet", "solo"]) {
+          location.hash = "#/" + route;
+          await new Promise(r => setTimeout(r, 200));
+          counts[route] = document.querySelectorAll("details.help-acc").length;
+        }
+        S.set("showHelp", true);
+        return counts;
+      });
+      t.deep(helpOff, { home: 0, sheet: 0, solo: 0 }, "the Settings toggle removes them everywhere");
+
+      // The tutorial: a screen of its own, reachable without a nav tab.
+      const tutorial = await page.evaluate(async () => {
+        location.hash = "#/tutorial";
+        await new Promise(r => setTimeout(r, 250));
+        const screen = document.getElementById("screen");
+        return {
+          steps: screen.querySelectorAll(".tut-step").length,
+          numbered: [...screen.querySelectorAll(".tut-n")].map(n => n.textContent),
+          taps: screen.querySelectorAll(".tut-tap").length,
+          title: screen.textContent.includes("Running a solo mission"),
+          overflow: document.documentElement.scrollWidth - document.documentElement.clientWidth,
+          fromHome: (() => { location.hash = "#/home"; return true; })()
+        };
+      });
+      t.ok(tutorial.title, "the tutorial screen renders its walkthrough");
+      t.ok(tutorial.steps >= 8, `with a card per step (${tutorial.steps})`);
+      t.deep(tutorial.numbered, tutorial.numbered.map((_, i) => String(i + 1)), "numbered in order");
+      t.ok(tutorial.taps > 0, "and the taps each step needs");
+      t.ok(tutorial.overflow <= 1, "the tutorial does not overflow at this width");
+
+      const homeTile = await page.evaluate(async () => {
+        location.hash = "#/home";
+        await new Promise(r => setTimeout(r, 220));
+        return [...document.querySelectorAll(".opt-btn")].some(b => /Tutorial/.test(b.textContent));
+      });
+      t.ok(homeTile, "Home carries a tile that opens it");
+
       // Every accordion starts closed, on every screen that has one.
       const accordions = await page.evaluate(async () => {
         const out = {};

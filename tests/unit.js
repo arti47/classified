@@ -8,6 +8,7 @@ import { ANIMALS } from "../data-monsters.js";
 import { OSIRIS_NPCS, ENCOUNTER_TABLES, ENCOUNTERS, NPC_CHARACTERISTIC_TABLES, NPC_SKILL_TABLES } from "../data-npcs.js";
 import { PREGENS, PREGEN_BUDGET_AUDIT } from "../data-pregens.js";
 import * as SOLO from "../data-solo.js";
+import { HELP, TUTORIAL, helpFor } from "../data-help.js";
 import { normalizeAdventure, wipeAdventures as Store_wipeAdventures, wipeCharacters as Store_wipeCharacters } from "../src/store.js";
 import { readFileSync } from "node:fs";
 
@@ -523,6 +524,57 @@ export function unitTests(t) {
   t.pass("every NPC skill package references real skills");
 
   soloTests(t);
+  helpTests(t);
+}
+
+/* ================================================================ how-to copy */
+function helpTests(t) {
+  t.group("How to use");
+
+  const keys = Object.keys(HELP);
+  t.ok(keys.length >= 19, `every screen and Solo panel has an entry (${keys.length})`);
+
+  for (const screen of ["home", "create", "sheet", "gear", "combat", "advance", "rules", "log", "gm", "solo", "settings"]) {
+    if (!HELP[screen]) { t.fail(`${screen} has a how-to entry`); }
+  }
+  t.pass("all eleven screens have a how-to entry");
+
+  for (const panel of ["briefing", "scene", "fate", "events", "meaning", "threads", "characters", "journal"]) {
+    if (!HELP["solo." + panel]) { t.fail(`solo.${panel} has a how-to entry`); }
+  }
+  t.pass("all eight Solo panels have one of their own");
+
+  let shape = null;
+  for (const [key, e] of Object.entries(HELP)) {
+    if (!e.title || !/^How to use/.test(e.title)) shape = `${key}: title`;
+    else if (!e.what || e.what.length > 160) shape = `${key}: what`;
+    else if (!Array.isArray(e.steps) || e.steps.length < 3 || e.steps.length > 6) shape = `${key}: ${e.steps && e.steps.length} steps`;
+    else if (e.steps.some(x => typeof x !== "string" || !x.trim())) shape = `${key}: empty step`;
+  }
+  t.ok(!shape, "every entry is a title, one line of what, and three to six steps" + (shape ? ` (${shape})` : ""));
+
+  t.eq(helpFor("nonexistent"), null, "an unknown key resolves to nothing rather than throwing");
+  t.ok(!!helpFor("solo.fate"), "a known key resolves");
+
+  t.ok(TUTORIAL.steps.length >= 8, `the tutorial runs a mission end to end (${TUTORIAL.steps.length} steps)`);
+  t.deep(TUTORIAL.steps.map(s => s.n), TUTORIAL.steps.map((_, i) => i + 1), "its steps are numbered in order");
+  let tut = null;
+  for (const step of TUTORIAL.steps) {
+    if (!step.title || !Array.isArray(step.body) || !step.body.length) tut = `step ${step.n}`;
+  }
+  t.ok(!tut, "every tutorial step has a title and a body" + (tut ? ` (${tut})` : ""));
+  t.ok(TUTORIAL.steps.some(s => /briefing/i.test(s.title)), "it covers the briefing");
+  t.ok(TUTORIAL.steps.some(s => /Start scene/i.test(s.title + s.body.join(" "))), "starting a scene");
+  t.ok(TUTORIAL.steps.some(s => /Ask Fate|asking Fate/i.test(s.title + s.body.join(" "))), "asking Fate");
+  t.ok(TUTORIAL.steps.some(s => /Random Event/i.test(s.title + s.body.join(" "))), "Random Events");
+  t.ok(TUTORIAL.steps.some(s => /End scene|End the scene/i.test(s.title)), "ending a scene");
+  t.ok(TUTORIAL.steps.some(s => /End Mission|Close the mission/i.test(s.title + s.body.join(" "))), "and closing the mission");
+
+  const rules = TUTORIAL.steps.filter(s => s.rule).map(s => s.rule);
+  const known = D.RULES_TOPICS.map(x => x.key);
+  const bad = rules.find(r => !known.includes(r));
+  t.ok(!bad, "every rule the tutorial links to is a real rules topic" + (bad ? ` (${bad})` : ""));
+  t.ok(rules.length > 0, "and it does link into the Classified rules where the example needs them");
 }
 
 /* ================================================================ the Mythic layer

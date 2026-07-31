@@ -371,6 +371,25 @@ input[type="checkbox"], input[type="radio"] { width: 18px; height: 18px; accent-
 }
 .toast.err { background: var(--danger); color: #fff; }
 .toast.ok { background: var(--ok); color: #fff; }
+/* How-to-use accordions: present, quiet, and never mistaken for the thing they explain. */
+.help-acc { border-style: dashed; }
+.help-acc > summary { color: var(--ink-2); }
+.help-acc > summary .small { margin-left: auto; text-transform: uppercase; letter-spacing: .06em; font-size: 10px; }
+.help-steps { margin: 8px 0 0; padding-left: 20px; }
+.help-steps li { margin-bottom: 5px; }
+.help-steps li::marker { color: var(--stamp); font-family: var(--mono); }
+
+.tut-step { margin-bottom: 10px; }
+.tut-n {
+  flex: none; width: 26px; height: 26px; border-radius: 50%;
+  background: var(--stamp); color: #fff;
+  font: 700 13px/26px var(--mono); text-align: center;
+}
+.tut-tap {
+  background: var(--paper-3); border-left: 2px solid var(--stamp);
+  padding: 6px 8px; border-radius: var(--r); color: var(--ink-2); margin-top: 8px;
+}
+
 /* The in-scene tools, quietened between scenes: still usable, visibly not the next step. */
 .solo-inplay.is-quiet { opacity: .68; }
 .solo-inplay.is-quiet .section-title { color: var(--ink-3); }

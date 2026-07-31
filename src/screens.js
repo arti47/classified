@@ -10,6 +10,7 @@ import { Settings, TOGGLE_ROWS } from "./settings.js";
 import * as Sync from "./sync.js";
 import { derived, skillList, validate, expectedRankFor, conditionSummary } from "./derived.js";
 import { navigate } from "./router.js";
+import { appendHelp } from "./help.js";
 import { ANIMALS } from "../data-monsters.js";
 import { OSIRIS_NPCS, OSIRIS_OVERVIEW, NPC_STEREOTYPES, NPC_CREATION_STEPS, INTERACTION_MODIFIER_NOTE } from "../data-npcs.js";
 
@@ -23,6 +24,8 @@ export function renderHome(host) {
     el("h1", { text: "Classified" }),
     el("p", { class: "small muted", text: "The role-playing game of covert operations. Player companion." })
   ));
+
+  appendHelp(host, "home");
 
   if (!c) {
     host.appendChild(el("div", { class: "empty" },
@@ -63,6 +66,7 @@ export function renderHome(host) {
   quick.appendChild(tile("Combat", "Declaration and action order", () => navigate("combat")));
   quick.appendChild(tile("Rules", "Searchable reference", () => navigate("rules")));
   quick.appendChild(tile("Roll log", "Re-derive any roll", () => navigate("log")));
+  quick.appendChild(tile("Tutorial", "Run a solo mission, start to finish", () => navigate("tutorial")));
   if (Settings.solo()) {
     quick.appendChild(tile("Solo", "Mythic: Fate, chaos, scenes, tables", () => navigate("solo")));
   }
@@ -116,6 +120,8 @@ export function renderLog(host) {
   clear(host);
   const log = Store.rollLog();
 
+  appendHelp(host, "log");
+
   host.appendChild(el("div", { class: "section-head" },
     el("div", { class: "section-title", text: `Roll log (${log.length})` }),
     log.length ? el("button", {
@@ -152,6 +158,8 @@ export function openRulesTopic(key) {
 
 export function renderRules(host) {
   clear(host);
+
+  appendHelp(host, "rules");
 
   const search = el("input", { type: "search", placeholder: "Search rules, skills, tables, gear…" });
   host.appendChild(search);
@@ -552,6 +560,8 @@ export function renderAdvance(host) {
   const available = (c.xp.total || 0) - (c.xp.spent || 0);
   const dv = derived(c);
 
+  appendHelp(host, "advance");
+
   host.appendChild(el("div", { class: "card" },
     el("div", { class: "grid grid-3" },
       el("div", { class: "stat-box" }, el("div", { class: "k", text: "Available" }), el("div", { class: "v", text: String(available) })),
@@ -660,7 +670,7 @@ export function renderAdvance(host) {
     el("div", { class: "row" },
       el("div", { class: "grow" },
         el("div", { class: "mono", style: "font-size:24px", text: String(c.reputation || 0) }),
-        el("div", { class: "small muted", text: R.REPUTATION_TABLE.find(r => (c.reputation || 0) <= r.max).label + " band" })),
+        el("div", { class: "small muted", text: D.REPUTATION_TABLE.find(r => (c.reputation || 0) <= r.max).label + " band" })),
       el("button", {
         class: "btn sm", type: "button",
         disabled: available < D.REPUTATION_REDUCTION.dataScrub.xpPerPoint || (c.reputation || 0) <= 0,
@@ -712,6 +722,8 @@ export function renderAdvance(host) {
 
 export function renderSettings(host) {
   clear(host);
+
+  appendHelp(host, "settings");
 
   host.appendChild(el("div", { class: "section" }, el("div", { class: "section-title", text: "Campaign style" })));
   host.appendChild(el("p", { class: "small muted", text: "Style decides when Hero Points are earned and how forgiving the table is." }));

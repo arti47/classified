@@ -681,6 +681,7 @@ layer carries the flag rather than the UI.
 | `data-monsters.js` | The book's five animals (there is no monster bestiary — see §3.18) |
 | `data-npcs.js` | NPC stereotypes and generation tables, OSIRIS, the encounter system |
 | `data-pregens.js` | The five published pre-generated characters |
+| `data-help.js` | **How-to copy** — one entry per screen and per Solo panel, plus the solo tutorial. UI text, not rules. |
 | `data-solo.js` | **Mythic layer** — Fate, Chaos, scenes, events, and all 37 Meaning Tables (§3.20). No Classified rules in this file. |
 | `firebase-config.js` | Placeholder config + `FIREBASE_ENABLED` flag |
 | `database.rules.json` | RTDB security rules with player/GM roles |
@@ -707,6 +708,7 @@ No `data-<expansion>.js` — no expansions were supplied.
 | `sheet.js` | Character sheet, gear screen, and the persistent resource header |
 | `combat.js` | Combat tracker, NPC instantiation, progress tasks, lifecycle engine |
 | `gm.js` | GM dashboard: party panel, generators, reference tables |
+| `help.js` | The collapsed how-to accordions and the tutorial screen. Renders `data-help.js`; imports core, ui, settings only, so `solo.js` may use it |
 | `solo.js` | The Mythic engine and the Solo screen: Fate, Chaos, scene test, Random Events, Adventure Lists, Meaning-table roller, journal, guided End Scene |
 | `screens.js` | Home, rules library, roll log, advancement, settings |
 | `router.js` | Bottom-nav routing and conditional tab gating |
@@ -714,7 +716,8 @@ No `data-<expansion>.js` — no expansions were supplied.
 
 No `power-automation.js` (§3.14).
 
-`solo.js` may import `core.js`, `ui.js`, `store.js`, `settings.js` and `data-solo.js`. It
+`solo.js` may import `core.js`, `ui.js`, `store.js`, `settings.js`, `help.js` and
+`data-solo.js`. It
 must **not** *statically* import `rules.js` or `data.js`. The one exception is the briefing's
 Primary Opponent, which dynamically imports `combat.js`'s generator at the moment it is asked
 for (ruling S15). The Mythic layer never reaches into the
@@ -811,13 +814,20 @@ one-line description, every related UI checks the flag, and gated nav tabs are h
 router.
 
 `gmScreen` · `multiplayer` · `manualDice` · `showUntrained` · `autoConditions` ·
-`heroPointPrompt` · `seatbelts` · `airbags` · `solo`. Plus `theme` and `campaignStyle`,
-which are choices rather than toggles.
+`heroPointPrompt` · `seatbelts` · `airbags` · `solo` · `showHelp`. Plus `theme` and
+`campaignStyle`, which are choices rather than toggles.
 
 `solo` is the only toggle that **swaps** a nav tab rather than adding one: six tabs is the
 limit at 360px, so when solo is on the Solo tab takes the Rules slot and Rules stays
 reachable from its Home tile. `manualDice` applies to Mythic rolls too — `getD100()` is
 still the single entry point, and the Fate Check's 2d10 gets the same treatment.
+
+**How-to panels.** `showHelp` is the one toggle that starts **on**: a collapsed
+"How to use" accordion at the top of every screen and inside every Solo panel, holding what
+the panel is for and the taps that use it. `src/help.js` renders them from `data-help.js`, so
+no screen authors help text of its own and turning the flag off removes them everywhere in
+one place. The solo walkthrough is a screen of its own (`#/tutorial`), reachable from the
+Solo help panel and a Home tile — no nav tab, because six is the limit at 360px.
 
 **Wipe data.** Two destructive buttons sit directly under Backup, because exporting is what
 makes wiping safe and the two belong to the same decision. Each carries its own count, is
@@ -985,7 +995,7 @@ are flagged rather than presented as extracted (S1).
       - [x] Roll-log integration through `Store.addRoll()`.
       - [x] Regression checks: chart monotonicity, derived thresholds, event trigger,
             chaos clamping, list weighting, and every table exactly 100 entries.
-- [x] **Hardening.** Committed regression harness (740 checks); accessibility pass;
+- [x] **Hardening.** Committed regression harness (787 checks); accessibility pass;
       rules-accuracy audit with every finding closed (§11).
 
 ---
@@ -1137,3 +1147,5 @@ tables are this app's own work and are marked as such (S6).
 | 2026-07-30 | The briefing's Primary Opponent gets a rolled identity, and the whole mission can be deleted (S16, S17). `SCHEMA_VERSION` 7 records which list entries a briefing seeded | Reported: the primary villain was stuck at "Villain Primary Opponent". Root cause: `generateNPC()` names an NPC `rank.npcName + stereotype.name`, and the briefing pins both to Villain and Primary Opponent, so the name was a constant while the stats behind it changed — pressing Generate looked like it did nothing. A codename off `espCodename` and a pair off `espAdversary` now go in front of the stat block. Deleting was simply missing: a briefing could be rewritten but never removed, so an adventure was stuck with the mission it opened on | 706 checks green, including four generations that must not repeat and must never read the category label, all three identity rolls kept with the row, and a delete that takes back the two seeded threads and the seeded character while leaving a hand-added thread alone, returns the phase to briefing, journals it and leaves an undo | `classified-v17` |
 | 2026-07-30 | The pinned mission briefing stopped printing every row twice (S18) | Reported with a screenshot: seven rows, each reading `Interrogate · Start` and then `Interrogate · Start` again. Root cause: the row rendered `text` and then the words underneath unconditionally, and since rolling a row writes the joined words straight into the field, an unedited row's text is exactly that word line. The words are now shown only when the text has been written over — the case where they record what the line came from — and the Copy output follows the same rule. | 716 checks green, including that no pinned row prints its own words back underneath itself, that an unedited row is a single line, and that the one row written over in the test keeps its prompt | `classified-v18` |
 | 2026-07-30 | Added Wipe data to Settings: wipe all missions and wipe all characters, each with its own count, disabled when empty, and confirmed with what it destroys and what it leaves alone. `Store.wipeAdventures()` and `Store.wipeCharacters()` back them | The user asked for it. Deleting adventures one at a time from the Adventures menu and dossiers one at a time from the sheet was the only way to start clean. The two wipes stay strictly separate — missions do not take dossiers with them, and dossiers do not take the roll log — because a player clearing one usually wants to keep the other | 740 checks green, including that each wipe empties only its own store, clears its pointers and the solo undo snapshot, leaves the roll log intact, and that both buttons report and disable themselves once there is nothing left | `classified-v19` |
+| 2026-07-31 | Added `data-help.js` and `src/help.js`: a collapsed "How to use" accordion on all eleven screens and all eight Solo panels, behind a `showHelp` toggle that starts on, plus a Tutorial screen walking one solo mission from creating the operative to End Mission | The user asked for it. The app had a rules library explaining the *game* and nothing explaining the *app*, and the solo loop in particular is four surfaces deep before anything happens. Help copy lives in its own data module for the same reason rules values do: `src/` renders it, never authors it. The tutorial is read-only and shows the Classified rolls in place, so the two systems are seen working together rather than re-taught | 787 checks green: every screen and panel has an entry of the right shape, every panel renders its accordion closed, the toggle removes them all, the tutorial's steps are numbered and its rule links resolve. Swept all twelve routes at 360px, zero overflow, zero console errors | `classified-v20` |
+| 2026-07-31 | Fixed the Advancement screen, which threw for any open character: it read `R.REPUTATION_TABLE`, and `rules.js` does not re-export that table | Root cause: the reference was wrong from the start, and the screen's own empty-state guard hid it — the route sweep only ever visited Advancement with no character open, so it returned early and never reached the line. Adding a how-to panel to the screen is what made the harness open it with a character | A regression check renders Advancement with a character and asserts the Reputation band and the raise buttons are there | `classified-v20` |
