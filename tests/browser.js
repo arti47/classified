@@ -782,6 +782,114 @@ export async function browserTests(t, { chromium, executablePath, baseURL }) {
       t.eq(reroll.after.journal, 1, "and two re-rolls still leave one, not three");
       t.eq(reroll.after.log, 1, "the roll log keeps only the reading that was kept");
 
+      // Mysteries: a clock that fills from play, and an answer rolled only when it is full.
+      const mystery = await page.evaluate(async () => {
+        const Store = await import("./src/store.js");
+        const Solo = await import("./src/solo.js");
+        Store.updateAdventure(a => {
+          a.mysteries = [{
+            id: "mys_test", subject: "objective", label: "Who wants the film",
+            sourceId: null, size: 4, filled: 0, createdAt: Date.now(), revealedAt: null, reveal: null
+          }];
+          a.threads = [{ id: "t_mys", text: "Find the film", weight: 1 }];
+          a.briefing = a.briefing || { rows: {}, npc: null, seededIds: [], writtenAt: Date.now() };
+          a.briefing.rows.objective = { text: "Recover the courier's manifest", words: [], rolls: [] };
+        });
+        location.hash = "#/home";
+        await new Promise(r => setTimeout(r, 140));
+        location.hash = "#/solo";
+        await new Promise(r => setTimeout(r, 240));
+
+        const panel = document.getElementById("screen").textContent;
+        const pips = document.querySelectorAll(".progress-track .progress-pip").length;
+
+        // Fill it: three clue taps and the fourth from the pips.
+        for (let i = 0; i < 3; i++) Solo.tickMystery("mys_test", "clue");
+        const beforeFull = Store.activeAdventure().mysteries[0].filled;
+        Solo.tickMystery("mys_test", "clue");
+        const full = Store.activeAdventure().mysteries[0];
+        const overfill = Solo.tickMystery("mys_test", "clue");   // must refuse past the end
+
+        await Solo.revealMystery(Store.activeAdventure(), "mys_test");
+        const revealed = Store.activeAdventure().mysteries[0];
+        const modalText = (document.querySelector(".modal") || {}).textContent || "";
+        const actions = [...document.querySelectorAll(".modal-foot .btn")].map(b => b.textContent);
+        document.querySelectorAll(".modal-head .icon-btn").forEach(b => b.click());
+        await new Promise(r => setTimeout(r, 60));
+
+        const log = Store.rollLog()[0];
+        return {
+          panel: panel.includes("Mysteries") && panel.includes("Who wants the film"),
+          houseAid: /house aid/i.test(panel),
+          pips, beforeFull, filled: full.filled, overfill,
+          revealedAt: !!revealed.revealedAt,
+          shape: revealed.reveal && revealed.reveal.shapeName,
+          words: revealed.reveal && revealed.reveal.words.length,
+          modalText, actions,
+          logSolo: !!(log && log.solo), logLabel: log && log.label
+        };
+      });
+      t.ok(mystery.panel, "the Solo screen carries a Mysteries panel naming the open mystery");
+      t.ok(mystery.houseAid, "and says on the panel that it is the app's own house aid");
+      t.eq(mystery.pips, 4, "a four-segment clock draws four segments");
+      t.eq(mystery.beforeFull, 3, "clues fill it one at a time");
+      t.eq(mystery.filled, 4, "up to the size of the clock");
+      t.eq(mystery.overfill, null, "and no further");
+      t.ok(mystery.revealedAt, "revealing it marks it revealed");
+      t.ok(!!mystery.shape, `and stores the shape of the truth (${mystery.shape})`);
+      t.eq(mystery.words, 2, "with a word pair to colour it");
+      t.ok(/Reveal d100/.test(mystery.modalText), "the reveal shows the roll behind it");
+      t.ok(mystery.actions.includes("Rewrite the objective"),
+        "a mystery on the objective offers to rewrite the mission");
+      t.ok(mystery.actions.includes("+ Thread from this"), "and to open a thread from what it found");
+      t.ok(mystery.logSolo && /Mystery revealed/.test(mystery.logLabel), "the reveal is written to the shared roll log");
+
+      // An Exceptional Fate answer is a break in the case.
+      const breakInCase = await page.evaluate(async () => {
+        const Store = await import("./src/store.js");
+        const Solo = await import("./src/solo.js");
+        Store.updateAdventure(a => {
+          a.mysteries = [{
+            id: "mys_two", subject: "thread", label: "The second mystery",
+            sourceId: "t_mys", size: 8, filled: 0, createdAt: Date.now(), revealedAt: null, reveal: null
+          }];
+        });
+        // A Fate roll that fires an event opens a locked dialog with no close button, so the
+        // clean-up has to take the primary action rather than reach for the ✕.
+        const clearModals = async () => {
+          for (let i = 0; i < 8 && document.querySelector(".modal"); i++) {
+            const m = document.querySelector(".modal");
+            const x = m.querySelector(".modal-head .icon-btn");
+            if (x) x.click();
+            else {
+              const btn = [...m.querySelectorAll(".modal-foot .btn")].pop();
+              if (btn) btn.click(); else break;
+            }
+            await new Promise(r => setTimeout(r, 40));
+          }
+        };
+
+        let before = 0, after = 0, tries = 0;
+        // Certain at Chaos Factor 9 makes an Exceptional Yes likely; keep asking until one lands.
+        while (tries < 40) {
+          tries += 1;
+          await clearModals();
+          before = Store.activeAdventure().mysteries[0].filled;
+          Store.updateAdventure(a => { a.chaos = 9; });
+          await Solo.askFate(Store.activeAdventure(), "certain", "probe");
+          after = Store.activeAdventure().mysteries[0].filled;
+          const text = (document.querySelector(".modal") || {}).textContent || "";
+          if (after > before) {
+            await clearModals();
+            return { ticked: true, tries, banner: /break in the case/i.test(text) };
+          }
+        }
+        await clearModals();
+        return { ticked: false, tries };
+      });
+      t.ok(breakInCase.ticked, `an Exceptional Fate answer fills a segment (after ${breakInCase.tries} asks)`);
+      t.ok(breakInCase.banner, "and says so in the result");
+
       // The solo roll log row renders without the Classified Quality columns.
       await page.evaluate(() => { location.hash = "#/log"; });
       await page.waitForTimeout(160);
@@ -1094,8 +1202,12 @@ export async function browserTests(t, { chromium, executablePath, baseURL }) {
       const wipe = await page.evaluate(async () => {
         const Store = await import("./src/store.js");
         if (!Store.soloAdventures().length) Store.createAdventure({ name: "Wipe me" });
+        // Force a fresh render: the counts on the wipe buttons are read when the screen is
+        // drawn, and setting the hash it is already on would not redraw it.
+        location.hash = "#/home";
+        await new Promise(r => setTimeout(r, 140));
         location.hash = "#/settings";
-        await new Promise(r => setTimeout(r, 220));
+        await new Promise(r => setTimeout(r, 240));
         const labels = () => [...document.querySelectorAll("#screen .btn.danger")].map(b => b.textContent);
         const before = { labels: labels(), chars: Store.allCharacters().length, missions: Store.soloAdventures().length };
 

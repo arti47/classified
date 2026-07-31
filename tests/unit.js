@@ -874,6 +874,54 @@ function soloTests(t) {
   }
   t.pass("every d100 result resolves to an Event Focus");
 
+  /* ---------------- mysteries: the app's own aid (S20) ---------------- */
+
+  t.group("Mysteries — house aid");
+
+  t.deep(SOLO.MYSTERY_SIZES.map(x => x.size), [4, 6, 8], "clocks come in four, six and eight segments");
+  t.eq(SOLO.MYSTERY_DEFAULT_SIZE, 6, "six is the middle default");
+  t.deep(SOLO.MYSTERY_SUBJECTS.map(x => x.key), ["objective", "complication", "opponent", "thread"],
+    "a mystery can be about the objective, the complication, the opponent or a thread");
+  t.ok(SOLO.MYSTERY_SUBJECTS.every(x => !!SOLO.MEANING_BY_KEY[x.table]),
+    "every subject's reveal colour comes from a real Meaning Table");
+  t.ok(SOLO.MYSTERY_SUBJECT_BY_KEY.objective.rewrites, "only the objective's reveal can rewrite the mission");
+  t.ok(!SOLO.MYSTERY_SUBJECT_BY_KEY.opponent.rewrites, "the opponent's cannot");
+  t.eq(SOLO.MYSTERY_TICKS.length, 4, "four things fill a segment");
+
+  t.eq(SOLO.REVEAL_SHAPES[SOLO.REVEAL_SHAPES.length - 1].max, 100, "the Reveal table covers the whole d100");
+  let revealGap = null;
+  let prevMax = 0;
+  for (const r of SOLO.REVEAL_SHAPES) {
+    if (r.max <= prevMax) revealGap = r.key;
+    if (!r.name || !r.desc) revealGap = r.key + " (empty)";
+    prevMax = r.max;
+  }
+  t.ok(!revealGap, "its bands ascend without a gap, and each says what it means" + (revealGap ? ` (${revealGap})` : ""));
+  for (let r = 1; r <= 100; r++) {
+    if (!SOLO.revealShape(r)) { t.fail(`the Reveal table resolves a roll of ${r}`); break; }
+  }
+  t.pass("every d100 result resolves to a revelation");
+  t.ok(/house aid/i.test(SOLO.MYSTERY_NOTE), "the note on screen calls it a house aid (S20)");
+  t.ok(/Blades|Brindlewood/.test(SOLO.MYSTERY_NOTE), "and names where the two ideas come from");
+
+  const mysTopic = SOLO.SOLO_TOPICS.find(x => x.key === "mysteries");
+  t.ok(!!mysTopic, "the solo reference carries a mysteries topic");
+  t.ok(/house aid/i.test(mysTopic.title + mysTopic.body.join(" ")), "which says the same thing");
+
+  const mys = normalizeAdventure({ mysteries: [
+    { subject: "objective", label: "Who wants the film", size: 99, filled: 40 },
+    { subject: "nonsense", label: "x", size: 4, filled: -3 },
+    { subject: "thread", label: "y", size: 8, filled: 8, revealedAt: 123,
+      reveal: { shapeKey: "planted", shapeName: "It was planted", words: ["Deceive", "Urgently"], rolls: [30, 1, 2] } }
+  ] }).mysteries;
+  t.eq(mys[0].size, 6, "an impossible clock size falls back to six");
+  t.eq(mys[0].filled, 6, "and a count past the end is clamped to it");
+  t.eq(mys[1].subject, "thread", "an unknown subject falls back to a thread");
+  t.eq(mys[1].filled, 0, "and a negative count to zero");
+  t.eq(mys[2].reveal.shapeName, "It was planted", "a revealed mystery keeps its rolled answer");
+  t.deep(mys[2].reveal.words, ["Deceive", "Urgently"], "words and all");
+  t.deep(normalizeAdventure({}).mysteries, [], "an adventure from before version 8 simply has none");
+
   t.eq(SOLO.LIST_SLOTS, 25, "an Adventure List holds 25 slots");
   t.eq(SOLO.listSlot(1), 1, "d100 1-4 is the first slot");
   t.eq(SOLO.listSlot(4), 1, "d100 4 is still the first slot");
@@ -888,12 +936,12 @@ function soloTests(t) {
 
   t.eq(SOLO.ANYTHING_WORDS.length, 10, "the ten Anything Words are present");
   t.eq(SOLO.TABLE_BUILD_METHOD.length, 5, "the five-step table-construction method is recorded");
-  t.eq(SOLO.SOLO_TOPICS.length, 7, "the solo rules library carries a topic per procedure");
+  t.eq(SOLO.SOLO_TOPICS.length, 8, "the solo rules library carries a topic per procedure");
   t.ok(!SOLO.SOLO_TOPICS.some(x => x.key === "meaning"),
     "the Meaning Tables topic is gone: the tables are on the screen, they do not need an essay");
   t.eq(SOLO.SOLO_TOPICS.find(x => x.key === "twosystems").title, "Mythic and Classified",
     "the two-systems topic is titled Mythic and Classified");
-  t.deep(SOLO.SOLO_TOPICS.map(x => x.key), ["briefing", "fate", "chaos", "scenes", "events", "lists", "twosystems"],
+  t.deep(SOLO.SOLO_TOPICS.map(x => x.key), ["briefing", "fate", "chaos", "scenes", "events", "lists", "mysteries", "twosystems"],
     "the topic list is Fate, chaos, scenes, events, lists and the two systems");
   t.ok(!("FATE_CHART_VERIFY" in SOLO) && !("EVENT_FOCUS_VERIFY" in SOLO) &&
        !("SCENE_ADJUSTMENT_VERIFY" in SOLO) && !("FATE_CHECK_VERIFY" in SOLO),
@@ -907,7 +955,7 @@ function soloTests(t) {
   t.eq(fresh.chaos, 5, "a new adventure starts at Chaos Factor 5");
   t.eq(fresh.scene, 1, "a new adventure starts at scene 1");
   t.eq(fresh.fateMode, "chart", "the Fate Chart is the default mechanic");
-  t.eq(fresh.schema, 7, "an adventure records SCHEMA_VERSION 7");
+  t.eq(fresh.schema, 8, "an adventure records SCHEMA_VERSION 8");
   t.deep(fresh.threads, [], "the Threads list starts empty");
   t.eq(fresh.scenePhase, "setup", "a new adventure has no scene open yet");
   t.eq(fresh.sceneKind, null, "and no scene outcome recorded");

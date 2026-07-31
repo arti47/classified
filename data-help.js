@@ -140,6 +140,7 @@ export const HELP = {
       "Start scene N: say what you expect, and the Chaos Factor decides whether you get it.",
       "Play the scene with the tools under the button: Ask Fate, Random Events, the Meaning Tables.",
       "End scene N: say whether you were in control, tidy your lists, and the Chaos Factor steps itself.",
+      "Open a Mystery for anything you do not know yet — the clock fills as you play and the answer is rolled when it is full.",
       "Repeat until the mission is done, then End Mission on the Combat screen for the experience."
     ],
     note: "Fate answers what is true; skills, combat and damage stay on the ordinary Classified rules. The full walkthrough is on the Tutorial screen."
@@ -214,6 +215,19 @@ export const HELP = {
       "The same word twice is amplification, not a wasted roll.",
       "Baseline covers any scene; the rest point at what this game actually asks you to narrate."
     ]
+  },
+
+  "solo.mysteries": {
+    title: "How to use Mysteries",
+    what: "A question you cannot answer yet, on a clock. The app's own aid, not a Mythic procedure.",
+    steps: [
+      "+ New starts one on the objective, the complication, the opponent or a thread, at four, six or eight segments.",
+      "+ Clue fills a segment when play turned the question up; tap a segment directly to correct the count.",
+      "Segments also fill at End Scene, on an Exceptional Fate answer, and when an event draws the mystery's own thread.",
+      "When the last one falls, Reveal it rolls the shape of the truth and a word pair to colour it.",
+      "A mystery on the objective can rewrite what the mission is for; the old objective files itself to Threads."
+    ],
+    note: "Nothing is decided in advance, so the answer can never contradict what you have already played."
   },
 
   "solo.threads": {
@@ -350,6 +364,16 @@ export const TUTORIAL = {
     },
     {
       n: 9,
+      title: "Put the question you cannot answer on a clock",
+      body: [
+        "The forged manifest raised a question the mission could not answer yet: who wanted the film. That went on a six-segment mystery clock against the objective.",
+        "Segments filled as play turned it up — a clue marked by hand, a scene at End Scene that bore on it, one Exceptional Fate answer. When the last fell, the reveal rolled Not what it claimed, coloured Delusion · Friendship: the courier had been running the film for a friend who no longer existed.",
+        "Because the app rolls the answer at the reveal rather than storing one in advance, it cannot contradict anything already played. On the objective it also offers to rewrite the mission, filing the old objective to Threads."
+      ],
+      tap: "Mysteries → + New → the objective → six segments → Reveal it"
+    },
+    {
+      n: 10,
       title: "Keep looping until the mission resolves",
       body: [
         "Scene two started at Chaos Factor 6 and rolled a 2 — even, so it was interrupted. The planned stakeout never happened; the event was PC Negative, read as the freight office being raided while the operative was still inside.",
@@ -357,7 +381,7 @@ export const TUTORIAL = {
       ]
     },
     {
-      n: 10,
+      n: 11,
       title: "Close the mission",
       body: [
         "When the last thread closes, the mission is over. Ask Fate if you are unsure — \"Is this finished?\" at Unlikely is a legitimate question.",
