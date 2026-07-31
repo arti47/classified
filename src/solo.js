@@ -694,6 +694,7 @@ function appendInPlay(host, adv) {
 
   appendFate(wrap, adv);
   appendEvents(wrap, adv);
+  appendMysteries(wrap, adv);
   appendMeaning(wrap, adv);
   host.appendChild(wrap);
 }
@@ -814,6 +815,19 @@ export async function askFate(adv, oddsKey, question) {
     body.appendChild(b);
   }
 
+  // An Exceptional answer is the oracle giving more than was asked for, which reads as a break
+  // in the case (S20). One open mystery ticks itself; several are offered as a choice below.
+  const openMys = openMysteries(adv);
+  if (res.exceptional && openMys.length === 1) {
+    const after = tickMystery(openMys[0].id, "exceptional");
+    if (after) {
+      body.appendChild(el("div", { class: "banner ok" },
+        el("b", { text: `A break in the case: ${after.label}` }),
+        el("div", { class: "small", text: `Clock ${after.filled}/${after.size}` +
+          (after.filled >= after.size ? " — reveal it from the Mysteries panel." : "") })));
+    }
+  }
+
   if (res.exceptional) {
     body.appendChild(el("div", { class: "banner " + (res.yes ? "ok" : "warn"), text: res.yes
       ? "More than you asked for. Push the answer further than a plain Yes would go."
@@ -836,6 +850,12 @@ export async function askFate(adv, oddsKey, question) {
     ? [{ label: "Roll the event", kind: "primary", close: false,
          onClick: api => { api.close(); rollRandomEvent(Store.activeAdventure()); } }]
     : [{ label: "Done", kind: "primary" }];
+  if (res.exceptional && openMys.length > 1) {
+    actions.unshift({
+      label: "Mark a clue", kind: "ghost", close: false,
+      onClick: () => pickMysteryToTick("exceptional")
+    });
+  }
 
   save(a => {
     journal(a, "fate", `${label} — ${res.answer}`,
@@ -1091,6 +1111,20 @@ export async function rollRandomEvent(adv, opts = {}) {
       onClick: () => addToList("characters", "Characters", pair.words.join(" "))
     });
   }
+  // An event pointing at the mystery's own thread is the kind of clue the clock exists for,
+  // so it ticks itself rather than waiting to be noticed.
+  if (drawn && drawn.item && focus.list === "threads") {
+    const mys = (adv.mysteries || []).find(m => !m.revealedAt && m.filled < m.size && m.sourceId === drawn.item.id);
+    if (mys) {
+      const after = tickMystery(mys.id, "event");
+      if (after) {
+        body.appendChild(el("div", { class: "banner ok" },
+          el("b", { text: `A break in the case: ${after.label}` }),
+          el("div", { class: "small", text: `Clock ${after.filled}/${after.size}` })));
+      }
+    }
+  }
+
   if (focus.key === "threadclose" && drawn && drawn.item) {
     actions.unshift({
       label: "Strike that thread off", kind: "ghost", close: false,
@@ -1169,6 +1203,277 @@ async function rollPair(tableKey) {
     label: table.pairWith ? `${table.name} + ${second.name}` : `${table.name} ×2`,
     words: [w1, w2], rolls: [r1, r2], doubled: w1 === w2, tableKey
   };
+}
+
+/* ---------------------------------------------------------------- mysteries (house aid) */
+
+/**
+ * Mystery clocks. Not a Mythic procedure and not a Classified one — see ruling S20; the panel
+ * says so itself, the way End Scene does on the Combat screen.
+ */
+function appendMysteries(host, adv) {
+  appendHelp(host, "solo.mysteries");
+  const list = adv.mysteries || [];
+  const open = list.filter(m => !m.revealedAt);
+  const done = list.filter(m => m.revealedAt);
+
+  const sec = section("Mysteries", "A question you do not know the answer to yet. Fill the clock as play turns it up; the answer is rolled when the last segment falls.");
+
+  sec.querySelector(".section-head").appendChild(el("button", {
+    class: "btn sm primary", type: "button", onclick: () => newMystery(adv)
+  }, "+ New"));
+
+  if (!list.length) {
+    sec.appendChild(el("div", { class: "empty" },
+      el("p", { class: "muted", text: "Nothing open. Start one on the objective, the complication, the opponent or a thread." })));
+    sec.appendChild(el("p", { class: "small muted", text: S.MYSTERY_NOTE }));
+    host.appendChild(sec);
+    return;
+  }
+
+  for (const m of open) sec.appendChild(mysteryCard(adv, m));
+  for (const m of done) sec.appendChild(mysteryCard(adv, m));
+  sec.appendChild(el("p", { class: "small muted", style: "margin-top:8px", text: S.MYSTERY_NOTE }));
+  host.appendChild(sec);
+}
+
+function mysteryCard(adv, m) {
+  const subject = S.MYSTERY_SUBJECT_BY_KEY[m.subject] || S.MYSTERY_SUBJECT_BY_KEY.thread;
+  const card = el("div", { class: "card" });
+
+  card.appendChild(el("div", { class: "row" },
+    el("div", { class: "grow" },
+      el("div", { style: "font-weight:600", text: m.label }),
+      el("div", { class: "small muted", text: subject.name })),
+    m.revealedAt
+      ? el("span", { class: "pill q1", text: "Revealed" })
+      : el("span", { class: "mono small", text: `${m.filled}/${m.size}` })));
+
+  if (!m.revealedAt) {
+    const track = el("div", { class: "progress-track" });
+    for (let i = 0; i < m.size; i++) {
+      track.appendChild(el("button", {
+        class: "progress-pip" + (i < m.filled ? " on" : ""), type: "button",
+        "aria-label": `Set the clock to ${i + 1} of ${m.size}`,
+        onclick: () => save(a => {
+          const x = a.mysteries.find(y => y.id === m.id);
+          if (x) x.filled = (i + 1 === x.filled) ? i : i + 1;
+        })
+      }));
+    }
+    card.appendChild(track);
+
+    const row = el("div", { class: "btn-row", style: "margin-top:6px" });
+    if (m.filled >= m.size) {
+      row.appendChild(el("button", { class: "btn sm primary", type: "button", onclick: () => revealMystery(adv, m.id) }, "Reveal it"));
+    } else {
+      row.appendChild(el("button", {
+        class: "btn sm", type: "button", onclick: () => tickMystery(m.id, "clue")
+      }, "+ Clue"));
+    }
+    row.appendChild(el("button", {
+      class: "btn sm ghost", type: "button",
+      onclick: async () => {
+        if (await confirmModal(`Drop “${m.label}”? The clock and anything rolled on it go with it.`,
+          { title: "Drop this mystery", danger: true, okLabel: "Drop it" })) {
+          save(a => { a.mysteries = a.mysteries.filter(y => y.id !== m.id); });
+        }
+      }
+    }, "Drop"));
+    card.appendChild(row);
+  } else {
+    card.appendChild(el("div", { class: "banner", style: "margin-top:6px" },
+      el("b", { text: m.reveal.shapeName }),
+      el("div", { class: "small", text: m.reveal.shapeDesc }),
+      m.reveal.words.length
+        ? el("div", { class: "roll-formula", style: "text-align:left", text: m.reveal.words.join(" · ") })
+        : null));
+    card.appendChild(el("div", { class: "btn-row", style: "margin-top:6px" },
+      el("button", {
+        class: "btn sm", type: "button",
+        onclick: () => addToList("threads", "Threads", m.reveal.words.join(" "))
+      }, "+ Thread from this"),
+      el("button", {
+        class: "btn sm ghost", type: "button",
+        onclick: () => save(a => { a.mysteries = a.mysteries.filter(y => y.id !== m.id); })
+      }, "Clear")));
+  }
+  return card;
+}
+
+/** Start a mystery on a briefing row or a thread. */
+async function newMystery(adv) {
+  const items = [];
+  const b = adv.briefing ? adv.briefing.rows : null;
+  for (const key of ["objective", "complication"]) {
+    const row = b && b[key];
+    if (row && row.text) {
+      items.push({ key: "row:" + key, label: S.MYSTERY_SUBJECT_BY_KEY[key].name, desc: row.text });
+    }
+  }
+  if (adv.briefing && adv.briefing.npc) {
+    items.push({ key: "row:opponent", label: "The primary opponent", desc: adv.briefing.npc.alias || adv.briefing.npc.name });
+  }
+  for (const t of adv.threads || []) items.push({ key: "thread:" + t.id, label: t.text, desc: "A thread" });
+  items.push({ key: "custom", label: "Something else", desc: "Type the question yourself." });
+
+  const pick = await chooseModal("What is the mystery about?", items, {
+    intro: "A house aid: a clock that fills as play turns the question up, and an answer rolled when it fills."
+  });
+  if (!pick) return;
+
+  let subject = "thread";
+  let label = "";
+  let sourceId = null;
+  if (pick.startsWith("row:")) {
+    subject = pick.slice(4);
+    const row = subject === "opponent"
+      ? (adv.briefing.npc.alias || adv.briefing.npc.name)
+      : adv.briefing.rows[subject].text;
+    label = row;
+  } else if (pick.startsWith("thread:")) {
+    sourceId = pick.slice(7);
+    const t = (adv.threads || []).find(x => x.id === sourceId);
+    label = t ? t.text : "A thread";
+  } else {
+    const typed = await promptModal("What is the question?", { title: "New mystery", placeholder: "Who is feeding the opposition our timetable?" });
+    if (!typed || !typed.trim()) return;
+    label = typed.trim();
+  }
+
+  const sizeKey = await chooseModal("How long should it stay open?", S.MYSTERY_SIZES.map(x => ({
+    key: String(x.size), label: x.name, desc: x.desc
+  })));
+  if (!sizeKey) return;
+
+  save(a => {
+    (a.mysteries = a.mysteries || []).push({
+      id: uid("mys"), subject, label, sourceId,
+      size: Number(sizeKey), filled: 0, createdAt: Date.now(), revealedAt: null, reveal: null
+    });
+    journal(a, "note", `Mystery opened: ${label}`, `${sizeKey}-segment clock`);
+  });
+  showToast("Mystery opened", "ok");
+}
+
+/**
+ * Fill one segment. Returns the mystery as it stands after the tick, or null if there was
+ * nothing to tick — the automatic sources use that to stay quiet.
+ */
+export function tickMystery(id, source = "clue") {
+  const adv = Store.activeAdventure();
+  if (!adv) return null;
+  const before = (adv.mysteries || []).find(m => m.id === id);
+  if (!before || before.revealedAt || before.filled >= before.size) return null;
+
+  const reason = (S.MYSTERY_TICKS.find(x => x.key === source) || S.MYSTERY_TICKS[0]).name;
+  const after = save(a => {
+    const m = a.mysteries.find(x => x.id === id);
+    m.filled = Math.min(m.size, m.filled + 1);
+    journal(a, "note", `Clue: ${m.label} (${m.filled}/${m.size})`, reason);
+  }).mysteries.find(x => x.id === id);
+
+  showToast(after.filled >= after.size
+    ? `${after.label} — the clock is full`
+    : `${after.label} ${after.filled}/${after.size}`, "ok");
+  return after;
+}
+
+/** Ask which open mystery a clue belongs to, when the app cannot tell. */
+async function pickMysteryToTick(source) {
+  const adv = Store.activeAdventure();
+  const open = openMysteries(adv);
+  if (!open.length) { showToast("No mystery is open", "err"); return; }
+  if (open.length === 1) { tickMystery(open[0].id, source); return; }
+  const pick = await chooseModal("Which mystery does this bear on?", open.map(m => ({
+    key: m.id, label: m.label, right: `${m.filled}/${m.size}`,
+    desc: (S.MYSTERY_SUBJECT_BY_KEY[m.subject] || {}).name || ""
+  })));
+  if (pick) tickMystery(pick, source);
+}
+
+/** Any mystery still open, for the automatic tick sources. */
+function openMysteries(adv) {
+  return (adv.mysteries || []).filter(m => !m.revealedAt && m.filled < m.size);
+}
+
+/**
+ * The reveal: a shape off the authored table, then a word pair from the table that fits the
+ * subject. Nothing was decided in advance, which is the point — the answer cannot contradict
+ * what has already been played.
+ */
+export async function revealMystery(adv, id) {
+  const m = (adv.mysteries || []).find(x => x.id === id);
+  if (!m) return;
+  const subject = S.MYSTERY_SUBJECT_BY_KEY[m.subject] || S.MYSTERY_SUBJECT_BY_KEY.thread;
+
+  const shapeRoll = await soloD100("Reveal d100");
+  const shape = S.revealShape(shapeRoll);
+  const pair = await rollPair(subject.table);
+
+  save(a => {
+    const x = a.mysteries.find(y => y.id === id);
+    x.revealedAt = Date.now();
+    x.reveal = {
+      shapeKey: shape.key, shapeName: shape.name, shapeDesc: shape.desc,
+      words: pair.words, rolls: [shapeRoll, ...pair.rolls]
+    };
+    journal(a, "event", `Revealed: ${x.label} — ${shape.name}`,
+      `d100 ${shapeRoll} · ${pair.label} ${pair.rolls.join("/")} · ${pair.words.join(" ")}`);
+  });
+  logSolo(adv, `Mystery revealed — ${m.label}`, shapeRoll, shape.name, `${pair.words.join(" · ")} · ${subject.name}`);
+
+  const body = el("div", {});
+  body.appendChild(el("div", { class: "banner" },
+    el("b", { text: shape.name }),
+    el("div", { class: "small", text: shape.desc }),
+    el("div", { class: "small muted", text: `Reveal d100 ${shapeRoll}` })));
+  body.appendChild(el("div", { class: "roll-result" },
+    el("div", { class: "roll-quality", style: "font-size:20px", text: pair.words.join(" · ") }),
+    el("div", { class: "roll-formula", text: `${pair.label} · rolled ${pair.rolls.join(" and ")}` })));
+  body.appendChild(el("p", { class: "small muted", text:
+    "Read the shape and the words together, and say what is true. It was not written down before now." }));
+
+  const actions = [{ label: "Done", kind: "primary" }];
+  actions.unshift({
+    label: "+ Thread from this", kind: "ghost", close: false,
+    onClick: () => addToList("threads", "Threads", pair.words.join(" "))
+  });
+
+  // A mystery on the objective can rewrite what the mission is for — the one reveal that
+  // changes the briefing rather than adding to it.
+  if (subject.rewrites && adv.briefing && adv.briefing.rows.objective) {
+    body.appendChild(el("p", { class: "small", style: "margin-top:8px" },
+      el("b", { text: "The objective stands as: " }), adv.briefing.rows.objective.text));
+    actions.unshift({
+      label: "Rewrite the objective", kind: "ghost", close: false,
+      onClick: () => rewriteObjective(shape, pair)
+    });
+  }
+
+  modal({ title: "Mystery revealed", body, actions });
+}
+
+/** Rewrite the mission's objective, filing the old one to Threads as unfinished business. */
+async function rewriteObjective(shape, pair) {
+  const adv = Store.activeAdventure();
+  const current = adv.briefing && adv.briefing.rows.objective ? adv.briefing.rows.objective.text : "";
+  const typed = await promptModal("What is the mission actually for?", {
+    title: "Rewrite the objective", value: current
+  });
+  if (typed === null) return;
+  const next = typed.trim();
+  if (!next || next === current) return;
+
+  save(a => {
+    a.briefing.rows.objective = { text: next, words: pair.words, rolls: pair.rolls };
+    if (current && (a.threads || []).length < S.LIST_SLOTS) {
+      const entry = { id: uid("li"), text: `Unfinished: ${current}`, weight: 1 };
+      a.threads.push(entry);
+    }
+    journal(a, "note", `Objective rewritten: ${next}`, `was: ${current} · ${shape.name}`);
+  });
+  showToast("Objective rewritten", "ok");
 }
 
 function appendMeaning(host, adv) {
@@ -1334,6 +1639,27 @@ export async function endScene(adv) {
   preview.appendChild(el("label", { class: "field", style: "margin-top:12px" },
     el("span", { text: "Scene summary (optional)" }), summary));
 
+  const mysteryTicks = new Set();
+  const openNow = openMysteries(adv);
+  if (openNow.length) {
+    const box = el("div", { style: "margin-top:14px" });
+    box.appendChild(el("div", { class: "field-label", text: "Did this scene bear on a mystery?" }));
+    const card = el("div", { class: "card flush" });
+    for (const m of openNow) {
+      const label = el("label", { class: "toggle-row" },
+        el("input", {
+          type: "checkbox",
+          onchange: e => { if (e.target.checked) mysteryTicks.add(m.id); else mysteryTicks.delete(m.id); }
+        }),
+        el("div", { class: "grow" },
+          el("div", { class: "t-name", text: m.label }),
+          el("div", { class: "t-desc", text: `Clock ${m.filled}/${m.size} — ticking fills one segment` })));
+      card.appendChild(label);
+    }
+    box.appendChild(card);
+    preview.appendChild(box);
+  }
+
   preview.appendChild(upkeepBlock(adv, "threads", "Threads", pending));
   preview.appendChild(upkeepBlock(adv, "characters", "Characters", pending));
 
@@ -1366,6 +1692,14 @@ export async function endScene(adv) {
       if (p.add.length) {
         changes.push(`Added ${p.add.length} ${which === "threads" ? "thread" : "character"}${p.add.length === 1 ? "" : "s"}.`);
       }
+    }
+
+    for (const id of mysteryTicks) {
+      const m = (a.mysteries || []).find(x => x.id === id);
+      if (!m || m.revealedAt || m.filled >= m.size) continue;
+      m.filled = Math.min(m.size, m.filled + 1);
+      journal(a, "note", `Clue: ${m.label} (${m.filled}/${m.size})`, "A scene that bore on it");
+      changes.push(`${m.label}: clock ${m.filled}/${m.size}${m.filled >= m.size ? " — ready to reveal" : ""}.`);
     }
 
     a.scene = (a.scene || 1) + 1;

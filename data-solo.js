@@ -965,6 +965,92 @@ export const BRIEFING_OPPONENT = {
   traitTable: "espAdversary"     // two words — what they are
 };
 
+/* ================================================================ mysteries (house aid)
+ *
+ * NOT MYTHIC, AND NOT CLASSIFIED. Neither book carries this, so it ships explicitly labelled
+ * a house aid, exactly as End Scene does under ruling R9 (CLAUDE.md §10.8, ruling S20).
+ *
+ * Two borrowed ideas, both well tested at other tables: a segment clock, which is Blades in
+ * the Dark's way of making pressure visible, and a truth that is *generated at the reveal*
+ * rather than decided in advance, which is Brindlewood Bay's. The second is the important
+ * one for solo play: an answer written down in advance is an answer the player already knows,
+ * and an answer rolled at the reveal cannot contradict what has already been played.
+ */
+
+export const MYSTERY_SIZES = [
+  { size: 4, name: "Four segments", desc: "A question that will not stay open long." },
+  { size: 6, name: "Six segments", desc: "The usual: something worked at across most of a mission." },
+  { size: 8, name: "Eight segments", desc: "The thing the whole adventure is really about." }
+];
+
+export const MYSTERY_DEFAULT_SIZE = 6;
+
+/** What a mystery can be about, and which Meaning Table colours its reveal. */
+export const MYSTERY_SUBJECTS = [
+  { key: "objective", name: "The objective", table: "espTwist", rewrites: true,
+    desc: "What the mission is actually for. Revealing it can rewrite the objective." },
+  { key: "complication", name: "The complication", table: "espComplication",
+    desc: "What is in the way, and why it is really in the way." },
+  { key: "opponent", name: "The primary opponent", table: "espMotive",
+    desc: "Who they are, who they answer to, or what they want." },
+  { key: "thread", name: "A thread", table: "espMotive",
+    desc: "Any open question on the Threads list." }
+];
+
+export const MYSTERY_SUBJECT_BY_KEY = Object.fromEntries(MYSTERY_SUBJECTS.map(s => [s.key, s]));
+
+/** What fills a segment. Recorded here so the UI and the how-to copy cannot drift apart. */
+export const MYSTERY_TICKS = [
+  { key: "clue", name: "A clue you mark", desc: "One tap, when the fiction produced something that moved it." },
+  { key: "scene", name: "A scene that bore on it", desc: "Ticked at End Scene, alongside the list upkeep." },
+  { key: "exceptional", name: "An Exceptional Fate answer", desc: "The oracle handing you more than you asked for reads as a break in the case." },
+  { key: "event", name: "An event that drew its thread", desc: "A Random Event pointing at the mystery's own thread." }
+];
+
+/**
+ * The shape of the revelation, rolled when the last segment fills. Authored for this app's
+ * 1960s-espionage context — the shape is what makes a bare word pair readable at the moment
+ * it matters most, so the reveal rolls this first and then a pair from the subject's table.
+ */
+export const REVEAL_SHAPES = [
+  { max: 8,   key: "trusted",    name: "Someone you trusted",
+    desc: "It runs through a name already on your Characters list. Draw one if you cannot pick." },
+  { max: 18,  key: "cover",      name: "Not what it claimed",
+    desc: "The subject is a front. What it appears to be is a cover for another party's work." },
+  { max: 28,  key: "twoparties", name: "Two parties, not one",
+    desc: "A second interest has been working the same ground, for its own reasons." },
+  { max: 38,  key: "planted",    name: "It was planted",
+    desc: "What you were told, or what you found, was fed to you deliberately." },
+  { max: 46,  key: "alreadydone",name: "Already done",
+    desc: "The thing you were trying to prevent, or recover, is finished. You are looking at the aftermath." },
+  { max: 56,  key: "bigger",     name: "The stakes are bigger",
+    desc: "What is at issue is larger than the mission stated. The briefing was not wrong, just small." },
+  { max: 64,  key: "olddebt",    name: "An old debt",
+    desc: "This reaches back into something that predates the mission, and someone is still owed." },
+  { max: 72,  key: "wrongtarget",name: "The wrong target",
+    desc: "The person or object at the centre of it is not the one that matters." },
+  { max: 80,  key: "price",      name: "A price attached",
+    desc: "The truth is available, and it costs something you would rather keep." },
+  { max: 86,  key: "nobody",     name: "Nobody is behind it",
+    desc: "Coincidence, incompetence or accident. There is no hand on it, and that is its own problem." },
+  { max: 93,  key: "personal",   name: "It is personal",
+    desc: "The subject is aimed at the operative, their agency or someone they answer to, specifically." },
+  { max: 100, key: "worse",      name: "Worse than you feared",
+    desc: "The plain reading was right all along, and the scale of it is worse." }
+];
+
+export function revealShape(roll) {
+  const n = Number(roll);
+  for (const row of REVEAL_SHAPES) if (n <= row.max) return row;
+  return REVEAL_SHAPES[REVEAL_SHAPES.length - 1];
+}
+
+export const MYSTERY_NOTE =
+  "A house aid, not a Mythic procedure: a segment clock in the manner of Blades in the Dark, " +
+  "and an answer generated at the reveal rather than written in advance, in the manner of " +
+  "Brindlewood Bay. Nothing is decided until the last segment fills, so the truth can never " +
+  "contradict what you have already played.";
+
 /* ================================================================ T79 topics */
 
 export const SOLO_TOPICS = [
@@ -1028,6 +1114,18 @@ export const SOLO_TOPICS = [
       "Keep two lists of 25 slots: Threads, which is everything the character is trying to do, and Characters, which is everyone who matters.",
       "Enter an item more than once to weight it. Randomising a list rolls d100 across the 25 slots, four numbers to a slot, so a thread entered three times comes up three times as often.",
       "Add a thread the moment a new goal appears and strike it off when it closes. The lists are what stop a solo adventure from wandering."
+    ]
+  },
+  {
+    key: "mysteries",
+    title: "Mysteries (house aid)",
+    source: "This app",
+    body: [
+      "Neither Classified nor Mythic prints this. It is the app's own aid, in the way End Scene on the Combat screen is: a segment clock, and a truth that is rolled when the clock fills rather than decided in advance.",
+      "Start one on the objective, the complication, the primary opponent or any thread, and pick four, six or eight segments for how long the question should stay open.",
+      "Segments fill four ways: a clue you mark by hand, a scene that bore on it ticked at End Scene, an Exceptional Fate answer, and a Random Event that draws the mystery's own thread.",
+      "When the last segment fills, the reveal rolls a shape — someone you trusted, it was planted, the wrong target — and then a word pair from the table that fits the subject. Read the two together.",
+      "Because nothing is written down in advance, the answer cannot contradict what you have already played. That is the whole reason it works solo."
     ]
   },
   {

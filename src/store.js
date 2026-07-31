@@ -196,6 +196,8 @@ export function normalizeAdventure(a) {
     briefing: normalizeBriefing(src.briefing),
     threads: normalizeList(src.threads),
     characters: normalizeList(src.characters),
+    // Mystery clocks (CLAUDE.md §3.20.6). A record from version 7 or earlier has none.
+    mysteries: Array.isArray(src.mysteries) ? src.mysteries.map(normalizeMystery) : [],
     journal: Array.isArray(src.journal)
       ? src.journal.map(e => ({
           id: e.id || uid("j"),
@@ -231,6 +233,33 @@ function normalizeBriefing(b) {
     // back exactly those. A version-6 record has none and falls back to matching row text.
     seededIds: Array.isArray(b.seededIds) ? b.seededIds.map(String) : [],
     writtenAt: Number(b.writtenAt) || Date.now()
+  };
+}
+
+/**
+ * A mystery clock. `filled` is clamped into its own clock, and a revealed mystery keeps its
+ * rolled answer so it stays readable after the fact.
+ */
+function normalizeMystery(m) {
+  const src = m && typeof m === "object" ? m : {};
+  const size = [4, 6, 8].includes(Number(src.size)) ? Number(src.size) : 6;
+  const reveal = src.reveal && typeof src.reveal === "object" ? {
+    shapeKey: String(src.reveal.shapeKey || ""),
+    shapeName: String(src.reveal.shapeName || ""),
+    shapeDesc: String(src.reveal.shapeDesc || ""),
+    words: Array.isArray(src.reveal.words) ? src.reveal.words.map(String) : [],
+    rolls: Array.isArray(src.reveal.rolls) ? src.reveal.rolls.map(Number) : []
+  } : null;
+  return {
+    id: src.id || uid("mys"),
+    subject: ["objective", "complication", "opponent", "thread"].includes(src.subject) ? src.subject : "thread",
+    label: String(src.label || "An open question"),
+    sourceId: src.sourceId || null,
+    size,
+    filled: Math.max(0, Math.min(size, Number(src.filled) || 0)),
+    createdAt: Number(src.createdAt) || Date.now(),
+    revealedAt: Number(src.revealedAt) || null,
+    reveal
   };
 }
 
