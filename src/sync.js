@@ -96,6 +96,50 @@ export async function joinCampaign(code, displayName, characterId) {
 
 export function leaveCampaign() { campaign = null; persistCampaign(); }
 
+/**
+ * Set this device's member record. Called when the player picks which dossier they are
+ * bringing, and whenever that dossier is renamed.
+ */
+export async function setMember({ displayName, characterId, role } = {}) {
+  const f = await init();
+  const c = currentCampaign();
+  if (!c) return null;
+  if (!f || c.local) {
+    c.displayName = displayName || c.displayName || "Agent";
+    if (characterId !== undefined) c.characterId = characterId;
+    persistCampaign();
+    return c;
+  }
+  const { ref, update } = f.dbMod;
+  const patch = {};
+  if (displayName !== undefined) patch.displayName = displayName;
+  if (characterId !== undefined) patch.characterId = characterId;
+  if (role !== undefined) patch.role = role;
+  await update(ref(f.db, `campaigns/${c.id}/members/${f.user.uid}`), patch);
+  return c;
+}
+
+/**
+ * Everyone in the campaign, once. Returns [] in local mode rather than throwing, so the
+ * party panel has one shape to render whether or not keys are configured.
+ */
+export async function members() {
+  const f = await init();
+  const c = currentCampaign();
+  if (!f || !c || c.local) return [];
+  const { ref, get } = f.dbMod;
+  const snap = await get(ref(f.db, `campaigns/${c.id}/members`));
+  if (!snap.exists()) return [];
+  return Object.entries(snap.val()).map(([uid, m]) => ({ uid, ...m }));
+}
+
+/** Live party membership. Resolves to an unsubscribe function; a no-op in local mode. */
+export async function watchMembers(callback) {
+  return watch("members", val => {
+    callback(val ? Object.entries(val).map(([uid, m]) => ({ uid, ...m })) : []);
+  });
+}
+
 /* ---------------------------------------------------------------- pushes */
 
 async function node(path) {
@@ -119,11 +163,22 @@ export async function pushRoll(entry) {
   try { await set(push(ref(n.f.db, n.path)), entry); } catch (e) { console.warn("sync roll failed", e); }
 }
 
+/**
+ * The combat mirror. Stamped with this device's id and a revision so a client can tell its
+ * own echo from someone else's change — without that the tracker fights itself, every push
+ * coming back as a remote update that triggers another push.
+ */
 export async function pushCombat(state) {
   const n = await node("combat");
   if (!n) return;
   const { ref, set } = n.f.dbMod;
-  try { await set(ref(n.f.db, n.path), state); } catch (e) { console.warn("sync combat failed", e); }
+  const stamped = { ...state, rev: Date.now(), by: n.f.user.uid };
+  try { await set(ref(n.f.db, n.path), stamped); } catch (e) { console.warn("sync combat failed", e); }
+}
+
+/** True when a mirrored record came from this device. */
+export function isOwnEcho(record) {
+  return !!(record && fb && record.by && record.by === fb.user.uid);
 }
 
 export async function broadcast(text) {

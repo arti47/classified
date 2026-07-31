@@ -403,10 +403,11 @@ export const TUTORIAL = {
       title: "Close the mission",
       body: [
         "When the last thread closes, the mission is over. Ask Fate if you are unsure — \"Is this finished?\" at Unlikely is a legitimate question.",
-        "Then End Mission on the Combat screen: it awards experience from rank, outcome and role-playing, adds a Hero Point on a success, clears the one-advance-per-mission gate, and can be undone once.",
-        "Copy all on the journal gives you the whole adventure as text for a write-up."
+        "End the mission from the Solo screen: it asks how it ended, says what is still open, closes the adventure, and fires Classified\'s own End Mission for the linked dossier — experience from rank, outcome and role-playing, a Hero Point on a success, and the one-advance-per-mission gate cleared. One undo covers both halves.",
+        "The closed adventure stays readable and the primary action becomes Start a new adventure. Copy all on the journal gives you the whole mission as text for a write-up.",
+        "Spend experience takes you straight to Advancement from the completion dialog."
       ],
-      tap: "Combat → End Mission · Solo → Journal → Copy all",
+      tap: "Solo → End the mission → outcome → End Mission · Journal → Copy all",
       rule: "advancement"
     }
   ],

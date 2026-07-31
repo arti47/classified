@@ -209,7 +209,7 @@ a { color: var(--stamp); }
 }
 .row-edit > div:first-child { text-decoration: underline; text-decoration-style: dotted; text-underline-offset: 3px; }
 .row-edit:hover > div:first-child { text-decoration-style: solid; }
-.row-edit:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; border-radius: 4px; }
+.row-edit:focus-visible { outline: 2px solid var(--stamp-2); outline-offset: 2px; border-radius: 4px; }
 
 .grid { display: grid; gap: var(--gap); }
 .grid-2 { grid-template-columns: repeat(2, minmax(0, 1fr)); }
@@ -542,3 +542,15 @@ details.acc > .acc-body { padding: 0 var(--pad) var(--pad); }
 .banner.ok { border-left-color: var(--ok); }
 
 @media print { .app-header, .bottom-nav, .btn, .icon-btn { display: none !important; } }
+
+/* Dossier photograph. A blank photo box reads as a slot to fill; a filled one is the first
+   thing on the sheet, so it stays small enough not to push the numbers down the screen. */
+.portrait {
+  flex: 0 0 auto; width: 64px; height: 64px; padding: 0; margin-right: 12px;
+  border: 1px dashed var(--rule); border-radius: 4px; background: var(--paper-2);
+  display: flex; align-items: center; justify-content: center; overflow: hidden; cursor: pointer;
+}
+.portrait.has-photo { border-style: solid; }
+.portrait img { width: 100%; height: 100%; object-fit: cover; display: block; }
+.portrait .ph { font-size: 10px; letter-spacing: 0.12em; color: var(--ink-3); }
+.portrait:focus-visible { outline: 2px solid var(--stamp-2); outline-offset: 2px; }

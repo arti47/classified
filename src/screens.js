@@ -142,6 +142,36 @@ export function renderLog(host) {
   const card = el("div", { class: "card flush" });
   for (const r of log) card.appendChild(logRow(r));
   host.appendChild(card);
+
+  appendSharedLog(host, log);
+}
+
+/**
+ * The rest of the table's rolls. Kept as its own section rather than merged into the local
+ * log: the local log is what this device rolled and can re-derive, and a shared row belongs
+ * to someone else's dossier. In local mode nothing is fetched and nothing is shown.
+ */
+function appendSharedLog(host, local) {
+  if (!Sync.isEnabled() || !Sync.currentCampaign()) return;
+  const sec = el("div", { class: "section", style: "margin-top:18px" },
+    el("div", { class: "section-title", text: "The table's rolls" }));
+  const card = el("div", { class: "card flush" });
+  sec.appendChild(card);
+  sec.appendChild(el("p", { class: "small muted", text: "Live from the campaign, newest first." }));
+  host.appendChild(sec);
+
+  const seen = new Set(local.map(r => r.id));
+  Sync.watch("rollLog", val => {
+    clear(card);
+    const rows = val ? Object.values(val) : [];
+    const others = rows.filter(r => r && !seen.has(r.id)).sort((a, b) => (b.ts || 0) - (a.ts || 0)).slice(0, 25);
+    if (!others.length) {
+      card.appendChild(el("div", { class: "card-row" },
+        el("span", { class: "small muted", text: "Nothing from the rest of the table yet." })));
+      return;
+    }
+    for (const r of others) card.appendChild(logRow(r));
+  }).catch(() => {});
 }
 
 /* ---------------------------------------------------------------- rules library */
@@ -720,6 +750,139 @@ export function renderAdvance(host) {
 
 /* ---------------------------------------------------------------- settings */
 
+/**
+ * The campaign panel: create one, join one with its code, see who is in it, leave it.
+ *
+ * Every action works with no keys configured — `sync.js` falls back to a local campaign
+ * record — so the flow can be walked through and tested on one device, and the same taps do
+ * the real thing once keys are in place. Without keys the panel says so rather than
+ * pretending the party is shared.
+ */
+function campaignCard(host) {
+  const card = el("div", { class: "card" });
+  const c = Sync.currentCampaign();
+  const live = Sync.isEnabled();
+
+  card.appendChild(el("p", { class: "small", text: Sync.statusLabel() }));
+
+  if (c) {
+    card.appendChild(el("div", { class: "card flush", style: "margin-top:10px" },
+      el("div", { class: "card-row" },
+        el("div", { class: "grow" },
+          el("div", { style: "font-weight:600", text: c.name || "Untitled campaign" }),
+          el("div", { class: "small muted", text: `${c.role === "gm" ? "Game master" : "Player"}${c.local ? " · local only" : ""}` })),
+        el("span", { class: "mono", text: c.joinCode })),
+      el("div", { class: "card-row" },
+        el("div", { class: "grow small muted", text: "Share the join code with the table." }),
+        el("button", { class: "btn sm", type: "button",
+          onclick: () => copyJoinCode(c.joinCode) }, "Copy code"))));
+
+    const party = el("div", { style: "margin-top:10px" });
+    card.appendChild(party);
+    renderParty(party, c);
+
+    card.appendChild(el("div", { class: "btn-row", style: "margin-top:10px" },
+      el("button", { class: "btn sm", type: "button",
+        onclick: () => pickSeat(host, c) }, "Which dossier am I playing?"),
+      el("button", { class: "btn sm danger", type: "button", onclick: async () => {
+        if (await confirmModal(`Leave “${c.name}”? Your dossiers and roll log stay on this device.`,
+          { title: "Leave the campaign", okLabel: "Leave", danger: true })) {
+          Sync.leaveCampaign();
+          renderSettings(host);
+        }
+      } }, "Leave")));
+  } else {
+    card.appendChild(el("div", { class: "btn-row", style: "margin-top:10px" },
+      el("button", { class: "btn sm primary", type: "button", onclick: async () => {
+        const name = await promptModal("What is the campaign called?", {
+          title: "Create a campaign", placeholder: "Operation Midnight"
+        });
+        if (name === null) return;
+        const made = await Sync.createCampaign(name.trim() || "Untitled campaign", "gm");
+        renderSettings(host);
+        modal({
+          title: "Campaign created",
+          body: el("div", {},
+            el("p", { class: "small", text: "The join code is how the rest of the table gets in:" }),
+            el("div", { class: "roll-result" }, el("div", { class: "roll-quality", text: made.joinCode })),
+            el("p", { class: "small muted", text: made.local
+              ? "No Firebase keys are configured, so this campaign lives on this device only. The code will work once keys are in place."
+              : "Anyone with this code can join from their own device." })),
+          actions: [
+            { label: "Copy code", kind: "ghost", close: false, onClick: () => copyJoinCode(made.joinCode) },
+            { label: "Done", kind: "primary" }
+          ]
+        });
+      } }, "Create a campaign"),
+      el("button", { class: "btn sm", type: "button", onclick: async () => {
+        const code = await promptModal("Join code", { title: "Join a campaign", placeholder: "red-dragon-sword" });
+        if (code === null || !code.trim()) return;
+        const who = Store.activeCharacter();
+        try {
+          await Sync.joinCampaign(code.trim().toLowerCase(),
+            who ? (who.identity.name || "Agent") : "Agent", who ? who.id : null);
+          showToast("Joined", "ok");
+        } catch (e) {
+          showToast(e.message || "Could not join that campaign", "err");
+        }
+        renderSettings(host);
+      } }, "Join with a code")));
+  }
+
+  card.appendChild(el("p", { class: "small muted", style: "margin-top:10px", text: live
+    ? "Characters, rolls and the combat tracker are mirrored to the campaign as you play."
+    : "Local-first by default. Drop real keys into firebase-config.js, set FIREBASE_ENABLED to true, deploy database.rules.json, then turn on the multiplayer toggle above." }));
+  return card;
+}
+
+function copyJoinCode(code) {
+  if (navigator.clipboard && navigator.clipboard.writeText) {
+    navigator.clipboard.writeText(code).then(() => showToast("Join code copied", "ok"),
+      () => showToast(code, ""));
+    return;
+  }
+  showToast(code, "");
+}
+
+/** Who is at the table. Falls back to this device's own seat when nothing is shared yet. */
+function renderParty(hostEl, c) {
+  clear(hostEl);
+  hostEl.appendChild(el("div", { class: "field-label", text: "Party" }));
+  const list = el("div", { class: "card flush" });
+  hostEl.appendChild(list);
+
+  const seat = (name, sub) => el("div", { class: "card-row" },
+    el("div", { class: "grow" },
+      el("div", { text: name }),
+      el("div", { class: "small muted", text: sub })));
+
+  const mine = c.characterId ? Store.getCharacter(c.characterId) : Store.activeCharacter();
+  list.appendChild(seat(mine ? (mine.identity.name || "Unnamed operative") : "No dossier chosen",
+    `This device · ${c.role === "gm" ? "game master" : "player"}`));
+
+  Sync.members().then(all => {
+    const others = all.filter(m => m.uid !== (Sync.currentUser() || {}).uid);
+    if (!others.length) return;
+    for (const m of others) {
+      list.appendChild(seat(m.displayName || "Agent", m.role === "gm" ? "Game master" : "Player"));
+    }
+  }).catch(() => {});
+}
+
+/** Say which dossier this device is bringing, so the rest of the table sees the right name. */
+async function pickSeat(host, c) {
+  const chars = Store.allCharacters();
+  if (!chars.length) { showToast("No dossiers on this device", "err"); return; }
+  const pick = await chooseModal("Which dossier am I playing?", chars.map(x => ({
+    key: x.id, label: x.identity.name || "Unnamed", desc: R.RANK_BY_KEY[x.identity.rank]?.name || ""
+  })));
+  if (!pick) return;
+  const ch = Store.getCharacter(pick);
+  Store.setActive(pick);
+  await Sync.setMember({ characterId: pick, displayName: ch.identity.name || "Agent" });
+  renderSettings(host);
+}
+
 export function renderSettings(host) {
   clear(host);
 
@@ -799,11 +962,7 @@ export function renderSettings(host) {
   ));
 
   host.appendChild(el("div", { class: "section", style: "margin-top:18px" }, el("div", { class: "section-title", text: "Multiplayer" })));
-  host.appendChild(el("div", { class: "card" },
-    el("p", { class: "small", text: Sync.statusLabel() }),
-    el("p", { class: "small muted", text:
-      "Local-first by default. Drop real keys into firebase-config.js, set FIREBASE_ENABLED to true, deploy database.rules.json, then turn on the multiplayer toggle above." })
-  ));
+  host.appendChild(campaignCard(host));
 
   host.appendChild(el("div", { class: "section", style: "margin-top:18px" }, el("div", { class: "section-title", text: "About" })));
   host.appendChild(el("div", { class: "card" },

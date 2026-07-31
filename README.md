@@ -54,7 +54,9 @@ fully offline after the first load.
   as a second system layered on top: Fate questions on either the Fate Chart or the Fate
   Check, the Chaos Factor, scene tests with altered and interrupt scenes, Random Events with
   the Event Focus table, weighted Threads and Characters lists, an adventure journal, a
-  guided End Scene with one-step undo, and 37 Meaning Tables of 100 words each. Nine come
+  guided End Scene with one-step undo, a rolled mission briefing that seeds your first
+  threads and opponent, mysteries whose clues set the odds of a reveal Fate decides the moment
+  of, an End Mission that pays Classified's experience, and 37 Meaning Tables of 100 words each. Nine come
   from the supplied Mythic Magazine Vol. 38 report; twenty-eight were written for this app's
   1960s-espionage context by that report's five-step method, one per subsystem the game
   actually has — combat, wounds, chases, reactions, interrogation, social play, the world
@@ -90,9 +92,18 @@ The app is local-first and needs no configuration. To enable a shared party:
 3. Deploy `database.rules.json` as your database security rules.
 4. Paste your web config into `firebase-config.js` and set `FIREBASE_ENABLED = true`.
 5. Turn on the **Multiplayer party** toggle in Settings.
+6. **Create a campaign** or **Join with a code** in the Multiplayer panel, and share the
+   three-word join code with the table.
 
-Player and GM roles are in the schema and the security rules from the start. **Never commit
-real keys.**
+Characters, rolls and the combat tracker mirror to the campaign as you play; the combat
+mirror ignores a device's own echo, so two clients cannot push each other in a circle. The
+roll log grows a second section carrying the rest of the table's rolls. Player and GM roles
+are in the schema and the security rules from the start. **Never commit real keys.**
+
+The campaign controls work with no keys configured — the campaign is local to the device
+until keys are in place — so you can walk the flow before setting up Firebase. Dossier
+photographs are compressed in the browser to a 256px JPEG and stored with the character, so
+they need no Storage bucket and travel in the JSON backup.
 
 ## Tests
 

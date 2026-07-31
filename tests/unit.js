@@ -1081,6 +1081,8 @@ function soloTests(t) {
   t.eq(oppCfg.rank, "special", "at Villain rank");
   t.ok(!!SOLO.MEANING_BY_KEY[oppCfg.aliasTable], "its codename comes off a real Meaning Table");
   t.ok(!!SOLO.MEANING_BY_KEY[oppCfg.traitTable], "and its two describing words off another");
+  t.ok(SOLO.MEANING_BY_KEY[oppCfg.traitTable].words.some(w => typeof w === "string"),
+    "whose words are plain strings, so a doubled pair can be collapsed to one");
   t.ok(SOLO.BRIEFING_ROWS.find(r => r.key === "opponent").placeholder !== "Villain Primary Opponent",
     "the placeholder is no longer the generator's own category label");
 }

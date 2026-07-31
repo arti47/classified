@@ -1175,6 +1175,103 @@ export async function browserTests(t, { chromium, executablePath, baseURL }) {
         `which lands on the target through the accumulation table (${targeted.woundAfter})`);
       t.ok(targeted.reported, "and says what they are now");
 
+      // Phase 5: the campaign panel, the party, and the portrait. With no Firebase keys the
+      // flow still runs against a local campaign record, which is what makes it testable.
+      const campaign = await page.evaluate(async () => {
+        const Store = await import("./src/store.js");
+        const Sync = await import("./src/sync.js");
+        const SettingsMod = await import("./src/settings.js");
+        (await import("./src/ui.js")).closeAllModals();
+        await new Promise(r => setTimeout(r, 150));
+        Sync.leaveCampaign();
+        SettingsMod.set("multiplayer", true);
+
+        location.hash = "#/home"; await new Promise(r => setTimeout(r, 100));
+        location.hash = "#/settings"; await new Promise(r => setTimeout(r, 250));
+        const before = [...document.querySelectorAll("#screen .btn")].map(b => b.textContent);
+
+        [...document.querySelectorAll("#screen .btn")].find(b => b.textContent === "Create a campaign").click();
+        for (let i = 0; i < 40 && !document.querySelector("#promptInput"); i++) await new Promise(r => setTimeout(r, 50));
+        const input = [...document.querySelectorAll("#promptInput")].pop();
+        input.value = "Operation Midnight";
+        [...input.closest(".modal").querySelectorAll(".modal-foot .btn")].find(b => b.textContent === "OK").click();
+        for (let i = 0; i < 40 && !Sync.currentCampaign(); i++) await new Promise(r => setTimeout(r, 50));
+        const made = Sync.currentCampaign();
+        (await import("./src/ui.js")).closeAllModals();
+        await new Promise(r => setTimeout(r, 150));
+
+        location.hash = "#/home"; await new Promise(r => setTimeout(r, 100));
+        location.hash = "#/settings"; await new Promise(r => setTimeout(r, 250));
+        const panel = document.getElementById("screen").textContent;
+        const hasLeave = [...document.querySelectorAll("#screen .btn")].map(b => b.textContent).includes("Leave");
+        const persisted = JSON.parse(localStorage.getItem("classified.campaign") || "null");
+
+        Sync.leaveCampaign();
+        SettingsMod.set("multiplayer", false);
+        location.hash = "#/home"; await new Promise(r => setTimeout(r, 100));
+        return {
+          before, code: made.joinCode, name: made.name, role: made.role, local: made.local,
+          showsCode: panel.includes(made.joinCode),
+          showsParty: panel.includes("Party"),
+          showsName: panel.includes("Operation Midnight"),
+          hasLeave,
+          persisted: !!persisted && persisted.joinCode === made.joinCode
+        };
+      });
+      t.ok(campaign.before.includes("Create a campaign") && campaign.before.includes("Join with a code"),
+        "Settings carries the campaign controls, not just a status line");
+      t.ok(/^[a-z]+-[a-z]+-[a-z]+$/.test(campaign.code), `a campaign gets a three-word join code (${campaign.code})`);
+      t.eq(campaign.name, "Operation Midnight", "under the name you gave it");
+      t.eq(campaign.role, "gm", "and the device that made it is the game master");
+      t.ok(campaign.local, "with no keys configured it is a local campaign rather than a failure");
+      t.ok(campaign.showsCode, "the panel shows the join code to share");
+      t.ok(campaign.showsName && campaign.showsParty, "with the campaign name and who is at the table");
+      t.ok(campaign.hasLeave, "and a way out of it");
+      t.ok(campaign.persisted, "the campaign survives a reload");
+
+      // The dossier photograph, compressed in the browser.
+      const portrait = await page.evaluate(async () => {
+        const Store = await import("./src/store.js");
+        const Sheet = await import("./src/sheet.js");
+        // A 900px source, which is what a phone camera hands you.
+        const src = document.createElement("canvas");
+        src.width = 900; src.height = 600;
+        const g = src.getContext("2d");
+        g.fillStyle = "#8c1c13"; g.fillRect(0, 0, 900, 600);
+        g.fillStyle = "#e8dcc2"; g.fillRect(100, 100, 700, 400);
+        const blob = await new Promise(r => src.toBlob(r, "image/png"));
+        const file = new File([blob], "photo.png", { type: "image/png" });
+
+        const url = await Sheet.compressImage(file);
+        const bytes = Math.round(url.length * 0.75);
+        const img = new Image();
+        await new Promise(r => { img.onload = r; img.src = url; });
+
+        Store.updateActive(x => { x.identity.portraitUrl = url; });
+        location.hash = "#/home"; await new Promise(r => setTimeout(r, 100));
+        location.hash = "#/sheet"; await new Promise(r => setTimeout(r, 250));
+        const shown = document.querySelector("#screen .portrait img");
+        const rendered = !!shown && shown.getAttribute("src") === url;
+        const backup = JSON.parse(Store.exportJSON());
+        Store.updateActive(x => { x.identity.portraitUrl = ""; });
+        return {
+          jpeg: url.startsWith("data:image/jpeg"),
+          w: img.width, h: img.height, bytes,
+          sourceBytes: blob.size, rendered,
+          inBackup: JSON.stringify(backup).includes(url.slice(0, 64)),
+          placeholder: !!document.querySelector("#screen .portrait")
+        };
+      });
+      t.ok(portrait.jpeg, "a portrait is stored as a JPEG data URL, so it needs no Firebase Storage");
+      t.eq(portrait.w, 256, "downscaled to 256px square");
+      t.eq(portrait.h, 256, "on both axes, cropped to the middle rather than squashed");
+      t.ok(portrait.bytes < portrait.sourceBytes,
+        `and smaller than the source (${portrait.bytes} vs ${portrait.sourceBytes} bytes)`);
+      t.ok(portrait.bytes < 60000, "small enough to sit in localStorage beside the dossier");
+      t.ok(portrait.rendered, "the sheet shows it");
+      t.ok(portrait.inBackup, "and it rides along in the JSON backup");
+      t.ok(portrait.placeholder, "with a photo box on the sheet when there is none");
+
       // The loop needs an exit: a solo mission that ends, and Classified's own End Mission
       // fired for the dossier it was played on (S24).
       const mission = await page.evaluate(async () => {

@@ -14,8 +14,27 @@ import { openAttack, applyDamageToCharacter, getD100, resolve, presentResult, op
 import { openRulesTopic } from "./screens.js";
 import { renderResourceHeader } from "./sheet.js";
 import { appendHelp } from "./help.js";
+import * as Sync from "./sync.js";
 
 /* ---------------------------------------------------------------- combat screen */
+
+/* The combat mirror. One subscription per screen mount: a remote change from another device
+ * is written straight into the local tracker and the screen redrawn, and this device's own
+ * echo is ignored so two clients cannot push each other in a circle (Phase 5). */
+let combatWatcher = null;
+
+function watchRemoteCombat(host) {
+  if (combatWatcher || !Sync.isEnabled() || !Sync.currentCampaign()) return;
+  combatWatcher = true;
+  Sync.watch("combat", remote => {
+    if (!remote || Sync.isOwnEcho(remote)) return;
+    const local = Store.combatState();
+    if ((remote.rev || 0) <= (local.rev || 0)) return;
+    Store.saveCombat(remote);
+    if (document.getElementById("screen") === host || host.isConnected) renderCombat(host);
+    showToast("Combat updated by the table", "");
+  }).catch(() => { combatWatcher = null; });
+}
 
 export function renderCombat(host) {
   clear(host);
@@ -23,6 +42,7 @@ export function renderCombat(host) {
   const c = Store.activeCharacter();
 
   appendHelp(host, "combat");
+  watchRemoteCombat(host);
 
   if (!state.active) {
     host.appendChild(el("div", { class: "section" },

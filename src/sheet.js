@@ -308,6 +308,89 @@ function stat(k, v, s) {
 
 /* ---------------------------------------------------------------- sheet screen */
 
+/* The dossier photograph. Compressed in the browser before it is stored: a phone camera
+ * file is several megabytes and localStorage is a handful, so an uncompressed portrait fills
+ * the quota and takes the dossier down with it. PORTRAIT_PX square, JPEG, and the result is a
+ * data URL — which works with no Firebase configured and rides along in the JSON backup. */
+const PORTRAIT_PX = 256;
+const PORTRAIT_QUALITY = 0.72;
+
+function portraitEl(c) {
+  const url = c.identity.portraitUrl;
+  const btn = el("button", {
+    class: "portrait" + (url ? " has-photo" : ""), type: "button",
+    "aria-label": url ? "Change the dossier photograph" : "Add a dossier photograph",
+    onclick: () => openPortrait(c)
+  });
+  if (url) btn.appendChild(el("img", { src: url, alt: "" }));
+  else btn.appendChild(el("span", { class: "ph", text: "PHOTO" }));
+  return btn;
+}
+
+async function openPortrait(c) {
+  if (c.identity.portraitUrl) {
+    const pick = await chooseModal("Dossier photograph", [
+      { key: "replace", label: "Replace it", desc: "Choose another image." },
+      { key: "remove", label: "Remove it", desc: "The dossier goes back to a blank photo box." }
+    ]);
+    if (!pick) return;
+    if (pick === "remove") {
+      Store.updateActive(x => { x.identity.portraitUrl = ""; });
+      renderHostAgain();
+      showToast("Photograph removed", "ok");
+      return;
+    }
+  }
+  pickPortraitFile(c);
+}
+
+function pickPortraitFile(c) {
+  const input = el("input", { type: "file", accept: "image/*", style: "display:none" });
+  document.body.appendChild(input);
+  input.addEventListener("change", async () => {
+    const file = input.files && input.files[0];
+    input.remove();
+    if (!file) return;
+    try {
+      const url = await compressImage(file);
+      Store.updateActive(x => { x.identity.portraitUrl = url; });
+      renderHostAgain();
+      showToast("Photograph added", "ok");
+    } catch (e) {
+      showToast("That image could not be read", "err");
+    }
+  });
+  input.click();
+}
+
+/** Downscale to a square PORTRAIT_PX JPEG data URL. Exported for the harness. */
+export function compressImage(file, px = PORTRAIT_PX) {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onerror = () => reject(new Error("unreadable"));
+    reader.onload = () => {
+      const img = new Image();
+      img.onerror = () => reject(new Error("not an image"));
+      img.onload = () => {
+        const canvas = document.createElement("canvas");
+        canvas.width = px;
+        canvas.height = px;
+        const ctx = canvas.getContext("2d");
+        // Cover, not stretch: a portrait crops to the middle rather than being squashed.
+        const side = Math.min(img.width, img.height);
+        ctx.drawImage(img, (img.width - side) / 2, (img.height - side) / 2, side, side, 0, 0, px, px);
+        resolve(canvas.toDataURL("image/jpeg", PORTRAIT_QUALITY));
+      };
+      img.src = reader.result;
+    };
+    reader.readAsDataURL(file);
+  });
+}
+
+function renderHostAgain() {
+  document.dispatchEvent(new CustomEvent("app:rerender"));
+}
+
 export function renderSheet(host) {
   const c = Store.activeCharacter();
   clear(host);
@@ -330,6 +413,7 @@ export function renderSheet(host) {
   // Identity
   const head = el("div", { class: "card" });
   head.appendChild(el("div", { class: "row" },
+    portraitEl(c),
     el("div", { class: "grow" },
       el("h1", { text: c.identity.name || "Unnamed operative" }),
       el("div", { class: "small muted", text:

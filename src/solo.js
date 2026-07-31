@@ -592,10 +592,17 @@ async function generateOpponent() {
   const gen = generateNPC(cfg.stereotype, cfg.rank);
   const alias = await rollOne(cfg.aliasTable);
   const traits = await rollPair(cfg.traitTable);
+  // The same trait twice is amplification, so the name says it once (see opponentName). The
+  // words kept with the row have to match what the name used, or the pinned briefing thinks
+  // the row was written over and prints the words back underneath it (S18).
+  const said = traits.words[0].toLowerCase() === traits.words[1].toLowerCase()
+    ? [traits.words[0]]
+    : traits.words;
   return {
     ...gen,
     alias: alias.word,
     traits: traits.words,
+    identityWords: [alias.word, ...said],
     identityRolls: [alias.roll, ...traits.rolls],
     name: opponentName(alias.word, traits.words)
   };
@@ -646,7 +653,7 @@ export async function openBriefing(adv) {
     const runRoll = async () => {
       if (row.npc) {
         npc = await generateOpponent();
-        state[row.key].words = [npc.alias, ...npc.traits];
+        state[row.key].words = npc.identityWords || [npc.alias, ...npc.traits];
         state[row.key].rolls = npc.identityRolls;
         state[row.key].text = npc.name;
         field.value = npc.name;
