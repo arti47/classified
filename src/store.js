@@ -198,6 +198,10 @@ export function normalizeAdventure(a) {
     characters: normalizeList(src.characters),
     // Mystery clocks (CLAUDE.md §3.20.6). A record from version 7 or earlier has none.
     mysteries: Array.isArray(src.mysteries) ? src.mysteries.map(normalizeMystery) : [],
+    // The mission's own end. Version 10 and earlier have none: an adventure ran until the
+    // player stopped opening it, which is why the switcher filled up with finished missions.
+    completedAt: Number(src.completedAt) || null,
+    outcome: ["success", "partial", "failure"].includes(src.outcome) ? src.outcome : null,
     journal: Array.isArray(src.journal)
       ? src.journal.map(e => ({
           id: e.id || uid("j"),

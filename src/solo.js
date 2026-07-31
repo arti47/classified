@@ -167,7 +167,8 @@ function appendHeader(host, adv) {
   card.appendChild(grid);
 
   card.appendChild(el("div", { class: "row tight", style: "margin-top:10px" },
-    el("span", { class: "pill neutral", text: phaseOf(adv).label }),
+    el("span", { class: "pill " + (adv.completedAt ? "q1" : "neutral"),
+      text: adv.completedAt ? "Mission closed" : phaseOf(adv).label }),
     el("span", { class: "spacer" }),
     el("button", { class: "btn sm ghost", type: "button", onclick: () => openTopic("chaos") }, "What Chaos does")));
   host.appendChild(card);
@@ -199,8 +200,10 @@ async function openAdventureMenu(host) {
   const list = Store.soloAdventures();
   const items = list.map(a => ({
     key: a.id, label: a.name || "Untitled",
-    right: `CF ${a.chaos} · sc ${a.scene}`,
-    desc: `${count(a.threads, "thread")}, ${count(a.characters, "character")} · updated ${fmtDate(a.updatedAt)}`
+    right: a.completedAt ? "closed" : `CF ${a.chaos} · sc ${a.scene}`,
+    desc: a.completedAt
+      ? `${(S.MISSION_OUTCOMES[a.outcome] || { name: "Closed" }).name} · ${a.scene - 1} scenes · ended ${fmtDate(a.completedAt)}`
+      : `${count(a.threads, "thread")}, ${count(a.characters, "character")} · updated ${fmtDate(a.updatedAt)}`
   }));
   items.push({ key: "__new", label: "+ Start a new adventure", desc: "Opens on the mission briefing, which names it. Chaos Factor 5, scene 1, empty lists." });
 
@@ -229,6 +232,10 @@ async function openAdventureMenu(host) {
         desc: "End Scene steps it for you. This is for correcting it, not for playing." },
       { key: "__briefing", label: active.briefing ? "Edit the mission briefing" : "Write the mission briefing",
         desc: active.briefing ? "Rewrite any row. Editing never re-seeds your lists." : "Roll a mission and seed the Adventure Lists from it." },
+      !active.completedAt && active.scene > 1
+        ? { key: "__endmission", label: "End the mission",
+            desc: "Closes the adventure and fires Classified's End Mission for the linked dossier." }
+        : null,
       active.briefing
         ? { key: "__delbriefing", label: "Delete the mission",
             desc: "Drops the briefing, and optionally the threads and characters it seeded. The adventure stays." }
@@ -241,6 +248,7 @@ async function openAdventureMenu(host) {
   }
   if (key === "__briefing") { openBriefing(Store.activeAdventure()); return; }
   if (key === "__delbriefing") { deleteBriefing(Store.activeAdventure()); return; }
+  if (key === "__endmission") { endMission(Store.activeAdventure()); return; }
   if (key === "__rename") {
     const name = await promptModal("Adventure name", { title: "Rename", value: active.name || "" });
     if (name) { save(a => { a.name = name; }); }
@@ -321,6 +329,33 @@ function appendPrimary(host, adv) {
   const phase = phaseOf(adv);
   const card = el("div", { class: "card" });
 
+  // A finished mission has no next scene. Without this the loop had no exit at all: the
+  // adventure ran until the player stopped opening it, and Classified's own End Mission —
+  // the experience, the Hero Point, the Reputation — sat on another screen with nothing
+  // pointing at it (ruling S24).
+  if (adv.completedAt) {
+    card.appendChild(el("div", { class: "banner ok" },
+      el("b", { text: `Mission ${(S.MISSION_OUTCOMES[adv.outcome] || { name: "closed" }).name.toLowerCase()}` }),
+      el("div", { class: "small", text: `Closed ${fmtDate(adv.completedAt)} after ${adv.scene - 1} scene${adv.scene === 2 ? "" : "s"}.` })));
+    card.appendChild(el("p", { class: "small muted", style: "margin-top:8px", text:
+      "The journal, the lists and the mysteries are all still here to read. Starting a new adventure leaves this one filed." }));
+    card.appendChild(el("button", {
+      class: "btn primary block solo-primary", type: "button", style: "margin-top:10px",
+      onclick: () => newAdventure(host)
+    }, "Start a new adventure"));
+    card.appendChild(el("button", {
+      class: "btn ghost block", style: "margin-top:6px", type: "button",
+      onclick: async () => {
+        if (await confirmModal("Reopen this mission? It goes back to where it was, and the experience it awarded is not taken back.",
+          { title: "Reopen the mission", okLabel: "Reopen" })) {
+          save(a => { a.completedAt = null; a.outcome = null; journal(a, "note", "Mission reopened."); });
+        }
+      }
+    }, "Reopen it"));
+    host.appendChild(card);
+    return;
+  }
+
   if (phase.key === "briefing") {
     card.appendChild(el("p", { class: "small muted", text:
       "Before scene one there is a mission. Roll the briefing and write it in your own words — the objective and the complication become your first threads, and the opponent your first character, so the oracle has something to point at." }));
@@ -352,6 +387,14 @@ function appendPrimary(host, adv) {
       class: "btn primary block solo-primary", type: "button", style: "margin-top:10px",
       onclick: () => startScene(adv)
     }, `Start scene ${adv.scene}`));
+    // Between scenes is when a mission ends, so the exit sits beside the next scene rather
+    // than buried in settings.
+    if (adv.scene > 1) {
+      card.appendChild(el("button", {
+        class: "btn ghost block", style: "margin-top:6px", type: "button",
+        onclick: () => endMission(adv)
+      }, "End the mission"));
+    }
   } else {
     const kind = adv.sceneKind ? S.SCENE_KINDS[adv.sceneKind] : null;
     if (kind) {
@@ -414,6 +457,14 @@ function appendBriefing(host, adv) {
     adv.briefing.npc
       ? el("button", { class: "btn sm ghost", type: "button",
           onclick: () => import("./combat.js").then(m => m.showNPC(adv.briefing.npc)) }, "Opponent")
+      : null,
+    // A stat block that cannot reach the tracker is a stat block you read out and retype.
+    adv.briefing.npc
+      ? el("button", { class: "btn sm ghost", type: "button",
+          onclick: () => import("./combat.js").then(m => {
+            m.addNpcToEncounter(adv.briefing.npc);
+            showToast(`${adv.briefing.npc.name} is in the encounter`, "ok");
+          }) }, "To combat")
       : null,
     el("button", { class: "btn sm danger", type: "button",
       onclick: () => deleteBriefing(Store.activeAdventure()) }, "Delete mission")));
@@ -794,11 +845,36 @@ function appendInPlay(host, adv) {
       `The in-scene tools. They still work between scenes, but scene ${adv.scene} has not started yet.` }));
   }
 
+  appendCheck(wrap, adv);
   appendFate(wrap, adv);
   appendEvents(wrap, adv);
   appendMysteries(wrap, adv);
   appendMeaning(wrap, adv);
   host.appendChild(wrap);
+}
+
+/**
+ * The other half of the game, one tap away.
+ *
+ * Fate answers what is true; anything the character *attempts* is a Classified check, and
+ * before this the player had to leave the screen to make one. The roller is the Classified
+ * engine, so it is reached by dynamic import — `solo.js` still has no static dependency on
+ * it (S15) — and the button is only there when a dossier is linked to roll for.
+ */
+function appendCheck(host, adv) {
+  const linked = adv.characterId ? Store.getCharacter(adv.characterId) : null;
+  if (!linked) return;
+  appendHelp(host, "solo.check");
+  const sec = section("Roll a check",
+    "Fate says what is true. What the character tries is an ordinary Classified check, on the dossier this adventure is linked to.");
+  sec.appendChild(el("div", { class: "btn-row" },
+    el("button", { class: "btn", type: "button",
+      onclick: () => import("./roller.js").then(m => m.openQuickRoll(linked)) }, "Roll a skill"),
+    el("button", { class: "btn ghost", type: "button",
+      onclick: () => import("./roller.js").then(m => m.openWeaponPicker(linked)) }, "Attack"),
+    el("button", { class: "btn ghost", type: "button",
+      onclick: () => import("./roller.js").then(m => m.openTakeDamage(linked)) }, "Take damage")));
+  host.appendChild(sec);
 }
 
 function appendEvents(host, adv) {
@@ -2062,13 +2138,19 @@ export async function endScene(adv) {
         for (const text of gone) journal(a, "note", `Closed: ${text}`);
         changes.push(`Struck off ${gone.length} ${which === "threads" ? "thread" : "character"}${gone.length === 1 ? "" : "s"}.`);
       }
+      let added = 0;
       for (const text of p.add) {
         if (a[which].length >= S.LIST_SLOTS) break;
         a[which].push({ id: uid("li"), text, weight: 1 });
         journal(a, "note", `Added to ${which}: ${text}`);
+        added += 1;
       }
-      if (p.add.length) {
-        changes.push(`Added ${p.add.length} ${which === "threads" ? "thread" : "character"}${p.add.length === 1 ? "" : "s"}.`);
+      if (added) {
+        changes.push(`Added ${added} ${which === "threads" ? "thread" : "character"}${added === 1 ? "" : "s"}.`);
+      }
+      // A full list used to swallow the rest of the additions without a word.
+      if (added < p.add.length) {
+        changes.push(`${p.add.length - added} could not be added — ${which} is full at ${S.LIST_SLOTS}. Strike something off first.`);
       }
     }
 
@@ -2098,6 +2180,74 @@ export async function endScene(adv) {
       for (const id of mysteryTicks) await tickMystery(id, "scene", summary.value.trim());
     }
   });
+}
+
+/**
+ * End the mission — the loop's exit, and the one place the two systems have to meet.
+ *
+ * Mythic has no notion of a mission ending; Classified does, and its End Mission bundle is
+ * where the experience, the Hero Point, the Reputation and the one-advance-per-mission gate
+ * live. So this closes the adventure *and* hands off to that bundle by dynamic import, which
+ * is the same crossing the briefing's NPC generator makes (S15). Without it a solo player
+ * finished a mission and was awarded nothing, on a screen that offered only another scene
+ * (ruling S24).
+ */
+export async function endMission(adv) {
+  const linked = adv.characterId ? Store.getCharacter(adv.characterId) : null;
+  const openThreads = (adv.threads || []).length;
+  const openMys = openMysteries(adv).length;
+
+  let outcome = "success";
+  const body = el("div", {});
+  body.appendChild(el("div", { class: "field-label", text: "How did it end?" }));
+  const wrap = el("div", { class: "chip-wrap" });
+  const draw = () => {
+    clear(wrap);
+    for (const o of S.MISSION_OUTCOMES_LIST) {
+      wrap.appendChild(el("button", {
+        class: "chip" + (outcome === o.key ? " on" : ""), type: "button",
+        onclick: () => { outcome = o.key; draw(); }
+      }, o.name));
+    }
+  };
+  draw();
+  body.appendChild(wrap);
+
+  if (openThreads || openMys) {
+    body.appendChild(el("div", { class: "banner warn", style: "margin-top:12px" },
+      el("b", { text: "Still open" }),
+      el("div", { class: "small", text: [
+        openThreads ? `${openThreads} thread${openThreads === 1 ? "" : "s"}` : "",
+        openMys ? `${openMys} myster${openMys === 1 ? "y" : "ies"}` : ""
+      ].filter(Boolean).join(" and ") + " — they stay in the record, unanswered." })));
+  }
+
+  body.appendChild(el("p", { class: "small muted", style: "margin-top:12px", text: linked
+    ? `Closing this also fires Classified's End Mission for ${linked.identity.name || "your operative"}: experience, Reputation, the Hero Point for a success, and the advancement gate.`
+    : "No dossier is linked, so nothing is awarded — this only closes the adventure." }));
+
+  const ok = await confirmModal(body, { title: `End the mission after ${adv.scene - 1} scenes`, okLabel: "End the mission" });
+  if (!ok) return;
+
+  Store.pushSoloUndo(Store.soloSnapshot("Mission ended"));
+  save(a => {
+    a.completedAt = Date.now();
+    a.outcome = outcome;
+    a.scenePhase = "setup";
+    a.sceneKind = null;
+    a.sceneExpected = "";
+    journal(a, "scene", `Mission ended — ${S.MISSION_OUTCOMES[outcome].name}`,
+      `${a.scene - 1} scenes · Chaos Factor ${a.chaos}`);
+  });
+
+  // The Classified half. Its own dialog reports what it awarded, so this one does not repeat it.
+  if (linked) {
+    if (Store.activeId() !== linked.id) Store.setActive(linked.id);
+    const { runLifecycle } = await import("./combat.js");
+    await runLifecycle("mission");
+  } else {
+    showToast("Mission closed", "ok");
+  }
 }
 
 /** One list's upkeep controls inside the End Scene dialog. */

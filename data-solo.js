@@ -1032,6 +1032,17 @@ export const MYSTERY_TICKS = [
   { key: "event", name: "An event that drew its thread", desc: "A Random Event pointing at the mystery's own thread." }
 ];
 
+/**
+ * How a solo mission ends. The names match Classified's own XP outcomes, because ending a
+ * solo mission fires Classified's End Mission bundle — this is the label, that is the rule.
+ */
+export const MISSION_OUTCOMES_LIST = [
+  { key: "success", name: "Success" },
+  { key: "partial", name: "Partial" },
+  { key: "failure", name: "Failure" }
+];
+export const MISSION_OUTCOMES = Object.fromEntries(MISSION_OUTCOMES_LIST.map(o => [o.key, o]));
+
 /** What the break-open question is called wherever it is rolled or logged. */
 export const MYSTERY_QUESTION = "Does it break open now?";
 

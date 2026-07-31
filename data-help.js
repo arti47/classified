@@ -138,7 +138,7 @@ export const HELP = {
     steps: [
       "Write the mission briefing first — it seeds your threads and your first opponent.",
       "Start scene N: say what you expect, and the Chaos Factor decides whether you get it.",
-      "Play the scene with the tools under the button: Ask Fate, Random Events, the Meaning Tables.",
+      "Play the scene with the tools under the button: Roll a check, Ask Fate, Random Events, the Meaning Tables.",
       "End scene N: say whether you were in control, tidy your lists, and the Chaos Factor steps itself.",
       "Open a Mystery for anything you do not know yet — clues raise the odds and Fate decides when it breaks open.",
       "Repeat until the mission is done, then End Mission on the Combat screen for the experience."
@@ -179,9 +179,22 @@ export const HELP = {
       "Start scene N asks what you expect, then rolls d10 against the Chaos Factor.",
       "Over the Chaos Factor you play the scene you planned; at or under, an odd roll alters it and an even roll interrupts it.",
       "An altered scene rolls the Scene Adjustment table; an interrupt rolls a Random Event and offers to keep your planned scene as a thread.",
-      "End scene N asks whether you were in control, steps the Chaos Factor, walks you through both lists, and asks which open mysteries the scene bore on."
+      "End scene N asks whether you were in control, steps the Chaos Factor, walks you through both lists, and asks which open mysteries the scene bore on.",
+      "End the mission when it is over: it closes the adventure and fires Classified's End Mission for the linked dossier — experience, Reputation and the advancement gate."
     ],
     note: "Chaos falls when the scene went your way and rises when it did not. Higher chaos means more Yes answers, more events, and fewer scenes as planned."
+  },
+
+  "solo.check": {
+    title: "How to use Roll a check",
+    what: "The Classified half of a solo scene, on the dossier this adventure is linked to.",
+    steps: [
+      "Roll a skill for anything the character attempts — Fate never resolves that.",
+      "Attack goes straight to the weapons on the sheet.",
+      "Take damage applies a wound through the accumulation table, with the whole consequence chain.",
+      "Everything lands in the same roll log as your oracle answers."
+    ],
+    note: "Ask Fate whether the guard is distracted; roll Stealth to get past him."
   },
 
   "solo.fate": {

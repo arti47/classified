@@ -1124,6 +1124,127 @@ export async function browserTests(t, { chromium, executablePath, baseURL }) {
       t.ok(/5 → 7/.test(stale.preview), "the dialog shows where the Chaos Factor will land before you commit");
       t.ok(/getting away/.test(stale.summary), "and the summary says the cold case cost a step of its own");
 
+      // The loop needs an exit: a solo mission that ends, and Classified's own End Mission
+      // fired for the dossier it was played on (S24).
+      const mission = await page.evaluate(async () => {
+        const Store = await import("./src/store.js");
+        const Solo = await import("./src/solo.js");
+        (await import("./src/ui.js")).closeAllModals();
+        await new Promise(r => setTimeout(r, 200));
+
+        const c = Store.activeCharacter();
+        const adv = Store.createAdventure({ name: "Closing time", characterId: c.id });
+        Store.updateAdventure(a => { a.scene = 4; a.scenePhase = "setup"; a.threads = [{ id: "li_open", text: "Still open", weight: 1 }]; });
+        location.hash = "#/home"; await new Promise(r => setTimeout(r, 100));
+        location.hash = "#/solo"; await new Promise(r => setTimeout(r, 250));
+
+        const offered = [...document.querySelectorAll("#screen .btn")].some(b => b.textContent === "End the mission");
+        const xpBefore = Store.getCharacter(c.id).xp.total;
+        const missionsBefore = Store.getCharacter(c.id).missions || 0;
+
+        const p = Solo.endMission(Store.activeAdventure());
+        await new Promise(r => setTimeout(r, 200));
+        const dlg = document.querySelector(".modal");
+        const warns = dlg.textContent.includes("Still open");
+        const handoff = /End Mission/.test(dlg.textContent);
+        [...dlg.querySelectorAll(".modal-foot .btn")].find(b => /End the mission/.test(b.textContent)).click();
+        // Classified's own bundle opens next and endMission is still awaiting it, so the
+        // lifecycle dialog has to be answered before that promise can be awaited.
+        for (let i = 0; i < 60 && !/Mission outcome/.test((document.querySelector(".modal") || {}).textContent || ""); i++) {
+          await new Promise(r => setTimeout(r, 50));
+        }
+        const lifecycle = document.querySelector(".modal");
+        const chained = !!lifecycle && /Mission outcome/.test(lifecycle.textContent);
+        if (chained) {
+          [...lifecycle.querySelectorAll(".modal-foot .btn")].find(b => /End Mission/.test(b.textContent)).click();
+        }
+        await p;
+        await new Promise(r => setTimeout(r, 250));
+        (await import("./src/ui.js")).closeAllModals();
+        await new Promise(r => setTimeout(r, 100));
+
+        location.hash = "#/home"; await new Promise(r => setTimeout(r, 100));
+        location.hash = "#/solo"; await new Promise(r => setTimeout(r, 250));
+        const after = Store.getAdventure(adv.id);
+        const screen = document.getElementById("screen").textContent;
+        const primary = [...document.querySelectorAll("#screen .solo-primary")].map(b => b.textContent);
+        const ch = Store.getCharacter(c.id);
+        Store.deleteAdventure(adv.id);
+        return {
+          offered, warns, handoff, chained,
+          completed: !!after.completedAt, outcome: after.outcome,
+          journalled: after.journal.some(j => /Mission ended/.test(j.text)),
+          undo: !!Store.peekSoloUndo(),
+          banner: /Mission success/i.test(screen), primary,
+          xpGained: ch.xp.total - xpBefore,
+          missions: (ch.missions || 0) - missionsBefore
+        };
+      });
+      t.ok(mission.offered, "between scenes the Solo screen offers to end the mission");
+      t.ok(mission.warns, "and says what is still open before it closes");
+      t.ok(mission.handoff, "the dialog says it fires Classified's End Mission too");
+      t.ok(mission.chained, "which it does, rather than leaving the player to find it on another screen");
+      t.ok(mission.completed, "the adventure is closed");
+      t.eq(mission.outcome, "success", "with the outcome it ended on");
+      t.ok(mission.journalled, "the journal records the ending");
+      t.ok(mission.undo, "and it is undoable once, like any other boundary");
+      t.ok(mission.banner, "a closed mission says so instead of offering another scene");
+      t.deep(mission.primary, ["Start a new adventure"], "and its primary action is the next adventure");
+      t.ok(mission.xpGained > 0, `experience is awarded for the mission (${mission.xpGained})`);
+      t.eq(mission.missions, 1, "and the dossier's mission count moves");
+
+      // A stat block that cannot reach the tracker is one you retype.
+      const toCombat = await page.evaluate(async () => {
+        const Store = await import("./src/store.js");
+        const { addNpcToEncounter } = await import("./src/combat.js");
+        Store.clearCombat();
+        const npc = { name: "Cormorant — ruthless spymaster", speed: 2, attrs: { str: 8 }, points: 11 };
+        addNpcToEncounter(npc);
+        const s = Store.combatState();
+        return {
+          active: s.active,
+          names: s.combatants.map(x => x.name),
+          carriesBlock: s.combatants.some(x => x.npc && x.npc.points === 11)
+        };
+      });
+      t.ok(toCombat.active, "sending an NPC to combat starts an encounter if none is running");
+      t.ok(toCombat.names.includes("Cormorant — ruthless spymaster"), "with the opponent in it");
+      t.ok(toCombat.names.length >= 2, "alongside the open dossier");
+      t.ok(toCombat.carriesBlock, "carrying its whole stat block, not just a name");
+
+      // Fate answers what is true; what the character attempts is a Classified check.
+      const check = await page.evaluate(async () => {
+        const Store = await import("./src/store.js");
+        (await import("./src/ui.js")).closeAllModals();
+        await new Promise(r => setTimeout(r, 150));
+        const c = Store.activeCharacter();
+        const adv = Store.createAdventure({ name: "Check test", characterId: c.id });
+        Store.updateAdventure(a => { a.scenePhase = "play"; });
+        location.hash = "#/home"; await new Promise(r => setTimeout(r, 100));
+        location.hash = "#/solo"; await new Promise(r => setTimeout(r, 250));
+        const labels = [...document.querySelectorAll("#screen .btn")].map(b => b.textContent);
+        const btn = [...document.querySelectorAll("#screen .btn")].find(b => b.textContent === "Roll a skill");
+        btn.click();
+        for (let i = 0; i < 40 && !document.querySelector(".modal"); i++) await new Promise(r => setTimeout(r, 50));
+        const opened = (document.querySelector(".modal") || {}).textContent || "";
+        (await import("./src/ui.js")).closeAllModals();
+        await new Promise(r => setTimeout(r, 100));
+
+        Store.updateAdventure(a => { a.characterId = null; });
+        location.hash = "#/home"; await new Promise(r => setTimeout(r, 100));
+        location.hash = "#/solo"; await new Promise(r => setTimeout(r, 250));
+        const unlinked = [...document.querySelectorAll("#screen .btn")].map(b => b.textContent);
+        Store.deleteAdventure(adv.id);
+        return {
+          offered: labels.includes("Roll a skill") && labels.includes("Attack") && labels.includes("Take damage"),
+          opened: opened.length > 0,
+          hiddenWhenUnlinked: !unlinked.includes("Roll a skill")
+        };
+      });
+      t.ok(check.offered, "a scene in play offers the Classified checks beside the oracle");
+      t.ok(check.opened, "and the roller opens on the linked dossier without leaving the screen");
+      t.ok(check.hiddenWhenUnlinked, "with no dossier linked there is nothing to roll, so it is not offered");
+
       // The briefing can roll whether the mission hides anything at all.
       const hidden = await page.evaluate(async () => {
         const S = await import("./data-solo.js");

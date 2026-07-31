@@ -241,6 +241,35 @@ function addCombatant(host, opts) {
   });
 }
 
+/**
+ * Put an NPC into the encounter from another screen, starting one if none is running.
+ * The Solo screen's briefing generates a full stat block; without this it could only be read,
+ * and a stat block you cannot send anywhere is one you retype into the tracker by hand.
+ */
+export function addNpcToEncounter(npc) {
+  const s = Store.combatState();
+  if (!s.active) {
+    s.active = true;
+    s.round = 1;
+    s.phase = "declaration";
+    s.combatants = [];
+    const c = Store.activeCharacter();
+    if (c) {
+      s.combatants.push({
+        id: uid("cb"), name: c.identity.name || "Operative", speed: derived(c).speed,
+        tiebreak: d100(), wound: c.state.wound || "none", acted: false, stunRounds: 0,
+        npc: null, characterId: c.id
+      });
+    }
+  }
+  s.combatants.push({
+    id: uid("cb"), name: npc.name, speed: npc.speed ?? 0, tiebreak: d100(),
+    wound: "none", acted: false, stunRounds: 0, npc, characterId: null
+  });
+  Store.saveCombat(s);
+  return s;
+}
+
 async function openCombatantDamage(cb, host) {
   const key = await chooseModal(`Wound ${cb.name}`, D.WOUND_LEVELS.filter(w => w.key !== "none")
     .map(w => ({ key: w.key, label: w.name, desc: w.desc || "" })),

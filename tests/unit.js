@@ -982,6 +982,18 @@ function soloTests(t) {
   t.eq(clued.reveal.implicated, "Halloran", "a reveal keeps who it ran through");
   t.eq(clued.reveal.tell.name, "Greed", "and the tell it put on the stat block");
 
+  // The mission's own end (S24).
+  const born = normalizeAdventure({});
+  t.eq(born.completedAt, null, "a new adventure is not a finished one");
+  t.eq(born.outcome, null, "and has no outcome until it ends");
+  t.deep(SOLO.MISSION_OUTCOMES_LIST.map(o => o.key), ["success", "partial", "failure"],
+    "a solo mission ends on the same three outcomes Classified pays experience for");
+  const closed = normalizeAdventure({ completedAt: 1234, outcome: "partial" });
+  t.eq(closed.completedAt, 1234, "a closed mission stays closed across a reload");
+  t.eq(closed.outcome, "partial", "with the outcome it ended on");
+  t.eq(normalizeAdventure({ completedAt: 1, outcome: "nonsense" }).outcome, null,
+    "an unknown outcome is dropped rather than shown");
+
   t.eq(SOLO.LIST_SLOTS, 25, "an Adventure List holds 25 slots");
   t.eq(SOLO.listSlot(1), 1, "d100 1-4 is the first slot");
   t.eq(SOLO.listSlot(4), 1, "d100 4 is still the first slot");
@@ -1015,7 +1027,7 @@ function soloTests(t) {
   t.eq(fresh.chaos, 5, "a new adventure starts at Chaos Factor 5");
   t.eq(fresh.scene, 1, "a new adventure starts at scene 1");
   t.eq(fresh.fateMode, "chart", "the Fate Chart is the default mechanic");
-  t.eq(fresh.schema, 10, "an adventure records SCHEMA_VERSION 10");
+  t.eq(fresh.schema, 11, "an adventure records SCHEMA_VERSION 11");
   t.deep(fresh.threads, [], "the Threads list starts empty");
   t.eq(fresh.scenePhase, "setup", "a new adventure has no scene open yet");
   t.eq(fresh.sceneKind, null, "and no scene outcome recorded");
