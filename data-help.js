@@ -163,8 +163,9 @@ export const HELP = {
     title: "How to use the briefing",
     what: "The mission itself, rolled and then written in your own words.",
     steps: [
+      "Roll all fills every row at once; a row you have written over is left alone.",
       "Roll a row to get its words, then write the line the words suggested to you.",
-      "Objective and Complication become your first threads; the opponent becomes your first character.",
+      "Objective and Complication become your first threads and the opponent your first character — word those lines at the bottom of the dialog before they go on.",
       "Opponent opens a full Classified stat block, ready to drop into an encounter.",
       "Copy puts the whole briefing on the clipboard; Edit reopens it at any time."
     ],
@@ -178,7 +179,7 @@ export const HELP = {
       "Start scene N asks what you expect, then rolls d10 against the Chaos Factor.",
       "Over the Chaos Factor you play the scene you planned; at or under, an odd roll alters it and an even roll interrupts it.",
       "An altered scene rolls the Scene Adjustment table; an interrupt rolls a Random Event and offers to keep your planned scene as a thread.",
-      "End scene N asks whether you were in control, steps the Chaos Factor, and walks you through both lists."
+      "End scene N asks whether you were in control, steps the Chaos Factor, walks you through both lists, and asks which open mysteries the scene bore on."
     ],
     note: "Chaos falls when the scene went your way and rises when it did not. Higher chaos means more Yes answers, more events, and fewer scenes as planned."
   },
@@ -235,6 +236,7 @@ export const HELP = {
     what: "Everything the character is trying to do. This is the adventure's spine.",
     steps: [
       "+ Add a thread when a new goal appears in play.",
+      "Tap a thread's text to reword it — a line seeded from a word pair rarely reads as a goal.",
       "Use + and − to weight one, so a pressing thread comes up more often.",
       "Randomise draws one across 25 slots when you need the adventure to pick for you.",
       "Strike a thread off at End Scene when it closes."
@@ -247,6 +249,7 @@ export const HELP = {
     what: "Everyone who matters to the mission, on the same weighted list.",
     steps: [
       "+ Add anyone the fiction has committed to.",
+      "Tap a name to reword it as play tells you who they actually are.",
       "Weight the ones the mission is about.",
       "Randomise picks one for an event that names a character.",
       "Remove them when they stop mattering — a stale list drags the oracle backwards."

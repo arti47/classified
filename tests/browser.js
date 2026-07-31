@@ -537,18 +537,45 @@ export async function browserTests(t, { chromium, executablePath, baseURL }) {
         await new Promise(r => setTimeout(r, 120));
 
         const modalEl = document.querySelector(".modal");
-        const rollBtns = [...modalEl.querySelectorAll(".btn.sm")];
-        for (const b of rollBtns) { b.click(); await new Promise(r => setTimeout(r, 60)); }
+        // Row fields are the bare inputs; the seed lines that go on the lists sit in labels.
+        const rowFields = () => [...modalEl.querySelectorAll('input[type="text"]')].filter(f => !f.closest("label.field"));
+        const seedFields = () => [...modalEl.querySelectorAll('label.field input[type="text"]')];
 
-        const fields = [...modalEl.querySelectorAll('input[type="text"]')];
+        // One tap fills the whole mission.
+        modalEl.querySelector(".btn.block").click();
+        for (let i = 0; i < 60 && rowFields().some(f => !f.value.trim()); i++) {
+          await new Promise(r => setTimeout(r, 50));
+        }
+        const fields = rowFields();
         const filledBefore = fields.filter(f => f.value.trim()).length;
+        const rolledOnce = fields.map(f => f.value);
 
         // Write over the objective the way a player would.
         const objIdx = S.BRIEFING_ROWS.findIndex(r => r.key === "objective");
         fields[objIdx].value = "Recover the case before the handover";
         fields[objIdx].dispatchEvent(new Event("input", { bubbles: true }));
+        await new Promise(r => setTimeout(r, 30));
 
-        const seedNote = modalEl.textContent.includes("Recover the case before the handover → threads");
+        // Roll all again: the row that was written over must survive it.
+        modalEl.querySelector(".btn.block").click();
+        for (let i = 0; i < 60 && rowFields()[0].value === rolledOnce[0]; i++) {
+          await new Promise(r => setTimeout(r, 50));
+        }
+        const keptEdit = rowFields()[objIdx].value === "Recover the case before the handover";
+        const rerolledOthers = rowFields().filter((f, i) => i !== objIdx && f.value !== rolledOnce[i]).length;
+
+        // The seed line follows the row until it is written, and then it is the player's.
+        const seeds = seedFields();
+        const seedTracksRow = seeds[0].value === "Recover the case before the handover";
+        const compIdx = S.BRIEFING_ROWS.findIndex(r => r.key === "complication");
+        const complicationRow = rowFields()[compIdx].value;
+        seeds[1].value = "Find out who turned the station chief";
+        seeds[1].dispatchEvent(new Event("input", { bubbles: true }));
+        // Changing the row afterwards must not overwrite what was written into the seed line.
+        rowFields()[compIdx].dispatchEvent(new Event("input", { bubbles: true }));
+        await new Promise(r => setTimeout(r, 30));
+        const seedStaysWritten = seeds[1].value === "Find out who turned the station chief";
+        const seedCount = seeds.length;
 
         [...modalEl.querySelectorAll(".modal-foot .btn")].find(b => /Commit|Save/.test(b.textContent)).click();
         await p;
@@ -559,7 +586,8 @@ export async function browserTests(t, { chromium, executablePath, baseURL }) {
         const adv = Store.activeAdventure();
         const screen = document.getElementById("screen");
         return {
-          filledBefore, seedNote,
+          filledBefore, keptEdit, rerolledOthers, seedTracksRow, seedStaysWritten, seedCount,
+          complicationRow,
           rows: Object.keys(adv.briefing.rows).length,
           objective: adv.briefing.rows.objective.text,
           words: adv.briefing.rows.objective.words.length,
@@ -579,14 +607,22 @@ export async function browserTests(t, { chromium, executablePath, baseURL }) {
           })()
         };
       });
-      t.eq(briefed.filledBefore, 8, "every briefing row rolls itself into an editable field");
-      t.ok(briefed.seedNote, "the dialog says which lists the finished lines will seed");
+      t.eq(briefed.filledBefore, 8, "Roll all fills every briefing row in one tap");
+      t.ok(briefed.keptEdit, "and rolling again leaves a row you have written over alone");
+      t.ok(briefed.rerolledOthers >= 5, "while every row still holding its words is rolled again");
+      t.eq(briefed.seedCount, 3, "the three seeded lines are editable before they go on the lists");
+      t.ok(briefed.seedTracksRow, "a seed line follows its row until it is written");
+      t.ok(briefed.seedStaysWritten, "and then it is the player's, whatever the row does after");
       t.eq(briefed.objective, "Recover the case before the handover", "what you write over the words is what is kept");
       t.ok(briefed.words >= 2, "and the words that prompted it are kept underneath");
       t.ok(briefed.hasNpc, "the opponent is a real generated NPC with characteristics");
       t.ok(briefed.threads.includes("Recover the case before the handover"),
         "the objective is seeded into Threads");
       t.eq(briefed.threads.length, 2, "along with the complication");
+      t.ok(briefed.threads.includes("Find out who turned the station chief"),
+        "a seed line written by hand is what lands on the list, not the rolled words");
+      t.ok(!briefed.threads.includes(briefed.complicationRow),
+        "and the briefing row keeps the words it rolled");
       t.eq(briefed.characters, 1, "and the opponent into Characters");
       t.eq(briefed.phase, "setup", "committing the briefing moves the adventure on to scene 1");
       t.ok(briefed.named, "an untitled adventure takes its codename as its name");
@@ -603,6 +639,40 @@ export async function browserTests(t, { chromium, executablePath, baseURL }) {
       const objRow = briefed.pinnedRows.find(r => r[0] === "Objective");
       t.eq(objRow.length, 3, "a row that was written over keeps the words that prompted it");
       t.ok(objRow[2].includes("·"), "and shows them as the word pair they were");
+
+      // A list entry seeded from a word pair has to be rewordable in place.
+      const reworded = await page.evaluate(async () => {
+        const Store = await import("./src/store.js");
+        location.hash = "#/home"; await new Promise(r => setTimeout(r, 80));
+        location.hash = "#/solo"; await new Promise(r => setTimeout(r, 150));
+
+        const before = Store.activeAdventure().threads[0];
+        const btn = [...document.querySelectorAll(".row-edit")]
+          .find(b => b.textContent.includes(before.text));
+        const clickable = !!btn;
+        btn.click();
+        await new Promise(r => setTimeout(r, 120));
+        const input = document.getElementById("promptInput");
+        const prefilled = input.value === before.text;
+        input.value = "Get the case to the safe house before dawn";
+        [...document.querySelectorAll(".modal-foot .btn")].find(b => b.textContent === "OK").click();
+        await new Promise(r => setTimeout(r, 200));
+
+        const after = Store.activeAdventure().threads;
+        return {
+          clickable, prefilled,
+          text: after[0].text, weight: after[0].weight, id: after[0].id === before.id,
+          count: after.length,
+          onScreen: document.getElementById("screen").textContent.includes("Get the case to the safe house before dawn")
+        };
+      });
+      t.ok(reworded.clickable, "a list entry's own text is the control that rewords it");
+      t.ok(reworded.prefilled, "which opens on what it says now");
+      t.eq(reworded.text, "Get the case to the safe house before dawn", "and keeps what you write");
+      t.ok(reworded.id, "the entry keeps its identity, so a mystery or a seeded id still points at it");
+      t.eq(reworded.weight, 1, "and its weight");
+      t.eq(reworded.count, 2, "rewording adds nothing to the list");
+      t.ok(reworded.onScreen, "the screen shows the new wording straight away");
 
       // The opponent used to be named by the Classified generator alone, which names an NPC
       // after its own stereotype and rank — the same three words every press.

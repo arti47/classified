@@ -575,6 +575,16 @@ export async function openBriefing(adv) {
   body.appendChild(el("p", { class: "small muted", text:
     "Roll a row to fill it, then write over it if the words suggest something better. Blank rows are simply left out." }));
 
+  // What the last roll wrote into each field, so Roll all can tell a row you have written
+  // from a row that is still just its words.
+  const rolled = new Map(S.BRIEFING_ROWS.map(r => [r.key, state[r.key].text]));
+  const rollers = [];
+
+  const rollAllBtn = el("button", { class: "btn block", type: "button" }, "Roll all");
+  body.appendChild(rollAllBtn);
+  body.appendChild(el("p", { class: "lm", text:
+    "Rolls every row you have not written over. Anything you have edited is left alone." }));
+
   for (const row of S.BRIEFING_ROWS) {
     const field = el("input", { type: "text", value: state[row.key].text, placeholder: row.placeholder });
     field.addEventListener("input", () => { state[row.key].text = field.value; });
@@ -582,14 +592,16 @@ export async function openBriefing(adv) {
     const wordsEl = el("div", { class: "lm", text: state[row.key].words.join(" · ") });
 
     const rollBtn = el("button", { class: "btn sm", type: "button" }, row.npc ? "Generate" : "Roll");
-    rollBtn.addEventListener("click", async () => {
+    const runRoll = async () => {
       if (row.npc) {
         npc = await generateOpponent();
         state[row.key].words = [npc.alias, ...npc.traits];
         state[row.key].rolls = npc.identityRolls;
         state[row.key].text = npc.name;
         field.value = npc.name;
+        rolled.set(row.key, npc.name);
         wordsEl.textContent = `${npc.rankLabel} ${npc.stereotype} · Speed ${npc.speed} · ${npc.points} Villain Points · rolled ${npc.identityRolls.join(", ")}`;
+        syncSeeds();
         return;
       }
       if (row.hidden) {
@@ -603,7 +615,9 @@ export async function openBriefing(adv) {
         state[row.key].rolls = [r];
         state[row.key].text = hit.text;
         field.value = hit.text;
+        rolled.set(row.key, hit.text);
         wordsEl.textContent = `Hidden truth · rolled ${r}`;
+        syncSeeds();
         return;
       }
       const pair = await rollPair(row.table);
@@ -611,8 +625,15 @@ export async function openBriefing(adv) {
       state[row.key].rolls = pair.rolls;
       state[row.key].text = pair.words.join(row.join || " · ");
       field.value = state[row.key].text;
+      rolled.set(row.key, state[row.key].text);
       wordsEl.textContent = `${pair.label} · rolled ${pair.rolls.join(" and ")}`;
-    });
+      syncSeeds();
+    };
+    rollBtn.addEventListener("click", () => runRoll());
+    rollers.push({ row, run: runRoll, written: () => {
+      const t = state[row.key].text;
+      return !!t.trim() && t !== rolled.get(row.key);
+    } });
 
     body.appendChild(el("div", { style: "margin-bottom:14px" },
       el("div", { class: "row tight" },
@@ -623,17 +644,61 @@ export async function openBriefing(adv) {
       el("div", { class: "lm", text: row.hint })));
   }
 
-  const seedNote = el("p", { class: "small muted" });
-  const seedText = () => {
-    const t = [];
-    for (const row of S.BRIEFING_ROWS) {
-      if (row.seeds && state[row.key].text) t.push(`${state[row.key].text} → ${row.seeds}`);
+  // One tap for the whole mission. A row you have written over is yours and survives it,
+  // which is what stops Roll all being a button that destroys work.
+  rollAllBtn.addEventListener("click", async () => {
+    const due = rollers.filter(r => !r.written());
+    if (!due.length) { showToast("Every row has been written over", ""); return; }
+    rollAllBtn.disabled = true;
+    rollAllBtn.textContent = "Rolling…";
+    for (const r of due) await r.run();
+    rollAllBtn.disabled = false;
+    rollAllBtn.textContent = "Roll all";
+    showToast(`Rolled ${due.length} row${due.length === 1 ? "" : "s"}`, "ok");
+  });
+
+  /* The lines that go on the Adventure Lists, worded before they are added rather than after.
+   * A seeded thread used to be the row text verbatim, so a list could open on "Deliver ·
+   * Evaluate" — a word pair, not something you can act on. These fields track the row until
+   * you write in one, and then they are yours (ruling S22). */
+  const first = !adv.briefing;
+  const seedRows = S.BRIEFING_ROWS.filter(r => r.seeds);
+  const seedFields = new Map();
+  const seedDirty = new Set();
+  const seedBox = el("div", { style: "margin-top:4px" });
+
+  function seedDefault(row) {
+    if (!row.npc) return state[row.key].text;
+    // The opponent goes on Characters as who they are, not as the whole "codename — traits" line.
+    return npc ? (npc.alias || npc.name) : state[row.key].text;
+  }
+  function syncSeeds() {
+    for (const row of seedRows) {
+      const f = seedFields.get(row.key);
+      if (!f) continue;
+      if (!seedDirty.has(row.key)) f.value = seedDefault(row);
+      f.closest(".field").style.display = state[row.key].text.trim() ? "" : "none";
     }
-    return t.length ? "On saving: " + t.join("; ") + "." : "Nothing will be added to your lists yet.";
-  };
-  seedNote.textContent = seedText();
-  body.addEventListener("input", () => { seedNote.textContent = seedText(); });
-  body.appendChild(seedNote);
+  }
+
+  if (first) {
+    seedBox.appendChild(el("div", { class: "field-label", text: "Goes on your Adventure Lists" }));
+    seedBox.appendChild(el("p", { class: "lm", text:
+      "Write these the way you want to read them mid-scene. They follow the rows above until you change one." }));
+    for (const row of seedRows) {
+      const f = el("input", { type: "text", value: seedDefault(row), placeholder: row.name });
+      f.addEventListener("input", () => seedDirty.add(row.key));
+      seedFields.set(row.key, f);
+      seedBox.appendChild(el("label", { class: "field" },
+        el("span", { text: `${row.name} → ${row.seeds === "threads" ? "Threads" : "Characters"}` }), f));
+    }
+    syncSeeds();
+    body.addEventListener("input", syncSeeds);
+    body.appendChild(seedBox);
+  } else {
+    body.appendChild(el("p", { class: "small muted", text:
+      "Editing the briefing does not touch your Adventure Lists — nothing you struck off comes back." }));
+  }
 
   const ok = await confirmModal(body, {
     title: adv.briefing ? "Edit the briefing" : "Mission briefing",
@@ -641,7 +706,6 @@ export async function openBriefing(adv) {
   });
   if (!ok) return;
 
-  const first = !adv.briefing;
   save(a => {
     const seededIds = a.briefing && Array.isArray(a.briefing.seededIds) ? a.briefing.seededIds : [];
     a.briefing = { rows: state, npc, writtenAt: Date.now(), seededIds };
@@ -652,9 +716,11 @@ export async function openBriefing(adv) {
     // Seed the lists once, on the first commit. An edit does not re-add what you may have
     // already struck off.
     if (first) {
-      for (const row of S.BRIEFING_ROWS) {
-        const text = state[row.key].text;
-        if (!row.seeds || !text) continue;
+      for (const row of seedRows) {
+        if (!state[row.key].text.trim()) continue;
+        const f = seedFields.get(row.key);
+        const text = ((f && f.value.trim()) || seedDefault(row) || "").trim();
+        if (!text) continue;
         const list = (a[row.seeds] = a[row.seeds] || []);
         if (list.length >= S.LIST_SLOTS) continue;
         if (list.some(i => i.text === text)) continue;
@@ -689,7 +755,12 @@ export async function openBriefing(adv) {
   });
 
   if (first) {
-    const seeded = S.BRIEFING_ROWS.filter(r => r.seeds && state[r.key].text).map(r => `${r.name}: ${state[r.key].text}`);
+    const seeded = seedRows
+      .filter(r => state[r.key].text.trim())
+      .map(r => {
+        const f = seedFields.get(r.key);
+        return `${r.name}: ${(f && f.value.trim()) || seedDefault(r)}`;
+      });
     modal({
       title: "Briefing committed",
       body: el("div", {},
@@ -1645,7 +1716,17 @@ function listSection(adv, which, title, sub) {
     const card = el("div", { class: "card flush" });
     for (const item of list) {
       card.appendChild(el("div", { class: "card-row" },
-        el("div", { class: "grow" },
+        // The text is the button: an entry seeded from a word pair reads like a word pair
+        // until you write it as something you can act on (ruling S22).
+        el("button", {
+          class: "row-edit grow", type: "button", "aria-label": `Reword ${item.text}`,
+          onclick: async () => {
+            const text = await promptModal(which === "threads" ? "What is the character trying to do?" : "Who is it?",
+              { title: "Reword this entry", value: item.text });
+            if (text === null || !text.trim()) return;
+            save(a => { const x = a[which].find(y => y.id === item.id); if (x) x.text = text.trim(); });
+          }
+        },
           el("div", { text: item.text }),
           el("div", { class: "small muted", text: `weight ${item.weight}${item.weight > 1 ? " — comes up more often" : ""}` })),
         el("button", {
