@@ -82,7 +82,16 @@ export function normalize(c) {
   out.foe = Array.isArray(c.foe) ? c.foe : [];
   out.weaknesses = Array.isArray(c.weaknesses) ? c.weaknesses : [];
   out.scars = Array.isArray(c.scars) ? c.scars : [];
-  out.vehicles = Array.isArray(c.vehicles) ? c.vehicles : [];
+  // A vehicle used to be a name and a key with nowhere to show it. It now carries what it
+  // has been fitted with and what it has taken, both back-filled for older dossiers.
+  out.vehicles = (Array.isArray(c.vehicles) ? c.vehicles : []).map(v => ({
+    id: v.id || uid("veh"),
+    key: v.key || "",
+    name: v.name || "",
+    mods: Array.isArray(v.mods) ? v.mods.filter(m => typeof m === "string") : [],
+    wound: typeof v.wound === "string" ? v.wound : "none",
+    note: typeof v.note === "string" ? v.note : ""
+  }));
   out.log = Array.isArray(c.log) ? c.log : [];
   out.advancedThisMission = {
     skills: Array.isArray(c.advancedThisMission?.skills) ? c.advancedThisMission.skills : [],

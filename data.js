@@ -1325,6 +1325,27 @@ export const GEAR = [
 export const BUG_BUILD_NOTE =
   "Build a custom bug by choosing a medium, a transmission type, a storage option and a power source. Total the parts, add 10%, then add any casing cost.";
 
+/** The four choices a custom bug is assembled from [Ch.7], and the assembly surcharge. */
+export const BUG_BUILD_STEPS = [
+  { key: "medium", name: "Medium", prefix: "bug_", keys: ["bug_sound", "bug_visual", "bug_location"] },
+  { key: "transmission", name: "Transmission", keys: ["bug_gsm", "bug_uhf", "bug_vlf", "bug_radio", "bug_hardwire", "bug_none"] },
+  { key: "storage", name: "Storage", keys: ["bug_fixed", "bug_rolling"] },
+  { key: "power", name: "Power", keys: ["bug_battery", "bug_continuous"] }
+];
+export const BUG_ASSEMBLY_SURCHARGE = 0.1;
+
+/* Vehicles in play [Ch.7, Ch.8]. Modification Points are both the budget for modifications
+ * and the measure of how much damage the vehicle absorbs for the people inside it. */
+export const VEHICLE_STATS = [
+  { key: "pm", name: "Performance", desc: "Difficulty Factor modifier on every control check." },
+  { key: "pl", name: "Passengers", desc: "How many it seats, driver included." },
+  { key: "cruise", name: "Cruise", desc: "Comfortable speed in miles per hour." },
+  { key: "max", name: "Maximum", desc: "Flat out, in miles per hour." },
+  { key: "range", name: "Range", desc: "Miles on a full tank." },
+  { key: "ram", name: "Ram", desc: "Damage Rank steps it deals ramming, and takes." },
+  { key: "mp", name: "Mod Points", desc: "The modification budget, and what it absorbs for its occupants." }
+];
+
 /* ---------------------------------------------------------------- 21. RULES LIBRARY INDEX */
 
 export const RULES_TOPICS = [

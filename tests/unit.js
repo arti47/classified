@@ -201,6 +201,24 @@ export function unitTests(t) {
   t.ok(D.QUALITY_OPPOSED.every(x => D.clampDF(4 * (x.multiplier || 1)) <= 10),
     "every doubled Quality still lands on the legal ladder");
 
+  t.group("Vehicles and bugs in play");
+
+  t.ok(D.VEHICLE_STATS.every(st => D.VEHICLES.every(v => v[st.key] !== undefined)),
+    "every vehicle carries every statistic the garage prints");
+  t.ok(D.VEHICLE_MODS.some(m => m.reduces), "some modifications reduce an incoming Damage Rank");
+  t.ok(D.VEHICLE_MODS.some(m => m.absorbs), "and some absorb a whole Wound Rank");
+  t.ok(D.VEHICLE_MODS.every(m => Number(m.mp) >= 0), "no modification costs negative Modification Points");
+  const cheapest = Math.min(...D.VEHICLES.map(v => v.mp));
+  t.ok(cheapest >= 0, "and no vehicle has a negative budget to spend them from");
+  t.eq(R.occupantWound("heavy", { seatbelt: false, airbag: false }), "medium",
+    "occupants take one Wound Rank less than the vehicle");
+  t.eq(R.occupantWound("heavy", { seatbelt: true, airbag: false }), "light", "a seat belt takes another");
+
+  t.eq(D.BUG_BUILD_STEPS.length, 4, "a bug is built from four choices");
+  t.ok(D.BUG_BUILD_STEPS.every(st => st.keys.length && st.keys.every(k => D.GEAR.some(g => g.key === k))),
+    "every one of which is a real catalogue part");
+  t.eq(D.BUG_ASSEMBLY_SURCHARGE, 0.1, "and assembly adds ten per cent");
+
   t.group("Grenades");
 
   t.eq(D.GRENADE_SCATTER[1], 0, "a Superb throw lands on target");

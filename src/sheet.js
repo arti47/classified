@@ -776,8 +776,11 @@ export function renderGear(host) {
   drawCatalogue();
   host.appendChild(catSection);
 
+  host.appendChild(garageSection(c, host));
+  host.appendChild(bugSection(c, host));
+
   // Vehicles
-  const vSection = section("Vehicles");
+  const vSection = section("Vehicles you could own");
   const vSearch = el("input", { type: "search", placeholder: "Search vehicles…" });
   vSection.appendChild(vSearch);
   const vResults = el("div", { style: "margin-top:10px" });
@@ -860,6 +863,272 @@ function showCatalogueEntry(c, entry, onAdd) {
       } }
     ]
   });
+}
+
+/**
+ * The garage: the vehicles this dossier actually owns.
+ *
+ * They were storable from the wizard and rendered nowhere, and the 36 vehicle modifications
+ * had no surface at all — which matters, because Modification Points are both the budget for
+ * fitting them and the measure of how much damage the vehicle absorbs for the people inside
+ * it (finding A17).
+ */
+/**
+ * The bug workshop. The parts were all in the catalogue and the assembly rule was in the
+ * data, but building one meant buying four separate rows and doing the arithmetic by hand
+ * (finding A18). Choose a part per step and it prices the whole thing, surcharge included,
+ * and puts the finished bug on the dossier as one item.
+ */
+function bugSection(c, host) {
+  const sec = section("Build a bug");
+  sec.appendChild(el("p", { class: "small muted", text: D.BUG_BUILD_NOTE }));
+  sec.appendChild(el("button", {
+    class: "btn block", type: "button", onclick: () => openBugBuilder(c, host)
+  }, "Build one"));
+  return sec;
+}
+
+function openBugBuilder(c, host) {
+  const parts = Object.fromEntries(D.BUG_BUILD_STEPS.map(st => [st.key, st.keys[0]]));
+  const body = el("div", {});
+  const total = el("div", { class: "banner ok" });
+
+  const partOf = key => D.GEAR.find(g => g.key === key);
+  const price = () => {
+    const sum = D.BUG_BUILD_STEPS.reduce((n, st) => n + (partOf(parts[st.key]).price || 0), 0);
+    return Math.round(sum * (1 + D.BUG_ASSEMBLY_SURCHARGE));
+  };
+  const name = () => "Bug: " + D.BUG_BUILD_STEPS
+    .map(st => partOf(parts[st.key]).name.split(": ")[1] || partOf(parts[st.key]).name)
+    .join(" / ");
+
+  const draw = () => {
+    clear(total);
+    total.appendChild(el("b", { text: money(price()) }));
+    total.appendChild(el("div", { class: "small", text:
+      `Parts plus the ${Math.round(D.BUG_ASSEMBLY_SURCHARGE * 100)}% assembly surcharge. Casing is bought separately.` }));
+    total.appendChild(el("div", { class: "small muted", text: name() }));
+  };
+
+  for (const st of D.BUG_BUILD_STEPS) {
+    body.appendChild(el("div", { class: "field-label", style: "margin-top:12px", text: st.name }));
+    const wrap = el("div", { class: "chip-wrap" });
+    const drawStep = () => {
+      clear(wrap);
+      for (const key of st.keys) {
+        const part = partOf(key);
+        wrap.appendChild(el("button", {
+          class: "chip" + (parts[st.key] === key ? " on" : ""), type: "button",
+          title: part.desc,
+          onclick: () => { parts[st.key] = key; drawStep(); draw(); }
+        }, `${part.name.split(": ")[1] || part.name} ${part.price ? money(part.price) : "free"}`));
+      }
+    };
+    drawStep();
+    body.appendChild(wrap);
+    body.appendChild(el("p", { class: "lm", text: partOf(parts[st.key]).desc }));
+  }
+  draw();
+  body.appendChild(total);
+
+  const m = modal({
+    title: "Build a bug", body,
+    actions: [
+      { label: "Cancel", kind: "ghost" },
+      { label: "Add to the dossier", kind: "primary", close: false, onClick: () => {
+        const cost = price();
+        m.close();
+        Store.updateActive(x => {
+          x.inventory.items.push({
+            id: uid("item"), key: null, kind: "custom", name: name(), qty: 1,
+            weight: 0, equipped: false, price: cost,
+            notes: D.BUG_BUILD_STEPS.map(st => partOf(parts[st.key]).desc).join(" ")
+          });
+          x.inventory.money = Math.max(0, (x.inventory.money || 0) - cost);
+        });
+        showToast(`Built for ${money(cost)}`, "ok");
+        renderGear(host);
+      } }
+    ]
+  });
+}
+
+function garageSection(c, host) {
+  const sec = section("Your vehicles");
+  sec.querySelector(".section-head").appendChild(el("button", {
+    class: "btn sm primary", type: "button", onclick: () => addVehicle(c, host)
+  }, "+ Add"));
+
+  const owned = c.vehicles || [];
+  if (!owned.length) {
+    sec.appendChild(el("div", { class: "empty" },
+      el("p", { class: "muted", text: "No vehicle on the dossier. Agency characters are usually issued one." })));
+    return sec;
+  }
+
+  for (const v of owned) {
+    const stock = R.VEHICLE_BY_KEY[v.key];
+    const card = el("div", { class: "card" });
+    const spent = modPointsSpent(v);
+    const budget = stock ? stock.mp : 0;
+
+    card.appendChild(el("div", { class: "row" },
+      el("div", { class: "grow" },
+        el("div", { style: "font-weight:600", text: v.name || (stock ? stock.name : "Vehicle") }),
+        el("div", { class: "small muted", text: stock
+          ? `Perf ${signed(stock.pm)} · limit ${stock.pl} · cruise ${stock.cruise} · max ${stock.max} · ram ${stock.ram}`
+          : "Not in the catalogue" })),
+      v.wound && v.wound !== "none" ? el("span", { class: "pill q5", text: R.woundLevel(v.wound).name }) : null,
+      el("span", { class: "mono small", text: `${spent} / ${budget} MP` })));
+
+    if (v.mods.length) {
+      const list = el("div", { class: "card flush", style: "margin-top:8px" });
+      for (const key of v.mods) {
+        const mod = D.VEHICLE_MODS.find(m => m.key === key);
+        if (!mod) continue;
+        list.appendChild(el("div", { class: "card-row" },
+          el("div", { class: "grow" },
+            el("div", { class: "small", text: mod.name }),
+            el("div", { class: "lm", text: mod.desc })),
+          el("span", { class: "mono small", text: mod.mp ? `${mod.mp} MP` : "—" }),
+          el("button", { class: "btn sm ghost", type: "button", "aria-label": `Remove ${mod.name}`,
+            onclick: () => {
+              Store.updateActive(x => {
+                const y = x.vehicles.find(z => z.id === v.id);
+                if (y) y.mods = y.mods.filter(m => m !== key);
+              });
+              renderGear(host);
+            } }, "✕")));
+      }
+      card.appendChild(list);
+    }
+
+    const armour = vehicleArmour(v);
+    if (armour.reduces || armour.absorbs) {
+      card.appendChild(el("p", { class: "small muted", style: "margin-top:8px", text:
+        `Armour reduces an incoming Damage Rank by ${armour.reduces} steps` +
+        (armour.absorbs ? ` and absorbs ${armour.absorbs} Wound Rank.` : ".") }));
+    }
+
+    card.appendChild(el("div", { class: "btn-row", style: "margin-top:8px" },
+      el("button", { class: "btn sm", type: "button", onclick: () => fitModification(c, v, host) }, "Fit a modification"),
+      el("button", { class: "btn sm", type: "button", onclick: () => vehicleDamage(c, v, host) }, "Damage"),
+      stock ? el("button", { class: "btn sm ghost", type: "button", onclick: () => showVehicle(stock) }, "Stats") : null,
+      el("button", { class: "btn sm ghost", type: "button", onclick: async () => {
+        if (await confirmModal(`Give up the ${v.name}?`, { okLabel: "Remove", danger: true })) {
+          Store.updateActive(x => { x.vehicles = x.vehicles.filter(z => z.id !== v.id); });
+          renderGear(host);
+        }
+      } }, "✕")));
+
+    sec.appendChild(card);
+  }
+  return sec;
+}
+
+function modPointsSpent(v) {
+  return (v.mods || []).reduce((n, key) => {
+    const mod = D.VEHICLE_MODS.find(m => m.key === key);
+    return n + (mod ? Number(mod.mp) || 0 : 0);
+  }, 0);
+}
+
+/** What the fitted armour does to an incoming hit. The best fitted level applies, not the sum. */
+function vehicleArmour(v) {
+  let reduces = 0;
+  let absorbs = 0;
+  for (const key of v.mods || []) {
+    const mod = D.VEHICLE_MODS.find(m => m.key === key);
+    if (!mod) continue;
+    reduces = Math.max(reduces, Number(mod.reduces) || 0);
+    absorbs = Math.max(absorbs, Number(mod.absorbs) || 0);
+  }
+  return { reduces, absorbs };
+}
+
+async function addVehicle(c, host) {
+  const pick = await chooseModal("Add a vehicle", D.VEHICLES.map(v => ({
+    key: v.key, label: v.name, right: `${v.mp} MP`,
+    desc: `Perf ${signed(v.pm)} · cruise ${v.cruise} · ${money(v.price)}`
+  })));
+  if (!pick) return;
+  const stock = R.VEHICLE_BY_KEY[pick];
+  Store.updateActive(x => {
+    x.vehicles.push({ id: uid("veh"), key: stock.key, name: stock.name, mods: [], wound: "none", note: "" });
+  });
+  renderGear(host);
+}
+
+/** Fit a modification, refusing anything the Modification Point budget cannot pay for. */
+async function fitModification(c, v, host) {
+  const stock = R.VEHICLE_BY_KEY[v.key];
+  const budget = stock ? stock.mp : 0;
+  const spent = modPointsSpent(v);
+  const left = budget - spent;
+
+  const pick = await chooseModal("Fit a modification", D.VEHICLE_MODS
+    .filter(m => !v.mods.includes(m.key))
+    .map(m => ({
+      key: m.key, label: m.name,
+      right: (Number(m.mp) || 0) > left ? "no room" : (m.mp ? `${m.mp} MP` : "free"),
+      desc: `${m.price} — ${m.desc}`
+    })), { intro: `${left} of ${budget} Modification Points left. Modification Points are also what the vehicle absorbs for its occupants, so spending them all has a cost in a crash.` });
+  if (!pick) return;
+
+  const mod = D.VEHICLE_MODS.find(m => m.key === pick);
+  if ((Number(mod.mp) || 0) > left) {
+    showToast(`${mod.name} needs ${mod.mp} Modification Points and only ${left} are left`, "err");
+    return;
+  }
+  Store.updateActive(x => {
+    const y = x.vehicles.find(z => z.id === v.id);
+    if (y) y.mods.push(pick);
+  });
+  renderGear(host);
+}
+
+/**
+ * Damage the vehicle, and work out what the people inside take. The occupant chain is the
+ * book's: one rank less than the vehicle, a seat belt another, an airbag one more.
+ */
+async function vehicleDamage(c, v, host) {
+  const key = await chooseModal(`Damage the ${v.name}`, D.WOUND_LEVELS.filter(w => w.key !== "none")
+    .map(w => ({ key: w.key, label: w.name, desc: w.desc || "" })),
+    { intro: "Vehicle wounds are additive, the same as a character's." });
+  if (!key) return;
+
+  const armour = vehicleArmour(v);
+  const landed = armour.absorbs ? R.healWound(key, armour.absorbs) : key;
+  const after = R.accumulateWound(v.wound || "none", landed);
+  const occupant = R.occupantWound(after, { seatbelt: Settings.seatbelts(), airbag: Settings.airbags() });
+
+  Store.updateActive(x => {
+    const y = x.vehicles.find(z => z.id === v.id);
+    if (y) y.wound = after;
+  });
+
+  const body = el("div", {});
+  if (armour.absorbs) {
+    body.appendChild(el("p", { class: "small muted", text:
+      `Armour absorbed ${armour.absorbs} Wound Rank, so a ${R.woundLevel(key).name} landed as a ${R.woundLevel(landed).name}.` }));
+  }
+  body.appendChild(el("div", { class: "banner warn" },
+    el("b", { text: `${v.name}: ${R.woundLevel(after).name}` }),
+    el("div", { class: "small", text: `Occupants take a ${R.woundLevel(occupant).name} — one rank less than the vehicle` +
+      (Settings.seatbelts() ? ", another for the seat belt" : "") +
+      (Settings.airbags() ? ", one more for the airbag" : "") + "." })));
+
+  modal({
+    title: "Vehicle damage", body,
+    actions: [
+      occupant !== "none"
+        ? { label: `Apply to ${c.identity.name || "me"}`, kind: "danger", close: false,
+            onClick: () => import("./roller.js").then(m => m.applyDamageToCharacter(c, occupant)) }
+        : null,
+      { label: "Done", kind: "primary" }
+    ].filter(Boolean)
+  });
+  renderGear(host);
 }
 
 function showVehicle(v) {

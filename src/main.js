@@ -8,7 +8,7 @@ import { showToast } from "./ui.js";
 import * as Store from "./store.js";
 import * as Sync from "./sync.js";
 
-const CACHE_VERSION = "classified-v29";
+const CACHE_VERSION = "classified-v30";
 
 function boot() {
   applyTheme();

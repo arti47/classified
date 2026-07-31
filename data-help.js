@@ -70,7 +70,9 @@ export const HELP = {
       "+ Add opens the catalogue: search it, tap an entry to add it to the dossier.",
       "Tap Use on a weapon to attack with it without leaving the screen, or Throw on a grenade for range, scatter and the blast.",
       "Adjust changes cash; a minus sign spends.",
-      "The weight card turns red past your Strength's carrying maximum."
+      "The weight card turns red past your Strength's carrying maximum.",
+      "Your vehicles sit under the catalogue: fit modifications against the Modification Point budget, and Damage works out what a crash does to everyone inside.",
+      "Build a bug picks a medium, a transmission, storage and power, and prices the whole thing."
     ],
     note: "At maximum load you tire after Willpower minutes and take −3 Difficulty Factor until you rest fifteen."
   },

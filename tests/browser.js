@@ -1175,6 +1175,77 @@ export async function browserTests(t, { chromium, executablePath, baseURL }) {
         `which lands on the target through the accumulation table (${targeted.woundAfter})`);
       t.ok(targeted.reported, "and says what they are now");
 
+      // The garage: vehicles you own, what they are fitted with, and what a crash does.
+      const garage = await page.evaluate(async () => {
+        const Store = await import("./src/store.js");
+        const D = await import("./data.js");
+        (await import("./src/ui.js")).closeAllModals();
+        await new Promise(r => setTimeout(r, 150));
+
+        const stock = D.VEHICLES.find(v => v.mp >= 6);
+        const armour = D.VEHICLE_MODS.find(m => m.key === "armor3");
+        Store.updateActive(x => {
+          x.vehicles = [{ id: "veh_test", key: stock.key, name: stock.name, mods: [], wound: "none", note: "" }];
+        });
+        location.hash = "#/home"; await new Promise(r => setTimeout(r, 100));
+        location.hash = "#/gear"; await new Promise(r => setTimeout(r, 300));
+        const listed = document.getElementById("screen").textContent.includes(stock.name);
+        const budget = document.getElementById("screen").textContent.includes(`0 / ${stock.mp} MP`);
+
+        // Fitting one spends Modification Points.
+        Store.updateActive(x => { x.vehicles[0].mods = [armour.key]; });
+        location.hash = "#/home"; await new Promise(r => setTimeout(r, 100));
+        location.hash = "#/gear"; await new Promise(r => setTimeout(r, 300));
+        const spent = document.getElementById("screen").textContent.includes(`${armour.mp} / ${stock.mp} MP`);
+        const armourLine = /absorbs 1 Wound Rank/.test(document.getElementById("screen").textContent);
+
+        const after = Store.activeCharacter().vehicles[0];
+        Store.updateActive(x => { x.vehicles = []; });
+        return { listed, budget, spent, armourLine, persisted: after.mods.length === 1, id: after.id };
+      });
+      t.ok(garage.listed, "a vehicle on the dossier is shown on the Gear screen");
+      t.ok(garage.budget, "with its Modification Point budget");
+      t.ok(garage.spent, "which a fitted modification spends");
+      t.ok(garage.armourLine, "and armour says what it does to an incoming hit");
+      t.ok(garage.persisted, "the fit survives a reload");
+      t.eq(garage.id, "veh_test", "and the vehicle keeps its identity");
+
+      // Building a bug: four parts, the surcharge, one item on the dossier.
+      const bug = await page.evaluate(async () => {
+        const Store = await import("./src/store.js");
+        const D = await import("./data.js");
+        (await import("./src/ui.js")).closeAllModals();
+        await new Promise(r => setTimeout(r, 150));
+        location.hash = "#/home"; await new Promise(r => setTimeout(r, 100));
+        location.hash = "#/gear"; await new Promise(r => setTimeout(r, 300));
+
+        const before = Store.activeCharacter().inventory.items.length;
+        [...document.querySelectorAll("#screen .btn")].find(b => b.textContent === "Build one").click();
+        for (let i = 0; i < 40 && !document.querySelector(".modal"); i++) await new Promise(r => setTimeout(r, 50));
+        const dlg = document.querySelector(".modal");
+        const steps = D.BUG_BUILD_STEPS.every(st => dlg.textContent.includes(st.name));
+        const expected = Math.round(D.BUG_BUILD_STEPS
+          .reduce((n, st) => n + (D.GEAR.find(g => g.key === st.keys[0]).price || 0), 0) * 1.1);
+        const priced = dlg.textContent.includes("$" + expected.toLocaleString("en-US"));
+        [...dlg.querySelectorAll(".modal-foot .btn")].find(b => /Add to the dossier/.test(b.textContent)).click();
+        await new Promise(r => setTimeout(r, 250));
+
+        const items = Store.activeCharacter().inventory.items;
+        const made = items[items.length - 1];
+        Store.updateActive(x => { x.inventory.items = x.inventory.items.filter(i => i.id !== made.id); });
+        (await import("./src/ui.js")).closeAllModals();
+        return {
+          steps, priced, expected,
+          added: items.length === before + 1,
+          name: made.name, price: made.price
+        };
+      });
+      t.ok(bug.steps, "the bug builder asks for a medium, a transmission, storage and power");
+      t.ok(bug.priced, `and totals the parts with the assembly surcharge ($${bug.expected})`);
+      t.ok(bug.added, "building one puts a single item on the dossier");
+      t.ok(/^Bug: /.test(bug.name), `named for what it is made of (${bug.name})`);
+      t.eq(bug.price, bug.expected, "at the price it quoted");
+
       // A Quality-as-Difficulty-Factor procedure has to offer its second half.
       const opposed = await page.evaluate(async () => {
         const Store = await import("./src/store.js");
