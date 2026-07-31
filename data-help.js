@@ -80,6 +80,7 @@ export const HELP = {
     steps: [
       "Start an encounter, then + Add to bring in NPCs, animals, OSIRIS antagonists or a name and a Speed.",
       "Declare in the order shown — slowest first — then tap To Action and resolve fastest first.",
+      "Attack this on an opponent's card opens your weapons already aimed at them; the result applies the wound it worked out.",
       "Damage applies a wound through the accumulation table and rolls stun, pain and scars for you.",
       "Progress tasks track anything that takes several rolls: healing, a long interrogation, a data scrub.",
       "End Scene, End Session and End Mission each fire their whole bundle and can be undone once."
@@ -141,7 +142,7 @@ export const HELP = {
       "Play the scene with the tools under the button: Roll a check, Ask Fate, Random Events, the Meaning Tables.",
       "End scene N: say whether you were in control, tidy your lists, and the Chaos Factor steps itself.",
       "Open a Mystery for anything you do not know yet — clues raise the odds and Fate decides when it breaks open.",
-      "Repeat until the mission is done, then End Mission on the Combat screen for the experience."
+      "End the mission from the Solo screen when it is over — it closes the adventure and pays Classified's experience for you."
     ],
     note: "Fate answers what is true; skills, combat and damage stay on the ordinary Classified rules. The full walkthrough is on the Tutorial screen."
   },

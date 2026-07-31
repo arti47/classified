@@ -119,6 +119,16 @@ function combatantCard(cb, state, host) {
         if (ch) import("./roller.js").then(m => m.openWeaponPicker(ch));
       }
     }, "Attack"));
+  } else {
+    // Attacking *this* one: the tracker knows who they are and how fast, so the attack
+    // opens on them rather than making the player pick a target it could have named (A13).
+    const me = Store.activeCharacter();
+    if (me) {
+      row.appendChild(el("button", {
+        class: "btn sm primary", type: "button",
+        onclick: () => import("./roller.js").then(m => m.openWeaponPicker(me, { targetId: cb.id }))
+      }, "Attack this"));
+    }
   }
 
   row.appendChild(el("button", {
@@ -594,11 +604,21 @@ export async function runLifecycle(key, host) {
     changes.push("Equipment requisitioned with experience should be returned.");
   }
 
+  // End Mission unlocks the advancement gate and pays the experience, so the screen where
+  // that is spent is one tap away rather than a tab the player has to remember (A14).
+  const actions = [{ label: "OK", kind: "primary" }];
+  if (key === "mission" && c) {
+    actions.unshift({
+      label: "Spend experience", kind: "ghost",
+      onClick: () => import("./router.js").then(m => m.navigate("advance"))
+    });
+  }
+
   modal({
     title: ev.name + " complete",
     body: el("div", {}, ...changes.map(t => el("p", { class: "small", text: "• " + t })),
       el("p", { class: "small muted", style: "margin-top:10px", text: "Use Undo on the combat screen to revert this in one step." })),
-    actions: [{ label: "OK", kind: "primary" }]
+    actions
   });
 
   renderResourceHeader();

@@ -369,11 +369,41 @@ export function openAttack(character, weapon, options = {}) {
     mods: []
   };
 
+  // Who you are shooting at. An encounter already knows every combatant and their Speed, so
+  // the attack reads the target from the tracker rather than making the player type a Speed
+  // they can see on the next screen — and the wound it works out can then be applied to them
+  // instead of being read out and re-entered by hand (ruling A13).
+  const encounter = Store.combatState();
+  const targets = encounter.active
+    ? encounter.combatants.filter(cb => !cb.characterId || cb.characterId !== character.id)
+    : [];
+  if (targets.length) {
+    state.targetId = options.targetId || targets[0].id;
+    const t0 = targets.find(cb => cb.id === state.targetId);
+    if (t0) state.targetSpeed = clamp(Number(t0.speed) || 0, 0, 3);
+  }
+
   const controls = el("div", {});
   body.appendChild(controls);
 
   function drawControls() {
     clear(controls);
+
+    if (targets.length) {
+      controls.appendChild(el("div", { class: "field-label", text: "Target" }));
+      const tw = el("div", { class: "chip-wrap" });
+      for (const cb of targets) {
+        tw.appendChild(el("button", {
+          class: "chip" + (state.targetId === cb.id ? " on" : ""), type: "button",
+          onclick: () => {
+            state.targetId = cb.id;
+            state.targetSpeed = clamp(Number(cb.speed) || 0, 0, 3);
+            drawControls();
+          }
+        }, `${cb.name} (Speed ${cb.speed})`));
+      }
+      controls.appendChild(tw);
+    }
 
     if (weapon) {
       controls.appendChild(el("div", { class: "banner", text:
@@ -395,7 +425,10 @@ export function openAttack(character, weapon, options = {}) {
       const act = D.HTH_ACTIONS.find(a => a.key === state.action);
       controls.appendChild(el("p", { class: "small muted", style: "margin-top:6px", text: act.desc }));
 
-      controls.appendChild(el("div", { class: "field-label", style: "margin-top:12px", text: "Target Speed (lowers the base Difficulty Factor)" }));
+      controls.appendChild(el("div", { class: "field-label", style: "margin-top:12px",
+        text: state.targetId
+          ? "Target Speed (taken from the tracker, lowers the base Difficulty Factor)"
+          : "Target Speed (lowers the base Difficulty Factor)" }));
       const sw = el("div", { class: "chip-wrap" });
       for (const s of [0, 1, 2, 3]) {
         sw.appendChild(el("button", {
@@ -520,7 +553,8 @@ export function openAttack(character, weapon, options = {}) {
             extra: r => damagePanel(r, dr, {
               jammed, weapon,
               woundBonus: (state.action === "specific" || state.action === "targeted") ? 2 : 0,
-              specificAction: isHTH ? state.action : null
+              specificAction: isHTH ? state.action : null,
+              targetId: state.targetId || null
             })
           });
         }
@@ -567,7 +601,48 @@ function damagePanel(res, damageRank, opts = {}) {
   wrap.appendChild(el("p", { class: "small muted", text:
     "The target may spend Hero or Villain Points to reduce this by one rank per point." }));
 
+  // The app worked the wound out; making the player re-choose it from a list on the combat
+  // screen is the same decision taken twice, and the accumulation table is where it belongs.
+  if (opts.targetId) {
+    const cb = Store.combatState().combatants.find(x => x.id === opts.targetId);
+    if (cb) {
+      const applyRow = el("div", { class: "btn-row", style: "margin-top:10px" });
+      const btn = el("button", { class: "btn sm primary", type: "button" }, `Apply to ${cb.name}`);
+      btn.addEventListener("click", async () => {
+        btn.disabled = true;
+        const applied = applyWoundToCombatant(opts.targetId, wound);
+        if (!applied) { wrap.appendChild(el("div", { class: "banner warn", text: "That combatant has left the encounter." })); return; }
+        applyRow.replaceWith(el("div", { class: "banner ok" },
+          el("b", { text: `${applied.name} is now ${R.woundLevel(applied.wound).name}` }),
+          el("div", { class: "small", text: applied.was === "none"
+            ? "Their first wound of the encounter."
+            : `${R.woundLevel(applied.was).name} plus a ${R.woundLevel(wound).name}, through the accumulation table.` })));
+        if (applied.characterId) {
+          const ch = Store.getCharacter(applied.characterId);
+          if (ch && ch.id === Store.activeId()) await applyDamageToCharacter(ch, wound);
+        }
+      });
+      applyRow.appendChild(btn);
+      wrap.appendChild(applyRow);
+    }
+  }
+
   return wrap;
+}
+
+/**
+ * Write a wound onto a combatant through the accumulation table — wounds are additive, so
+ * this is never a straight assignment.
+ */
+function applyWoundToCombatant(id, wound) {
+  const s = Store.combatState();
+  const cb = s.combatants.find(x => x.id === id);
+  if (!cb) return null;
+  const was = cb.wound || "none";
+  cb.wound = R.accumulateWound(was, wound);
+  if (wound === "stun") cb.stunRounds = R.stunRounds(d100());
+  Store.saveCombat(s);
+  return { name: cb.name, was, wound: cb.wound, characterId: cb.characterId };
 }
 
 /** Apply a wound to the active character with the full consequence chain. */
@@ -1293,7 +1368,7 @@ export function openSkillPicker(character) {
   });
 }
 
-export function openWeaponPicker(character) {
+export function openWeaponPicker(character, options = {}) {
   const owned = (character.inventory.items || [])
     .filter(i => i.kind === "weapon" && i.key)
     .map(i => R.WEAPON_BY_KEY[i.key])
@@ -1308,8 +1383,8 @@ export function openWeaponPicker(character) {
   items.unshift({ key: "__unarmed", label: "Unarmed", right: "DR " + R.hthDamageRank(character.attributes.str), desc: "Bare hands, elbows, knees and feet." });
   chooseModal(owned.length ? "Your weapons" : "All weapons", items).then(key => {
     if (!key) return;
-    if (key === "__unarmed") openAttack(character, { key: "unarmed", name: "Unarmed", cat: "hth", drBonus: 0 });
-    else openAttack(character, R.WEAPON_BY_KEY[key]);
+    if (key === "__unarmed") openAttack(character, { key: "unarmed", name: "Unarmed", cat: "hth", drBonus: 0 }, options);
+    else openAttack(character, R.WEAPON_BY_KEY[key], options);
   });
 }
 

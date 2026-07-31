@@ -1124,6 +1124,57 @@ export async function browserTests(t, { chromium, executablePath, baseURL }) {
       t.ok(/5 → 7/.test(stale.preview), "the dialog shows where the Chaos Factor will land before you commit");
       t.ok(/getting away/.test(stale.summary), "and the summary says the cold case cost a step of its own");
 
+      // An attack knows who it is aimed at, and the wound it works out lands on them.
+      const targeted = await page.evaluate(async () => {
+        const Store = await import("./src/store.js");
+        const Roller = await import("./src/roller.js");
+        const { addNpcToEncounter } = await import("./src/combat.js");
+        (await import("./src/ui.js")).closeAllModals();
+        await new Promise(r => setTimeout(r, 150));
+
+        const c = Store.activeCharacter();
+        Store.clearCombat();
+        addNpcToEncounter({ name: "Sentry", speed: 1, attrs: { str: 8 }, hthDamage: "A" });
+        const target = Store.combatState().combatants.find(x => !x.characterId);
+
+        Roller.openAttack(c, { key: "unarmed", name: "Unarmed", cat: "hth", drBonus: 0 }, { targetId: target.id });
+        for (let i = 0; i < 40 && !document.querySelector(".modal"); i++) await new Promise(r => setTimeout(r, 50));
+        const dlg = document.querySelector(".modal");
+        const namesTarget = /Sentry \(Speed 1\)/.test(dlg.textContent);
+        // Speed 1 must have set the base Difficulty Factor without the player typing it.
+        const speedTaken = /taken from the tracker/.test(dlg.textContent) &&
+          !![...dlg.querySelectorAll(".chip.on")].find(ch => /Speed 1/.test(ch.textContent));
+        // A d100 of 1 is a Superb, so the wound path is exercised on every run rather than
+        // whenever the dice feel like it.
+        const real = Math.random;
+        Math.random = () => 0;
+        [...dlg.querySelectorAll(".modal-foot .btn")].find(b => b.textContent === "Attack").click();
+        for (let i = 0; i < 60 && !document.querySelector(".roll-quality"); i++) await new Promise(r => setTimeout(r, 50));
+        Math.random = real;
+        const result = document.querySelector(".modal");
+        const applyBtn = [...result.querySelectorAll(".btn")].find(b => /Apply to Sentry/.test(b.textContent));
+        const hit = !!applyBtn;
+        let woundAfter = null, reported = false;
+        if (applyBtn) {
+          applyBtn.click();
+          for (let i = 0; i < 40 && Store.combatState().combatants.find(x => x.id === target.id).wound === "none"; i++) {
+            await new Promise(r => setTimeout(r, 50));
+          }
+          woundAfter = Store.combatState().combatants.find(x => x.id === target.id).wound;
+          reported = /Sentry is now/.test(result.textContent);
+        }
+        (await import("./src/ui.js")).closeAllModals();
+        Store.clearCombat();
+        await new Promise(r => setTimeout(r, 100));
+        return { namesTarget, speedTaken, hit, woundAfter, reported };
+      });
+      t.ok(targeted.namesTarget, "an attack during an encounter names the target it is aimed at");
+      t.ok(targeted.speedTaken, "and takes their Speed from the tracker rather than asking for it");
+      t.ok(targeted.hit, "a hit offers to apply the wound rather than only printing it");
+      t.ok(targeted.woundAfter && targeted.woundAfter !== "none",
+        `which lands on the target through the accumulation table (${targeted.woundAfter})`);
+      t.ok(targeted.reported, "and says what they are now");
+
       // The loop needs an exit: a solo mission that ends, and Classified's own End Mission
       // fired for the dossier it was played on (S24).
       const mission = await page.evaluate(async () => {
