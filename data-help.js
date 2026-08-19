@@ -35,7 +35,7 @@ export const HELP = {
       "Play solo turns on the Mythic engine, which runs the game when there is nobody to run it.",
       "A red banner means a wound or a condition is standing against every roll you make."
     ],
-    note: "Create and Gear are reachable from the sheet; the bottom bar carries the six screens you use in play."
+    note: "Create and Gear are reachable from the sheet; the bottom bar carries the screens you use in play, and the GM and Solo tabs join it when you switch them on."
   },
 
   create: {

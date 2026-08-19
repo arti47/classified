@@ -147,12 +147,15 @@ body {
   scrollbar-width: none;
 }
 .resource-header::-webkit-scrollbar { display: none; }
+/* The most-tapped controls in play, so they are sized to be tapped: 3px of padding gave a
+   21px target, which is below anything a thumb can hit reliably on a phone. */
 .res-chip {
   flex: none; display: flex; align-items: baseline; gap: 5px;
   border: 1px solid var(--rule); background: var(--paper-2);
-  border-radius: var(--r); padding: 3px 8px; font: 500 12px/1.3 var(--sans);
+  border-radius: var(--r); padding: 8px 10px; font: 500 12px/1.3 var(--sans);
   cursor: pointer; color: var(--ink);
 }
+.res-chip.is-static { cursor: default; }
 .res-chip b { font: 700 13px/1 var(--mono); }
 .res-chip .lab { color: var(--ink-3); font-size: 10px; letter-spacing: .08em; text-transform: uppercase; }
 .res-chip.is-alert { border-color: var(--danger); color: var(--danger); }
@@ -200,6 +203,10 @@ a { color: var(--stamp); }
 }
 .card-row:last-child { border-bottom: none; }
 .card-row .grow { flex: 1 1 auto; min-width: 0; }
+/* Text in a row may shrink and wrap. Without this a long note beside a label takes the whole
+   row and squeezes the label to nothing, so the thing the row is about is the part clipped.
+   Buttons are left alone: let one shrink and it breaks its own label across two lines. */
+.card-row > :not(button) { min-width: 0; overflow-wrap: anywhere; }
 /* A definition rather than a row of controls: label over its explanation (the glossary). */
 .card-row.col { flex-direction: column; align-items: flex-start; gap: 2px; }
 

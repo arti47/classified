@@ -10,7 +10,7 @@ import { PREGENS, PREGEN_BUDGET_AUDIT } from "../data-pregens.js";
 import * as SOLO from "../data-solo.js";
 import { HELP, TUTORIAL, helpFor, GLOSSARY, GLOSSARY_SYSTEMS, glossaryFind } from "../data-help.js";
 import { normalizeAdventure, wipeAdventures as Store_wipeAdventures, wipeCharacters as Store_wipeCharacters } from "../src/store.js";
-import { readFileSync } from "node:fs";
+import { readFileSync, readdirSync } from "node:fs";
 
 export function unitTests(t) {
 
@@ -489,6 +489,44 @@ export function unitTests(t) {
     "a new character has an empty advancement gate");
 
   /* ---------------- data integrity ---------------- */
+
+  /* ---------------- the shipped file list ---------------- *
+   * The service worker's APP_SHELL is what an installed copy actually holds, and CLAUDE.md §5
+   * makes updating it part of adding a file. Neither rule is self-enforcing, and a missing
+   * entry only shows up offline, on someone else's phone. */
+
+  t.group("Shipped files");
+
+  const swText = readFileSync(new URL("../service-worker.js", import.meta.url), "utf8");
+  const shell = (swText.match(/const APP_SHELL = \[([^\]]*)\]/) || [, ""])[1]
+    .split(",").map(x => x.trim().replace(/^["']|["']$/g, "")).filter(x => x && x !== "./");
+
+  const rootJs = readdirSync(new URL("../", import.meta.url))
+    .filter(f => f.endsWith(".js") && !f.startsWith("service-worker"));
+  const srcJs = readdirSync(new URL("../src/", import.meta.url)).filter(f => f.endsWith(".js"));
+
+  const notShipped = [
+    ...rootJs.map(f => "./" + f),
+    ...srcJs.map(f => "./src/" + f)
+  ].filter(f => !shell.includes(f));
+  t.ok(!notShipped.length, "every shipped module is in the service worker's APP_SHELL" +
+    (notShipped.length ? ` (missing ${notShipped.join(", ")})` : ""));
+
+  const stale = shell.filter(f => f.endsWith(".js"))
+    .filter(f => !rootJs.includes(f.replace("./", "")) && !srcJs.includes(f.replace("./src/", "")));
+  t.ok(!stale.length, "and every APP_SHELL entry is a file that exists" +
+    (stale.length ? ` (${stale.join(", ")})` : ""));
+
+  // One cache version, in one place. It used to be declared in main.js as well, where nothing
+  // read it and it had already drifted a version behind the worker that does.
+  const versions = [];
+  for (const f of srcJs) {
+    const body = readFileSync(new URL("../src/" + f, import.meta.url), "utf8");
+    if (/CACHE_VERSION\s*=/.test(body)) versions.push("src/" + f);
+  }
+  t.ok(!versions.length, "the cache version is declared only in the service worker" +
+    (versions.length ? ` (also in ${versions.join(", ")})` : ""));
+  t.ok(/const CACHE_VERSION = "classified-v\d+"/.test(swText), "and the worker declares one");
 
   t.group("Data integrity");
 

@@ -2174,6 +2174,122 @@ export async function browserTests(t, { chromium, executablePath, baseURL }) {
       t.ok(newcomer.encounter.acted, "the tracker's Acted control marks them");
       t.eq(newcomer.encounter.left, 0, "and ✕ takes them out again");
 
+      /* ---- the dialog stack, the resource chips, and a write that fails
+       * Found by driving the app rather than reading it: every open modal listened to the
+       * document, the DF chip was a button with an empty handler, the chips were a 21px
+       * target, and a failed localStorage write was thrown away in silence. */
+      const plumbing = await page.evaluate(async () => {
+        const U = await import("./src/ui.js");
+        const Store = await import("./src/store.js");
+        const Sheet = await import("./src/sheet.js");
+        const wait = ms => new Promise(r => setTimeout(r, ms));
+        const esc = () => document.dispatchEvent(new KeyboardEvent("keydown", { key: "Escape", bubbles: true }));
+        const wipe = () => document.querySelectorAll(".modal-backdrop,.toast").forEach(n => n.remove());
+        const out = {};
+
+        // Two stacked dialogs: Escape takes the top one only.
+        U.modal({ title: "Underneath", body: "one", actions: [{ label: "OK", kind: "primary" }] });
+        await wait(40);
+        U.modal({ title: "On top", body: "two", actions: [{ label: "OK", kind: "primary" }] });
+        await wait(40);
+        out.stacked = document.querySelectorAll(".modal").length;
+        out.ids = [...document.querySelectorAll(".modal h2")].map(h => h.id);
+        esc(); await wait(80);
+        out.afterFirstEscape = [...document.querySelectorAll(".modal h2")].map(h => h.textContent);
+        esc(); await wait(80);
+        out.afterSecondEscape = document.querySelectorAll(".modal").length;
+        wipe();
+
+        // A locked step on top of anything ignores Escape, and does not take the one below.
+        U.modal({ title: "Ordinary", body: "a", actions: [{ label: "OK", kind: "primary" }] });
+        await wait(40);
+        U.modal({ title: "Locked step", body: "b", locked: true, actions: [{ label: "Next", kind: "primary" }] });
+        await wait(40);
+        esc(); await wait(80);
+        out.lockedOnTop = [...document.querySelectorAll(".modal h2")].map(h => h.textContent);
+        wipe();
+
+        // The resource chips: every one is a real target, and every one goes somewhere.
+        // The wipe above left the device empty, so the chips need somebody to be about.
+        const c = Store.activeCharacter() || Store.allCharacters()[0] || Store.createCharacter("agent");
+        if (c) {
+          Store.setActive(c.id);
+          Store.updateActive(x => { x.state.wound = "medium"; x.state.exhausted = true; });
+          Sheet.renderResourceHeader();
+          await wait(120);
+          out.chips = [...document.querySelectorAll(".res-chip")].map(n => ({
+            label: n.querySelector(".lab").textContent,
+            tag: n.tagName,
+            h: Math.round(n.getBoundingClientRect().height)
+          }));
+          const df = [...document.querySelectorAll(".res-chip")].find(n => n.querySelector(".lab").textContent === "DF");
+          if (df) {
+            df.click(); await wait(220);
+            const m = document.querySelector(".modal");
+            out.dfPanel = m ? m.textContent.replace(/\s+/g, " ") : "";
+          }
+          wipe();
+          Store.updateActive(x => { x.state.wound = "none"; x.state.exhausted = false; });
+          Sheet.renderResourceHeader();
+        }
+
+        // A row with a long note keeps its label, and does not shrink a button into two lines.
+        const probe = document.createElement("div");
+        probe.className = "card flush";
+        probe.style.cssText = "width:320px";
+        probe.innerHTML = '<div class="card-row"><span class="grow">left cheek</span>' +
+          '<span class="small muted">a thin white line from a knife fight in Marseille, taken in 1962</span>' +
+          '<button class="btn sm" type="button">Use</button></div>';
+        document.getElementById("screen").appendChild(probe);
+        await wait(60);
+        const label = probe.querySelector(".grow");
+        const useBtn = probe.querySelector("button");
+        out.row = {
+          labelWidth: Math.round(label.getBoundingClientRect().width),
+          labelClipped: label.scrollWidth > label.clientWidth + 2,
+          buttonHeight: Math.round(useBtn.getBoundingClientRect().height),
+          buttonClipped: useBtn.scrollWidth > useBtn.clientWidth + 2
+        };
+        probe.remove();
+
+        // A write that cannot land says so, once.
+        const realSet = localStorage.setItem.bind(localStorage);
+        localStorage.setItem = () => { const e = new Error("quota"); e.name = "QuotaExceededError"; throw e; };
+        let raised = 0;
+        const onFail = () => { raised++; };
+        document.addEventListener("store:writefailed", onFail);
+        try {
+          Store.addRoll({ label: "probe", roll: 1, quality: 1 });
+          await wait(80);
+          out.toast = [...document.querySelectorAll(".toast")].map(n => n.textContent).join(" ");
+        } finally {
+          localStorage.setItem = realSet;
+          document.removeEventListener("store:writefailed", onFail);
+        }
+        out.raised = raised;
+        wipe();
+        return out;
+      });
+
+      t.eq(plumbing.stacked, 2, "two dialogs can stand open at once");
+      t.eq(new Set(plumbing.ids).size, 2, "and they carry different heading ids, so aria-labelledby points at the right one");
+      t.deep(plumbing.afterFirstEscape, ["Underneath"], "Escape closes the top dialog only, not the whole stack");
+      t.eq(plumbing.afterSecondEscape, 0, "a second Escape closes the one underneath");
+      t.deep(plumbing.lockedOnTop, ["Ordinary", "Locked step"], "a locked step ignores Escape and does not dismiss what is under it");
+      t.ok(plumbing.chips && plumbing.chips.length >= 5, "the resource header carries its chips");
+      t.ok(plumbing.chips.every(x => x.h >= 30), "every chip is a real touch target" +
+        (plumbing.chips ? " (" + plumbing.chips.map(x => x.label + " " + x.h).join(", ") + ")" : ""));
+      t.ok(plumbing.chips.some(x => x.label === "DF"), "a standing condition shows its Difficulty Factor");
+      t.ok(/Medium Wound/.test(plumbing.dfPanel || "") && /Exhausted/.test(plumbing.dfPanel || ""),
+        "and the DF chip opens the breakdown rather than doing nothing");
+      t.ok(/-5 Difficulty Factor in total/.test(plumbing.dfPanel || ""), "with the total it applies");
+      t.ok(plumbing.row.labelWidth > 20 && !plumbing.row.labelClipped,
+        `a long note in a row leaves its label readable (${plumbing.row.labelWidth}px)`);
+      t.ok(plumbing.row.buttonHeight < 40 && !plumbing.row.buttonClipped,
+        `and the button in that row keeps its label on one line (${plumbing.row.buttonHeight}px)`);
+      t.eq(plumbing.raised, 1, "a failed write raises exactly one warning");
+      t.ok(/Storage is full/.test(plumbing.toast || ""), "and the player is told rather than left to find out on reload");
+
       // Export produces valid JSON.
       const exportOk = await page.evaluate(async () => {
         const m = await import("./src/store.js");

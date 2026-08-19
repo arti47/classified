@@ -29,10 +29,27 @@ function readJSON(key, fallback) {
     return raw ? JSON.parse(raw) : fallback;
   } catch { return fallback; }
 }
-function writeJSON(key, value) {
-  try { localStorage.setItem(key, JSON.stringify(value)); return true; }
-  catch { return false; }
+/**
+ * Write one key, and say so when it fails.
+ *
+ * Every call site used to throw the return value away, so a full localStorage — a portrait
+ * or two, a hundred roll-log rows and a shelf of adventures will do it — meant the dossier
+ * silently stopped saving and the player found out on the next reload. The failure is
+ * announced once per session through an event: `store.js` has no business importing the UI,
+ * so `main.js` is what turns it into a toast.
+ */
+let storageWarned = false;
+function writeRaw(key, value) {
+  try { localStorage.setItem(key, value); return true; }
+  catch (err) {
+    if (!storageWarned) {
+      storageWarned = true;
+      document.dispatchEvent(new CustomEvent("store:writefailed", { detail: { key, error: String(err && err.name || err) } }));
+    }
+    return false;
+  }
 }
+function writeJSON(key, value) { return writeRaw(key, JSON.stringify(value)); }
 
 /* ---------------------------------------------------------------- characters */
 
@@ -53,7 +70,7 @@ export function activeCharacter() {
 }
 
 export function setActive(id) {
-  if (id) localStorage.setItem(K_ACTIVE, id);
+  if (id) writeRaw(K_ACTIVE, id);
   else localStorage.removeItem(K_ACTIVE);
   emit("active");
 }
@@ -351,7 +368,7 @@ export function activeAdventure() {
 }
 
 export function setActiveAdventure(id) {
-  if (id) localStorage.setItem(K_SOLO_ACTIVE, id);
+  if (id) writeRaw(K_SOLO_ACTIVE, id);
   else localStorage.removeItem(K_SOLO_ACTIVE);
   emit("solo");
 }
@@ -417,7 +434,7 @@ export function applySoloUndo() {
   const snap = peekSoloUndo();
   if (!snap) return false;
   writeJSON(K_SOLO, snap.adventures || []);
-  if (snap.active) localStorage.setItem(K_SOLO_ACTIVE, snap.active);
+  if (snap.active) writeRaw(K_SOLO_ACTIVE, snap.active);
   clearSoloUndo();
   emit("solo");
   return true;
@@ -496,7 +513,7 @@ export function importJSON(text, mode = "merge") {
     if (Array.isArray(data.tasks)) writeJSON(K_TASKS, data.tasks);
     if (data.settings) writeJSON(STORAGE_PREFIX + "settings", data.settings);
     writeJSON(K_SOLO, (data.soloAdventures || []).map(normalizeAdventure));
-    if (data.soloActive) localStorage.setItem(K_SOLO_ACTIVE, data.soloActive);
+    if (data.soloActive) writeRaw(K_SOLO_ACTIVE, data.soloActive);
   } else {
     const existing = readJSON(K_CHARS, []);
     const byId = new Map(existing.map(c => [c.id, c]));

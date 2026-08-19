@@ -8,8 +8,6 @@ import { showToast } from "./ui.js";
 import * as Store from "./store.js";
 import * as Sync from "./sync.js";
 
-const CACHE_VERSION = "classified-v31";
-
 function boot() {
   applyTheme();
   window.matchMedia("(prefers-color-scheme: dark)").addEventListener("change", () => {
@@ -32,6 +30,12 @@ function boot() {
   });
   document.addEventListener("settings:changed", e => {
     if (e.detail.key === "gmScreen" || e.detail.key === "multiplayer" || e.detail.key === "solo") rebuildNav();
+  });
+
+  // A write that fails is data the player thinks they have. The store raises this once per
+  // session; saying nothing would mean finding out on the next reload.
+  document.addEventListener("store:writefailed", () => {
+    showToast("Storage is full — export a backup, then remove a portrait or wipe old missions", "err", 8000);
   });
 
   blockPinchZoom();
@@ -150,5 +154,3 @@ export function showUpdateToast(worker = null) {
 
 if (document.readyState === "loading") document.addEventListener("DOMContentLoaded", boot);
 else boot();
-
-export { CACHE_VERSION };

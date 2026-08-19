@@ -3,6 +3,7 @@
 import { el, clear, $ } from "./core.js";
 
 let openModals = [];
+let modalSeq = 0;
 
 function trapFocus(container, e) {
   const focusable = container.querySelectorAll(
@@ -30,7 +31,10 @@ export function modal(opts = {}) {
     else bodyEl.appendChild(opts.body);
   }
 
-  const titleEl = el("h2", { id: "modalTitle_" + openModals.length, text: opts.title || "" });
+  // A monotonic counter, not the stack depth: closing the first of two open modals and
+  // opening another would hand the new one the id the surviving modal is already using, so
+  // two live dialogs would share an id and one aria-labelledby would point at the wrong one.
+  const titleEl = el("h2", { id: "modalTitle_" + (++modalSeq), text: opts.title || "" });
   // A locked modal is one step of a sequence the player must finish: no close button, no
   // Escape, no backdrop dismissal. Only its own actions move it on.
   const locked = opts.locked === true;
@@ -63,7 +67,14 @@ export function modal(opts = {}) {
 
   const backdrop = el("div", { class: "modal-backdrop" }, dialog);
 
+  // Only the modal on top of the stack answers the keyboard. Every open modal listens on
+  // the document, so without this one Escape closed the whole stack at once — and a dialog
+  // opened over a locked step of a sequence would dismiss the locked one underneath it,
+  // which is the thing `locked` exists to prevent (CLAUDE.md §4, ruling S10).
+  function isTop() { return openModals[openModals.length - 1] === api; }
+
   function onKey(e) {
+    if (!isTop()) return;
     if (e.key === "Escape") { e.preventDefault(); if (!locked) api.close(); }
     else if (e.key === "Tab") trapFocus(dialog, e);
   }

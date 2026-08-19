@@ -33,11 +33,14 @@ export function renderResourceHeader() {
   const wound = R.woundLevel(c.state.wound);
   const dfMod = conditionDFMod(c);
 
-  const chip = (label, value, opts = {}) => el("button", {
-    class: "res-chip" + (opts.alert ? " is-alert" : "") + (opts.good ? " is-good" : ""),
-    type: "button",
+  // A chip with somewhere to go is a button; one without is not. The default used to be an
+  // empty handler, which is how the DF chip came to look tappable and do nothing.
+  const chip = (label, value, opts = {}) => el(opts.onclick ? "button" : "div", {
+    class: "res-chip" + (opts.alert ? " is-alert" : "") + (opts.good ? " is-good" : "") +
+      (opts.onclick ? "" : " is-static"),
+    type: opts.onclick ? "button" : null,
     title: opts.title || "",
-    onclick: opts.onclick || (() => {})
+    onclick: opts.onclick || null
   }, el("span", { class: "lab", text: label }), el("b", { text: String(value) }));
 
   host.appendChild(chip("Hero", c.state.heroPoints ?? 0, {
@@ -53,7 +56,11 @@ export function renderResourceHeader() {
   }));
 
   if (dfMod !== 0) {
-    host.appendChild(chip("DF", signed(dfMod), { alert: true, title: "Automatic Difficulty Factor modifier from your current condition" }));
+    host.appendChild(chip("DF", signed(dfMod), {
+      alert: true,
+      title: "Automatic Difficulty Factor modifier from your current condition — tap for the breakdown",
+      onclick: () => openConditions(c)
+    }));
   }
 
   host.appendChild(chip("Speed", dv.speed, {
@@ -117,6 +124,40 @@ export function openHeroPoints(c) {
     actions: [
       { label: "Rules", kind: "ghost", close: false, onClick: () => openRulesTopic("heropoints") },
       { label: "Done", kind: "primary" }
+    ]
+  });
+}
+
+/**
+ * What is standing against every roll, and where each part of it came from.
+ *
+ * The DF chip appears only when something is; before this it was the one chip with no action
+ * behind it, so it read as tappable and did nothing at all.
+ */
+export function openConditions(c) {
+  const conds = conditionSummary(c);
+  const total = conditionDFMod(c);
+  const body = el("div", {});
+  body.appendChild(el("p", { class: "small muted", text:
+    "Every roll you make takes this automatically while it stands. Turn it off under Auto-apply condition modifiers in Settings." }));
+
+  const card = el("div", { class: "card flush" });
+  for (const x of conds) {
+    card.appendChild(el("div", { class: "card-row" },
+      el("span", { class: "grow", text: x.name }),
+      el("b", { text: x.dfMod ? signed(x.dfMod) + " DF" : "no penalty" })));
+  }
+  body.appendChild(card);
+  body.appendChild(el("div", { class: "banner warn", style: "margin-top:10px" },
+    el("b", { text: `${signed(total)} Difficulty Factor in total` }),
+    el("div", { class: "small", text: "Wounds heal with First Aid, rest or a hospital stay; exhaustion clears with rest, or at End Session." })));
+
+  modal({
+    title: "Standing against you",
+    body,
+    actions: [
+      { label: "Wounds", kind: "ghost", onClick: () => openWoundPanel(c) },
+      { label: "Close", kind: "primary" }
     ]
   });
 }
@@ -593,9 +634,11 @@ export function renderSheet(host) {
     const scSection = section("Scars", `Each visible scar adds ${D.SCAR_REPUTATION} Reputation once revealed.`);
     const card = el("div", { class: "card flush" });
     for (const s of c.scars) {
-      card.appendChild(el("div", { class: "card-row" },
-        el("span", { class: "grow", text: s.location }),
-        el("span", { class: "small muted", text: s.note || "" })));
+      // Location over note: a scar's note is a sentence, and side by side it took the row
+      // and left the location — the thing the row is about — wrapped into a corner.
+      card.appendChild(el("div", { class: "card-row col" },
+        el("b", { text: s.location }),
+        s.note ? el("span", { class: "small muted", text: s.note }) : null));
     }
     scSection.appendChild(card);
     host.appendChild(scSection);
