@@ -396,10 +396,13 @@ export function renderSheet(host) {
   clear(host);
 
   if (!c) {
+    // The empty state keeps its how-to panel: a player who lands here with nothing open is
+    // exactly the one who needs to know what this screen does (N4).
+    appendHelp(host, "sheet");
     host.appendChild(el("div", { class: "empty" },
       el("div", { class: "big", text: "🗂" }),
       el("h2", { text: "No dossier open" }),
-      el("p", { class: "muted", text: "Create an operative to begin." }),
+      el("p", { class: "muted", text: "The sheet is the operative you play: characteristics, skills, wounds, gear and every roll they can make." }),
       el("button", { class: "btn primary", type: "button", onclick: () => navigate("create") }, "Create a character")
     ));
     return;
@@ -640,7 +643,16 @@ function openNotes(c) {
 export function renderGear(host) {
   const c = Store.activeCharacter();
   clear(host);
-  if (!c) { host.appendChild(el("div", { class: "empty" }, el("p", { text: "No character." }))); return; }
+  if (!c) {
+    // "No character." was the entire screen — no explanation and nothing to tap (N2).
+    appendHelp(host, "gear");
+    host.appendChild(el("div", { class: "empty" },
+      el("div", { class: "big", text: "⚙" }),
+      el("h2", { text: "No dossier open" }),
+      el("p", { class: "muted", text: "Equipment belongs to an operative: what they carry, what it weighs, the cash, the garage and the bug bench." }),
+      el("button", { class: "btn primary", type: "button", onclick: () => navigate("create") }, "Create a character")));
+    return;
+  }
 
   const dv = derived(c);
 

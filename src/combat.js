@@ -195,6 +195,9 @@ function startCombat(host) {
     });
   }
   Store.saveCombat(s);
+  // Without a dossier the round opens with nobody in it, which reads as a broken screen
+  // rather than an empty one (N5).
+  if (!c) showToast("No dossier open, so nobody is in the round yet — use + Add", "err");
   renderCombat(host);
 }
 
@@ -539,6 +542,24 @@ export async function runLifecycle(key, host) {
   if (!ev) return;
 
   const c = Store.activeCharacter();
+
+  // Every one of these bundles writes to a dossier. With none open, End Session used to
+  // report cleared exhaustion that never happened and End Mission a completion with no
+  // changes at all — a dialog that lies is worse than a locked button (N5).
+  if (!c) {
+    modal({
+      title: ev.name,
+      body: el("div", {},
+        el("p", { class: "small", text: `${ev.name} works on the open dossier — it clears conditions, pays experience and moves the mission count on. There is no dossier open, so there is nothing for it to change.` }),
+        el("p", { class: "small muted", text: "Open or create an operative first." })),
+      actions: [
+        { label: "Close", kind: "ghost" },
+        { label: "Create a character", kind: "primary", onClick: () => import("./router.js").then(m => m.navigate("create")) }
+      ]
+    });
+    return;
+  }
+
   const preview = el("div", {});
   preview.appendChild(el("p", { class: "small muted", text: "This will:" }));
   for (const line of ev.effects) preview.appendChild(el("div", { class: "small", text: "• " + line }));

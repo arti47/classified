@@ -10,7 +10,8 @@ import { Settings, TOGGLE_ROWS } from "./settings.js";
 import * as Sync from "./sync.js";
 import { derived, skillList, validate, expectedRankFor, conditionSummary } from "./derived.js";
 import { navigate } from "./router.js";
-import { appendHelp } from "./help.js";
+import { appendHelp, openGlossary, glossaryRow, offerSolo } from "./help.js";
+import { glossaryFind } from "../data-help.js";
 import { ANIMALS } from "../data-monsters.js";
 import { OSIRIS_NPCS, OSIRIS_OVERVIEW, NPC_STEREOTYPES, NPC_CREATION_STEPS, INTERACTION_MODIFIER_NOTE } from "../data-npcs.js";
 
@@ -26,9 +27,12 @@ export function renderHome(host) {
   ));
 
   appendHelp(host, "home");
+  // The first-run card already carries Create a character as its first step, so the empty
+  // state under it would be the same button twice.
+  const started = appendStartHere(host, c);
 
   if (!c) {
-    host.appendChild(el("div", { class: "empty" },
+    if (!started) host.appendChild(el("div", { class: "empty" },
       el("div", { class: "big", text: "🗄" }),
       el("h2", { text: "No dossier open" }),
       el("p", { class: "muted", text: "Create an operative and the sheet, roller and trackers come alive." }),
@@ -67,9 +71,12 @@ export function renderHome(host) {
   quick.appendChild(tile("Rules", "Searchable reference", () => navigate("rules")));
   quick.appendChild(tile("Roll log", "Re-derive any roll", () => navigate("log")));
   quick.appendChild(tile("Tutorial", "Run a solo mission, start to finish", () => navigate("tutorial")));
-  if (Settings.solo()) {
-    quick.appendChild(tile("Solo", "Mythic: Fate, chaos, scenes, tables", () => navigate("solo")));
-  }
+  // The Solo tile is here whether or not the toggle is on: a screen you have to know about
+  // before you can find it is a screen a new player never finds (N1).
+  quick.appendChild(Settings.solo()
+    ? tile("Solo", "Mythic: Fate, chaos, scenes, tables", () => navigate("solo"))
+    : tile("Play solo", "No group? Mythic runs the game", () => offerSolo()));
+  quick.appendChild(tile("Glossary", "What the words on screen mean", () => openGlossary()));
   host.appendChild(quick);
 
   const log = Store.rollLog().slice(0, 5);
@@ -81,6 +88,52 @@ export function renderHome(host) {
   }
 
   host.appendChild(el("p", { class: "small muted", style: "margin-top:20px", text: D.OGL_NOTICE }));
+}
+
+/**
+ * The first-run card: what to do, in order, for someone who has opened the app knowing
+ * nothing about it (N9). It ticks the steps it can see are done, and it goes away on its own
+ * once there is a dossier with a roll behind it — or on Hide this, whichever comes first.
+ */
+function appendStartHere(host, c) {
+  if (!Settings.startHere()) return false;
+  if (c && Store.rollLog().length) return false;
+
+  const steps = [
+    { done: !!c, label: "Create an operative",
+      sub: "Point-buy your own, or tap a published sample character to start immediately.",
+      action: "Create a character", go: () => navigate("create") },
+    { done: false, label: "Read the walkthrough",
+      sub: "One mission played end to end, with the rolls that came up. Ten minutes.",
+      action: "Open the tutorial", go: () => navigate("tutorial") },
+    { done: Settings.solo(), label: "Play solo, without a group",
+      sub: "Mythic answers the questions a referee would, so nobody has to run the game.",
+      action: "Turn on solo play", go: () => offerSolo() }
+  ];
+
+  const box = el("div", { class: "card start-here" },
+    el("div", { class: "row" },
+      el("h2", { class: "grow", style: "margin:0", text: "New here?" }),
+      el("button", {
+        class: "btn sm ghost", type: "button",
+        onclick: () => { SettingsMod.set("startHere", false); renderHome(host); }
+      }, "Hide this")));
+  box.appendChild(el("p", { class: "small muted", style: "margin:2px 0 0", text: "Three things, in order. Each one is a tap." }));
+
+  for (const st of steps) {
+    const row = el("div", { class: "card-row col" },
+      el("b", { text: (st.done ? "✓ " : "") + st.label }),
+      el("span", { class: "small muted", text: st.sub }));
+    if (!st.done) {
+      row.appendChild(el("button", { class: "btn sm", type: "button", style: "margin-top:6px", onclick: st.go }, st.action));
+    }
+    box.appendChild(row);
+  }
+
+  box.appendChild(el("p", { class: "small muted", style: "margin-top:10px", text:
+    "Every screen carries a collapsed “How to use” panel, and the Glossary tile explains any word you meet. Both are in Settings if you want them gone." }));
+  host.appendChild(box);
+  return true;
 }
 
 /* ---------------------------------------------------------------- roll log */
@@ -135,7 +188,16 @@ export function renderLog(host) {
     `Every roll is recorded with enough detail to re-derive it. The last ${Store.ROLL_LOG_CAP} are kept.` }));
 
   if (!log.length) {
-    host.appendChild(el("div", { class: "empty" }, el("p", { class: "muted", text: "Nothing rolled yet." })));
+    // An empty state with nothing to tap is a dead end: say where rolls come from (N6).
+    const empty = el("div", { class: "empty" },
+      el("p", { class: "muted", text: "Nothing rolled yet." }),
+      el("p", { class: "small muted", text: "Rolls land here from the sheet, the roller, combat and the Solo screen." }));
+    const c = Store.activeCharacter();
+    empty.appendChild(c
+      ? el("button", { class: "btn primary", type: "button",
+          onclick: () => import("./roller.js").then(m => m.openQuickRoll(c)) }, "Roll something")
+      : el("button", { class: "btn primary", type: "button", onclick: () => navigate("create") }, "Create a character"));
+    host.appendChild(empty);
     return;
   }
 
@@ -218,6 +280,10 @@ export function renderRules(host) {
       for (const g of D.GEAR) {
         if (g.name.toLowerCase().includes(q)) hits.push({ label: g.name, sub: g.cat, go: () => navigate("gear") });
       }
+      // A newcomer searching "difficulty factor" wants the sentence, not the procedure (N7).
+      for (const g of glossaryFind(q)) {
+        hits.push({ label: g.term, sub: "Glossary", go: () => openGlossary(g.term) });
+      }
       for (const f of D.FIELDS_OF_EXPERIENCE) {
         if (f.name.toLowerCase().includes(q)) {
           hits.push({ label: f.name, sub: "Field of Experience", go: () => modal({ title: f.name, body: el("p", { text: f.desc }), actions: [{ label: "OK", kind: "primary" }] }) });
@@ -235,8 +301,14 @@ export function renderRules(host) {
       return;
     }
 
+    // Plain English first: every term below assumes you know the words, and a new player
+    // does not (N7).
+    const gCard = el("div", { class: "card flush" });
+    gCard.appendChild(glossaryRow());
+    results.appendChild(gCard);
+
     // Topics
-    results.appendChild(el("div", { class: "section-title", text: "Core procedures" }));
+    results.appendChild(el("div", { class: "section-title", style: "margin-top:16px", text: "Core procedures" }));
     const tCard = el("div", { class: "card flush" });
     for (const t of D.RULES_TOPICS) {
       tCard.appendChild(el("button", { class: "skill-row", type: "button", onclick: () => openRulesTopic(t.key) },
@@ -585,7 +657,16 @@ function miscTable() {
 export function renderAdvance(host) {
   clear(host);
   const c = Store.activeCharacter();
-  if (!c) { host.appendChild(el("div", { class: "empty" }, el("p", { class: "muted", text: "No character." }))); return; }
+  if (!c) {
+    // "No character." was the whole screen, with nothing to tap and nothing explained (N3).
+    appendHelp(host, "advance");
+    host.appendChild(el("div", { class: "empty" },
+      el("div", { class: "big", text: "▲" }),
+      el("h2", { text: "No dossier open" }),
+      el("p", { class: "muted", text: "Advancement spends the experience a dossier has earned, so it needs one open. Experience is paid at the end of a mission." }),
+      el("button", { class: "btn primary", type: "button", onclick: () => navigate("create") }, "Create a character")));
+    return;
+  }
 
   const available = (c.xp.total || 0) - (c.xp.spent || 0);
   const dv = derived(c);

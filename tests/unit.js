@@ -8,7 +8,7 @@ import { ANIMALS } from "../data-monsters.js";
 import { OSIRIS_NPCS, ENCOUNTER_TABLES, ENCOUNTERS, NPC_CHARACTERISTIC_TABLES, NPC_SKILL_TABLES } from "../data-npcs.js";
 import { PREGENS, PREGEN_BUDGET_AUDIT } from "../data-pregens.js";
 import * as SOLO from "../data-solo.js";
-import { HELP, TUTORIAL, helpFor } from "../data-help.js";
+import { HELP, TUTORIAL, helpFor, GLOSSARY, GLOSSARY_SYSTEMS, glossaryFind } from "../data-help.js";
 import { normalizeAdventure, wipeAdventures as Store_wipeAdventures, wipeCharacters as Store_wipeCharacters } from "../src/store.js";
 import { readFileSync } from "node:fs";
 
@@ -622,6 +622,48 @@ function helpTests(t) {
   const bad = rules.find(r => !known.includes(r));
   t.ok(!bad, "every rule the tutorial links to is a real rules topic" + (bad ? ` (${bad})` : ""));
   t.ok(rules.length > 0, "and it does link into the Classified rules where the example needs them");
+
+  /* ---- the glossary (N7)
+   * The app puts two systems' vocabulary on screen. A player who has read neither book meets
+   * "Difficulty Factor" on their first roll and "Chaos Factor" on their first scene, so both
+   * have to be defined somewhere they can reach without leaving what they were doing. */
+  t.ok(GLOSSARY.length >= 30, `the glossary covers the vocabulary (${GLOSSARY.length} terms)`);
+
+  const systems = GLOSSARY_SYSTEMS.map(x => x.key);
+  let gbad = null;
+  for (const g of GLOSSARY) {
+    if (!g.term || !g.what) gbad = `${g.term || "?"}: missing text`;
+    else if (!systems.includes(g.sys)) gbad = `${g.term}: unknown system ${g.sys}`;
+    else if (g.what.length > 220) gbad = `${g.term}: ${g.what.length} characters`;
+    else if (!/[.!?]$/.test(g.what)) gbad = `${g.term}: unfinished sentence`;
+  }
+  t.ok(!gbad, "every entry names a system and defines the term in a sentence or two" + (gbad ? ` (${gbad})` : ""));
+
+  const terms = GLOSSARY.map(g => g.term.toLowerCase());
+  t.eq(new Set(terms).size, terms.length, "no term is defined twice");
+  for (const sys of systems) {
+    t.ok(GLOSSARY.some(g => g.sys === sys), `the ${sys} group has entries of its own`);
+  }
+
+  // The words the app itself puts on screen, which is the test that matters: a term the UI
+  // uses and the glossary does not carry is a word with nowhere to look it up.
+  const mustDefine = [
+    "Difficulty Factor", "Base Chance", "Success Chance", "Success Quality", "Hero Point",
+    "Wound Rank", "Damage Rank", "Reputation", "Skill Rank", "Field of Experience",
+    "Chaos Factor", "Fate question", "Odds", "Random Event", "Scene test", "Threads",
+    "Meaning Table", "Mystery", "Clue", "Dossier"
+  ];
+  const missing = mustDefine.filter(x => !GLOSSARY.some(g => g.term.toLowerCase() === x.toLowerCase()));
+  t.ok(!missing.length, "every term the screens use is defined" + (missing.length ? ` (missing ${missing.join(", ")})` : ""));
+
+  t.ok(glossaryFind("difficulty").some(g => g.term === "Difficulty Factor"), "search matches a term");
+  t.ok(glossaryFind("referee").length > 0, "and matches inside a definition");
+  t.deep(glossaryFind(""), [], "an empty search matches nothing rather than everything");
+  t.deep(glossaryFind("   "), [], "and neither does whitespace");
+
+  // Nothing in here is a rules value: the glossary is copy, and the numbers stay in data*.js.
+  t.ok(!GLOSSARY.some(g => /\b(1d10|2d10|d100 roll of)\b/.test(g.what) && /table/i.test(g.what)),
+    "the glossary explains terms rather than reprinting tables");
 }
 
 /* ================================================================ the Mythic layer

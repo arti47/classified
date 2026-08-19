@@ -1986,6 +1986,194 @@ export async function browserTests(t, { chromium, executablePath, baseURL }) {
       t.ok(wipe.afterChars.labels.includes("No missions") && wipe.afterChars.labels.includes("No characters"),
         "with nothing left, both buttons say so and disable");
 
+      /* ---- the newcomer sweep (N1–N10)
+       * Someone who has read neither book and has never played solo. The wipe above left the
+       * device with no dossier and no mission, which is the state they arrive in. */
+      const newcomer = await page.evaluate(async () => {
+        const SettingsMod = await import("./src/settings.js");
+        const clearModals = async () => {
+          for (let i = 0; i < 8 && document.querySelector(".modal"); i++) {
+            const m = document.querySelector(".modal");
+            const x = m.querySelector(".modal-head .icon-btn");
+            if (x) x.click();
+            else { const btn = [...m.querySelectorAll(".modal-foot .btn")].pop(); if (btn) btn.click(); else break; }
+            await new Promise(r => setTimeout(r, 40));
+          }
+        };
+        // Always through the router: setting a hash the page is already on renders nothing,
+        // and half of this sweep re-visits the screen it is standing on.
+        const router = await import("./src/router.js");
+        const go = async route => {
+          router.navigate(route);
+          await new Promise(r => setTimeout(r, 240));
+        };
+        const screenText = () => document.getElementById("screen").textContent.replace(/\s+/g, " ").trim();
+        const buttons = () => [...document.querySelectorAll("#screen button")].map(b => b.textContent.trim());
+
+        const Store = await import("./src/store.js");
+        const out = { screens: {} };
+
+        // 1. No screen is a dead end with a dossier missing. The log is cleared first so its
+        // own empty state is the one under test.
+        Store.clearLog();
+        for (const route of ["sheet", "gear", "advance", "log"]) {
+          await go(route);
+          out.screens[route] = {
+            help: !!document.querySelector("#screen .help-acc"),
+            bare: screenText() === "No character.",
+            way: buttons().some(b => /Create a character|Roll something/.test(b)),
+            len: screenText().length
+          };
+        }
+
+        // 2. The first-run card, and Hide this.
+        await go("home");
+        const start = document.querySelector(".start-here");
+        out.startHere = {
+          shown: !!start,
+          steps: start ? start.querySelectorAll(".card-row").length : 0,
+          solo: start ? /solo/i.test(start.textContent) : false,
+          tutorial: start ? /tutorial|walkthrough/i.test(start.textContent) : false
+        };
+        [...document.querySelectorAll("#screen .start-here button")].find(b => /Hide this/.test(b.textContent)).click();
+        await new Promise(r => setTimeout(r, 160));
+        out.startHere.hidden = !document.querySelector(".start-here");
+        await go("home");
+        out.startHere.staysHidden = !document.querySelector(".start-here");
+        SettingsMod.set("startHere", true);
+
+        // 3. Solo is offered on Home even with the toggle off, and turning it on lands there.
+        SettingsMod.set("solo", false);
+        router.rebuildNav();
+        await go("home");
+        out.soloOff = {
+          navHasSolo: [...document.querySelectorAll(".nav-btn .lbl")].some(x => x.textContent === "Solo"),
+          tile: buttons().some(b => /Play solo/.test(b)),
+          glossaryTile: buttons().some(b => /Glossary/.test(b))
+        };
+        [...document.querySelectorAll("#screen button")].find(b => /Play solo/.test(b.textContent)).click();
+        await new Promise(r => setTimeout(r, 200));
+        out.soloOffer = (document.querySelector(".modal") || {}).textContent || "";
+        [...document.querySelectorAll(".modal button")].find(b => /Turn on solo play/.test(b.textContent)).click();
+        await new Promise(r => setTimeout(r, 400));
+        out.soloOn = {
+          navHasSolo: [...document.querySelectorAll(".nav-btn .lbl")].some(x => x.textContent === "Solo"),
+          route: location.hash,
+          on: SettingsMod.get("solo")
+        };
+        await clearModals();
+
+        // 4. The glossary, from the Rules library and from Solo.
+        await go("rules");
+        [...document.querySelectorAll("#screen button")].find(b => /^Glossary/.test(b.textContent)).click();
+        await new Promise(r => setTimeout(r, 200));
+        const gm = document.querySelector(".modal");
+        out.glossary = {
+          opened: !!gm,
+          terms: gm ? gm.querySelectorAll(".card-row.col").length : 0,
+          hasDF: gm ? /Difficulty Factor/.test(gm.textContent) : false,
+          hasChaos: gm ? /Chaos Factor/.test(gm.textContent) : false,
+          systems: gm ? [...gm.querySelectorAll(".section-title")].map(x => x.textContent) : []
+        };
+        const box = gm && gm.querySelector('input[type="search"]');
+        if (box) { box.value = "wound"; box.dispatchEvent(new Event("input")); }
+        await new Promise(r => setTimeout(r, 120));
+        out.glossary.filtered = gm ? [...gm.querySelectorAll(".card-row.col b")].map(x => x.textContent) : [];
+        await clearModals();
+
+        // The rules search finds a term by its definition, not only its title.
+        await go("rules");
+        const search = document.querySelector("#screen input[type=search]");
+        search.value = "difficulty factor";
+        search.dispatchEvent(new Event("input"));
+        await new Promise(r => setTimeout(r, 150));
+        out.searchHits = [...document.querySelectorAll("#screen .skill-row .r")].map(x => x.textContent);
+
+        await go("solo");
+        out.soloGlossary = buttons().some(b => /Glossary/.test(b));
+
+        // 5. A mission bundle with no dossier explains itself instead of reporting nothing.
+        await go("combat");
+        [...document.querySelectorAll("#screen button")].find(b => b.textContent.trim() === "End Mission").click();
+        await new Promise(r => setTimeout(r, 220));
+        const lm = document.querySelector(".modal");
+        out.lifecycle = {
+          text: lm ? lm.textContent.replace(/\s+/g, " ") : "",
+          offersCreate: lm ? [...lm.querySelectorAll("button")].some(b => /Create a character/.test(b.textContent)) : false
+        };
+        await clearModals();
+
+        // 6. An unlinked solo adventure offers the link rather than noting its absence.
+        Store.createAdventure({ name: "Newcomer" });
+        Store.updateAdventure(a => { a.characterId = null; });
+        await go("solo");
+        out.unlinked = buttons().some(b => b.trim() === "Link a dossier");
+        [...document.querySelectorAll("#screen button")].find(b => b.textContent.trim() === "Link a dossier").click();
+        await new Promise(r => setTimeout(r, 220));
+        const dm = document.querySelector(".modal");
+        out.linkOffer = {
+          text: dm ? dm.textContent.replace(/\s+/g, " ") : "",
+          offersCreate: dm ? [...dm.querySelectorAll("button")].some(b => /Create a character/.test(b.textContent)) : false
+        };
+        await clearModals();
+        Store.wipeAdventures();
+
+        // 7. An encounter with no dossier: it says why the round is empty, and the tracker's
+        // own controls still work — Acted and ✕ run through a path nothing else exercises.
+        Store.saveCombat({ active: false, round: 1, phase: "declaration", combatants: [] });
+        await go("combat");
+        [...document.querySelectorAll("#screen button")].find(b => b.textContent.trim() === "Start an encounter").click();
+        await new Promise(r => setTimeout(r, 260));
+        out.encounter = { toast: (document.querySelector(".toast") || {}).textContent || "" };
+        const Combat = await import("./src/combat.js");
+        Combat.addNpcToEncounter({ name: "Sentry", speed: 2 });
+        await go("combat");
+        out.encounter.combatants = Store.combatState().combatants.length;
+        [...document.querySelectorAll("#screen button")].find(b => b.textContent.trim() === "Acted").click();
+        await new Promise(r => setTimeout(r, 200));
+        out.encounter.acted = Store.combatState().combatants.some(x => x.acted);
+        [...document.querySelectorAll("#screen button")].find(b => b.textContent.trim() === "✕").click();
+        await new Promise(r => setTimeout(r, 200));
+        out.encounter.left = Store.combatState().combatants.length;
+        Store.saveCombat({ active: false, round: 1, phase: "declaration", combatants: [] });
+
+        await go("home");
+        return out;
+      });
+
+      for (const route of ["sheet", "gear", "advance", "log"]) {
+        const r = newcomer.screens[route];
+        t.ok(!r.bare, `${route} with no dossier is not the bare words "No character."`);
+        t.ok(r.way, `${route} offers the way out of its empty state`);
+        t.ok(r.help, `${route} keeps its how-to panel when nothing is open`);
+      }
+      t.ok(newcomer.startHere.shown, "a fresh device opens on a first-run card");
+      t.ok(newcomer.startHere.steps >= 3, "with a step for the dossier, the walkthrough and solo play");
+      t.ok(newcomer.startHere.solo && newcomer.startHere.tutorial, "and it names both by hand");
+      t.ok(newcomer.startHere.hidden && newcomer.startHere.staysHidden, "Hide this removes it, and it stays removed");
+      t.ok(!newcomer.soloOff.navHasSolo, "with solo off there is no Solo tab, as before");
+      t.ok(newcomer.soloOff.tile, "but Home still carries a Play solo tile, so it can be found at all");
+      t.ok(newcomer.soloOff.glossaryTile, "and a Glossary tile beside it");
+      t.ok(/Mythic Game Master Emulator/.test(newcomer.soloOffer), "the tile explains what solo play is before switching anything on");
+      t.ok(newcomer.soloOn.on && newcomer.soloOn.navHasSolo, "Turn on solo play adds the tab");
+      t.eq(newcomer.soloOn.route, "#/solo", "and lands on the screen it just created");
+      t.ok(newcomer.glossary.opened, "the Rules library opens a glossary");
+      t.ok(newcomer.glossary.terms >= 30, `covering every term on screen (${newcomer.glossary.terms})`);
+      t.ok(newcomer.glossary.hasDF && newcomer.glossary.hasChaos, "including both systems' central jargon");
+      t.ok(newcomer.glossary.systems.length >= 2, "grouped by which system the word belongs to");
+      t.ok(newcomer.glossary.filtered.length > 0 && newcomer.glossary.filtered.every(x => /Wound|Damage|Pain|Hero|Mystery|Clue/i.test(x)),
+        "and it filters as you type");
+      t.ok(newcomer.searchHits.includes("Glossary"), "a rules search for a term returns its plain-English definition too");
+      t.ok(newcomer.soloGlossary, "the Solo reference carries the same glossary");
+      t.ok(/nothing for it to change/.test(newcomer.lifecycle.text), "End Mission with no dossier says so rather than reporting changes it did not make");
+      t.ok(newcomer.lifecycle.offersCreate, "and offers to create one");
+      t.ok(newcomer.unlinked, "an unlinked adventure shows Link a dossier as a control, not a note");
+      t.ok(newcomer.linkOffer.offersCreate, "and with no dossiers at all it offers to make one");
+      t.ok(/\+ Add/.test(newcomer.encounter.toast), "an encounter started with no dossier says why the round is empty");
+      t.eq(newcomer.encounter.combatants, 1, "a body can still be brought into it");
+      t.ok(newcomer.encounter.acted, "the tracker's Acted control marks them");
+      t.eq(newcomer.encounter.left, 0, "and ✕ takes them out again");
+
       // Export produces valid JSON.
       const exportOk = await page.evaluate(async () => {
         const m = await import("./src/store.js");

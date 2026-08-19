@@ -200,6 +200,8 @@ a { color: var(--stamp); }
 }
 .card-row:last-child { border-bottom: none; }
 .card-row .grow { flex: 1 1 auto; min-width: 0; }
+/* A definition rather than a row of controls: label over its explanation (the glossary). */
+.card-row.col { flex-direction: column; align-items: flex-start; gap: 2px; }
 
 /* A list entry whose text is the control that rewords it: it has to look like the text it
  * replaces, not like a button sitting in the row. */
@@ -554,3 +556,7 @@ details.acc > .acc-body { padding: 0 var(--pad) var(--pad); }
 .portrait img { width: 100%; height: 100%; object-fit: cover; display: block; }
 .portrait .ph { font-size: 10px; letter-spacing: 0.12em; color: var(--ink-3); }
 .portrait:focus-visible { outline: 2px solid var(--stamp-2); outline-offset: 2px; }
+
+/* The first-run card: the one place on Home that should draw the eye before anything else. */
+.start-here { border-left: 3px solid var(--stamp); }
+.start-here .card-row:first-of-type { border-top: 1px solid var(--rule); margin-top: 8px; }

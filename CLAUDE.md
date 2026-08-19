@@ -745,7 +745,7 @@ layer carries the flag rather than the UI.
 | `data-monsters.js` | The book's five animals (there is no monster bestiary — see §3.18) |
 | `data-npcs.js` | NPC stereotypes and generation tables, OSIRIS, the encounter system |
 | `data-pregens.js` | The five published pre-generated characters |
-| `data-help.js` | **How-to copy** — one entry per screen and per Solo panel, plus the solo tutorial. UI text, not rules. |
+| `data-help.js` | **How-to copy** — one entry per screen and per Solo panel, the solo tutorial, and the glossary of both systems' terms. UI text, not rules. |
 | `data-solo.js` | **Mythic layer** — Fate, Chaos, scenes, events, and all 37 Meaning Tables (§3.20). No Classified rules in this file. |
 | `firebase-config.js` | Placeholder config + `FIREBASE_ENABLED` flag |
 | `database.rules.json` | RTDB security rules with player/GM roles |
@@ -772,7 +772,7 @@ No `data-<expansion>.js` — no expansions were supplied.
 | `sheet.js` | Character sheet, gear screen, and the persistent resource header |
 | `combat.js` | Combat tracker, NPC instantiation, progress tasks, lifecycle engine |
 | `gm.js` | GM dashboard: party panel, generators, reference tables |
-| `help.js` | The collapsed how-to accordions and the tutorial screen. Renders `data-help.js`; imports core, ui, settings only, so `solo.js` may use it |
+| `help.js` | The collapsed how-to accordions, the glossary, the tutorial screen, and the offer that switches solo play on. Renders `data-help.js`; imports core, ui, settings only, so `solo.js` may use it |
 | `solo.js` | The Mythic engine and the Solo screen: Fate, Chaos, scene test, Random Events, Adventure Lists, Meaning-table roller, journal, guided End Scene |
 | `screens.js` | Home, rules library, roll log, advancement, settings |
 | `router.js` | Bottom-nav routing and conditional tab gating |
@@ -897,6 +897,21 @@ the panel is for and the taps that use it. `src/help.js` renders them from `data
 no screen authors help text of its own and turning the flag off removes them everywhere in
 one place. The solo walkthrough is a screen of its own (`#/tutorial`), reachable from the
 Solo help panel and a Home tile — no nav tab, because six is the limit at 360px.
+
+**The glossary.** `GLOSSARY` in `data-help.js`: 42 terms across three groups — Classified,
+Mythic, and the two words this app uses for itself — each a sentence a player can act on
+rather than the procedure behind it. It opens from a Home tile, from the head of the Rules
+library, from the Solo reference list, and out of a rules search, which matches definitions as
+well as titles. It lives in `help.js` rather than `screens.js` because `solo.js` needs it and
+may not import the Classified modules (§5.1); the player meeting *Difficulty Factor* on the
+Solo screen is exactly the one who needs it.
+
+**Start here.** `startHere` is the only flag with no toggle row: a first-run card on Home
+naming the three things to do in order — a dossier, the walkthrough, solo play — ticking the
+ones already done. It goes away on **Hide this**, and on its own once there is a dossier with
+a roll behind it, so it can never become furniture. Solo play is offered from Home whether or
+not the toggle is on, because a screen you must already know about is a screen a new player
+never finds (N1).
 
 **Wipe data.** Two destructive buttons sit directly under Backup, because exporting is what
 makes wiping safe and the two belong to the same decision. Each carries its own count, is
@@ -1152,6 +1167,26 @@ either one.
 | SA13 | A Random Event that named a list — New NPC, Close A Thread — had **no way to act on it**, and the header carried manual Chaos ±1 buttons directly above the End Scene that steps the Chaos Factor for you, inviting a double step | Contextual actions in the event modal (add the NPC, strike off the drawn thread, add a first thread); the manual override and the Fate mechanic switch moved into the Adventures menu | A New NPC event offers Add to Characters, Close A Thread offers to strike off the thread it drew, and an event that names no list carries no list action |
 | SA8 | The two mechanics print **different labels for the same nine odds** — the chart reads Certain and Nearly Impossible, the check's table reads Has To Be and No Way — and the app showed the chart's labels in both | `oddsLabel(key, mechanic)` returns the label the active mechanic prints, and the odds chips follow the adventure's `fateMode` | Both label sets resolve for the same rank |
 
+### Newcomer audit
+
+A different question from the three flow audits: not *does the app know the rule* but *can
+somebody who has read neither book, and has never played a solo RPG, get anywhere*. Method:
+wipe the device, walk every route and every empty state as a first-time player, and tap what
+is offered. The findings are all of one shape — the app knew something and did not say it.
+
+| # | Finding | Fix | Regression check |
+|---|---|---|---|
+| N1 | **Solo play was undiscoverable.** A fresh install carries Home, Sheet, Combat, Rules and Settings; Solo appears only after finding a toggle at the foot of Settings. The Tutorial teaches a screen that is not there, and a player who came here to play alone never meets the word Mythic | A **Play solo** tile sits on Home whether or not the toggle is on. Tapping it explains what the second system is and what it costs — the Rules slot — and turns it on. The tutorial carries the same offer at its foot, since it is a tour of somewhere you cannot go otherwise | With solo off there is still no Solo tab, but Home carries the tile; the offer explains before it switches anything on; Turn on solo play adds the tab and lands on it |
+| N2 | **Gear with no dossier was the two words `No character.`** — no explanation, no button, nothing to tap | A real empty state: what the screen is for, and Create a character | The bare string renders on no screen, and every empty state offers a way out |
+| N3 | **Advancement was the same two words** | The same, plus the line that experience is paid at the end of a mission — the thing a newcomer is missing when the screen looks empty | as above |
+| N4 | Four empty states dropped their **how-to panel**, because `appendHelp` sat after the guard. The player with nothing open is precisely the one who needs it | The panel is appended before the guard on the sheet, gear, advancement and the log | Each of the four keeps its how-to panel with nothing open |
+| N5 | **The mission bundles ran with no dossier and reported changes that never happened.** End Session listed cleared exhaustion and re-armed First Aid; End Mission printed a completion dialog with no changes in it at all. Starting an encounter with no dossier opened a tracker with nobody in it and said nothing | `runLifecycle()` checks for a dossier first and says what the bundle would have done, with Create a character beside Close. The empty encounter says why it is empty and points at **+ Add** | End Mission with no dossier explains rather than reporting, and offers to create one |
+| N6 | The **roll log's empty state** had nothing to tap: a newcomer who opened it first had no way to find out where rolls come from | It names the four screens rolls arrive from, and offers Roll something — or Create a character when there is nobody to roll for | The log's empty state offers the way out |
+| N7 | **Two systems' vocabulary, and nowhere to look any of it up.** *Difficulty Factor* appears on the first roll, *Chaos Factor* on the first scene, and the rules library explains procedures to a reader who already knows the words | `GLOSSARY` in `data-help.js`: 42 terms, grouped by which system owns them, each a sentence rather than a procedure. Opened from a Home tile, the head of the Rules library, the Solo reference and a rules search, which now matches definitions as well as titles | Every term the screens use is defined, no term twice, search matches inside a definition, and the modal filters as you type |
+| N8 | The solo toggle's own description claimed **22 Meaning Tables**; 37 ship | Corrected. Drift from the day the authored set went from 13 to 28 | — |
+| N9 | **Nothing said what to do first.** Home's empty state offered Create a character and stopped there; the order — dossier, walkthrough, solo — was knowable only by exploring | A first-run card naming the three, ticking what is done, hidden by **Hide this** and by having a dossier with a roll behind it. `startHere` is the one flag with no toggle row, because it is not a preference | A fresh device opens on the card; Hide this removes it and it stays removed |
+| N10 | An adventure with **no dossier linked** said so in four muted words in the header, and the fix was two levels down in Adventure settings. With no dossiers at all, that control reported the obvious and stopped | The line is the control: unlinked, it reads **Link a dossier**. With none on the device it offers to create one instead of refusing | The unlinked header shows the control, and with no dossiers it offers to make one |
+
 **Verified against scans supplied after the first build:** the Physical Traits Table (nine bands, both columns), the Wound Rank Accumulation grid, the Characteristics and Skills cost tables, the Potential Abilities list, the Ch.6 experience modifiers and expenditures, and the Skill Rank cap note in both chapters. The Multiplication Table error survives into the official character-sheet PDF.
 
 **Verified against the printed images supplied after the first solo build:** all 81 Fate Chart
@@ -1243,3 +1278,4 @@ tables are this app's own work and are marked as such (S6).
 | 2026-07-31 | Third flow audit, over everything again: closed the last two places where the app knew a rule and stopped short of it (A15, A16; T84, T85) | Both were the same shape as A13, which is what made them worth looking for. §3.2 says the Quality-as-Difficulty-Factor family is implemented; Seduction and the chases were, but Disguise, Stealth and Tailing printed a Quality and left the opposing check to the player. And grenades could be bought from the catalogue while the only scatter roll in the app sat behind the GM toggle and asked for the Quality by hand. Both are now data-first — the procedures and the throw constants went into `data.js` before either flow was written | 1087 checks green over three consecutive sweeps, including the disguise ladder at both ends, a clean Stealth handing over nothing, and a forced Superb throw landing on target with its Area Damage Rank | `classified-v29` |
 | 2026-07-31 | Fourth pass: gave the last two extracted-but-unreachable systems a surface (A17, A18; T86) | Both were data with no way in. A vehicle could be issued at creation and then rendered on no screen, which also meant the 36 modifications and the Modification Point budget — the same number that decides how much damage the vehicle absorbs for the people inside it — had nowhere to live. The bug parts were four catalogue rows and a note about adding ten per cent. Characters normalize their vehicles now, so an old dossier's `{key, name}` gains its modifications, its wound and an id | 1119 checks green over three consecutive sweeps, including a fitted modification spending its budget and surviving a reload, the armour line, the occupant chain, and a built bug landing on the dossier at the price it quoted | `classified-v30` |
 | 2026-07-31 | Fifth pass, driving the app rather than reading it: found and fixed the one place a deleted dossier left live-looking controls behind (A19) | Every earlier audit walked the happy path. This one deleted a dossier out from under a running encounter and an open solo adventure, which is what a player does when they retire a character. The combatant's Attack button stayed on the card, resolved to nothing, and reported nothing; the adventure held a dead link for good. Fixed in the store rather than on each screen, so both the single delete and the wipe are covered | 1127 checks green over three consecutive sweeps, plus a scripted probe over all ten routes with a deleted dossier in play: zero console errors, zero horizontal overflow at 360px | `classified-v31` |
+| 2026-08-19 | Newcomer audit (N1–N10): the app is now usable by someone who has read neither book. A glossary of both systems' terms in `data-help.js`, reachable from Home, the Rules library, the Solo reference and a rules search; a first-run card on Home; solo play offered from Home and from the tutorial rather than hidden behind a Settings toggle; real empty states on Gear, Advancement, the Sheet and the log; the mission bundles refusing to report changes they cannot make; and the unlinked-adventure line turned into the control that fixes it | Asked: how idiot-proof is it for someone who never read the manuals and does not know how to play a solo RPG, across every function. Driven from a wiped device rather than read. Every finding was the same shape — the app knew something and did not say it — and two were worse than silence: a player who came here to play alone could not find the Solo screen at all, and End Session with no dossier open listed changes it had not made | 1213 checks green over three consecutive sweeps, including a newcomer sweep that walks every empty state on a wiped device, drives the solo offer from tile to tab, opens and filters the glossary from both libraries, and asserts the mission bundle explains itself rather than reporting. It also closed a harness gap found while writing it: nothing clicked the encounter tracker's own **Acted** and **✕** controls, so a fault in the path behind them would have passed | `classified-v32` |

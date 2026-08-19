@@ -31,6 +31,8 @@ export const HELP = {
       "The card at the top is the open dossier. Tap Open to go to the sheet.",
       "Tap a tile to jump: Roll for any check, Combat for an encounter, Rules to look something up, Roll log to re-read what you rolled.",
       "Recent rolls list the last five, newest first — tap through to the log for the rest.",
+      "Glossary explains any word on any screen — both systems, in plain English.",
+      "Play solo turns on the Mythic engine, which runs the game when there is nobody to run it.",
       "A red banner means a wound or a condition is standing against every roll you make."
     ],
     note: "Create and Gear are reachable from the sheet; the bottom bar carries the six screens you use in play."
@@ -107,6 +109,7 @@ export const HELP = {
     title: "How to use the Rules library",
     what: "Every procedure and table from the core book, searchable.",
     steps: [
+      "Start with the Glossary if a word on another screen made no sense.",
       "Type in the search box to match topics, skills, gear and Fields of Experience at once.",
       "Core procedures open as short explanations; Tables open the real table.",
       "Tap a skill for its formula, base time and your own Base Chance, then Roll it from there.",
@@ -289,6 +292,80 @@ export const HELP = {
 export function helpFor(key) { return HELP[key] || null; }
 
 export const HELP_KEYS = Object.keys(HELP);
+
+/* ================================================================ the glossary */
+
+/**
+ * Plain-language definitions of every term the app puts on screen, for a player who has
+ * read neither book. Two systems meet here, so each entry says which one it belongs to:
+ * `classified`, `mythic`, or `app` for the handful of words this app itself uses.
+ *
+ * Copy, not rules: the numbers behind these terms live in `data.js` and `data-solo.js`, and
+ * nothing here is authoritative. It is the sentence you would say to someone at the table
+ * who asked "what's a Difficulty Factor?" — enough to keep playing, not the procedure.
+ */
+export const GLOSSARY = [
+  /* --- the app's own words */
+  { term: "Dossier", sys: "app", what: "A character. The app calls a character sheet a dossier, because the theme is a 1960s intelligence file." },
+  { term: "House aid", sys: "app", what: "Something the app adds that is in neither book — End Scene and Mysteries. Always labelled, so you know it is not a rule you can look up." },
+
+  /* --- Classified */
+  { term: "d100", sys: "classified", what: "A roll from 1 to 100. The app rolls it for you unless you turn on manual dice entry in Settings." },
+  { term: "Base Chance", sys: "classified", what: "Your raw ability at one skill: the characteristics it runs on, averaged and rounded down, plus your rank in it. It stops at 30." },
+  { term: "Difficulty Factor", sys: "classified", what: "How hard the task is, on a ladder from ½ to 10. Higher is easier — it multiplies your Base Chance. An ordinary task is 5." },
+  { term: "Success Chance", sys: "classified", what: "Base Chance × Difficulty Factor. The number your d100 has to come in under. A roll of 100 always fails, however high it is." },
+  { term: "Success Quality", sys: "classified", what: "How well it went, not merely whether: Superb (1), Great (2), Good (3), Fair (4) or Failure. Most procedures care which." },
+  { term: "Hero Point", sys: "classified", what: "A point you spend to bend a result: one shifts the Success Quality a step in either direction, or takes one rank off a wound." },
+  { term: "Villain Point", sys: "classified", what: "The same currency in an important NPC's hands. It can only spoil what you did, never improve what they do." },
+  { term: "Characteristic", sys: "classified", what: "One of the five ratings, 1 to 15: Strength, Dexterity, Willpower, Perception, Intelligence. Every player character starts at 5." },
+  { term: "Skill Rank", sys: "classified", what: "Your training in one skill. It can never be more than the highest characteristic the skill runs on, plus 2." },
+  { term: "Ability", sys: "classified", what: "A knack rather than a skill — First Aid, Connoisseur, your native language and one you pick. Fixed Base Chance 20, and it never improves." },
+  { term: "Field of Experience", sys: "classified", what: "Knowledge you either have or you do not. It is never rolled: you know it, or you find someone who does." },
+  { term: "Untrained", sys: "classified", what: "Using a skill you have no rank in: the characteristics only, and three steps harder on the Difficulty Factor ladder." },
+  { term: "Creation Point", sys: "classified", what: "The budget you spend building a character. Your rank decides how many you get — 300, 600 or 900." },
+  { term: "Experience", sys: "classified", what: "Paid at the end of a mission and spent on ranks and characteristics. Nothing may rise by more than one point per mission." },
+  { term: "Reputation", sys: "classified", what: "How recognisable you are. It grows with what you do, and it can be bought back down with experience." },
+  { term: "Speed", sys: "classified", what: "How many attacks you get in a round, from Perception + Dexterity. It also sets how fast you clear a holster." },
+  { term: "Wound Rank", sys: "classified", what: "How badly hurt you are: Stun, Light, Medium, Heavy, Incapacitated. Wounds add together, and two Heavy wounds kill." },
+  { term: "Damage Rank", sys: "classified", what: "A weapon's power, A through L. Read against your Success Quality it gives the wound you inflicted." },
+  { term: "Pain Resistance", sys: "classified", what: "A Willpower roll a wounded character makes every round to keep acting through it." },
+  { term: "Exhaustion", sys: "classified", what: "Three steps harder on everything, from carrying too much, running too far, or going too long without sleep. Rest clears it." },
+  { term: "Misfire", sys: "classified", what: "A roll inside the weapon's misfire band jams it. A 100 on a Fire Combat roll wrecks it outright." },
+  { term: "Mission", sys: "classified", what: "The book's unit of play, not the session. Ending one pays the experience, the Hero Point and the Reputation." },
+
+  /* --- Mythic */
+  { term: "Mythic", sys: "mythic", what: "The Game Master Emulator: a second system, by different authors, that answers the questions a referee would. It never touches a Classified roll." },
+  { term: "Fate question", sys: "mythic", what: "A yes-or-no question about the fiction — is the guard still there? You say how likely it is, and the app rolls the answer." },
+  { term: "Odds", sys: "mythic", what: "Your own estimate of how likely a yes is, on nine steps from Certain to Impossible. There is no right answer; say what you think." },
+  { term: "Chaos Factor", sys: "mythic", what: "1 to 9, starting at 5: how far the adventure has got away from you. High chaos makes unlikely answers likelier and Random Events more common." },
+  { term: "Exceptional Yes / No", sys: "mythic", what: "An answer that landed hard — more than you asked for, or considerably less. The app tells you which band the roll fell in." },
+  { term: "Random Event", sys: "mythic", what: "Something you never asked about, breaking in. The app rolls what it is about, then two words to colour it." },
+  { term: "Event Focus", sys: "mythic", what: "What a Random Event is about: a thread, a character, you, or the world at large." },
+  { term: "Scene test", sys: "mythic", what: "The d10 at the start of every scene. Over the Chaos Factor you get the scene you expected; at or under it changes, or something else happens instead." },
+  { term: "Altered scene", sys: "mythic", what: "The scene you expected, with one detail changed — someone missing, something added. The app rolls which." },
+  { term: "Interrupt scene", sys: "mythic", what: "Your scene never happens: a Random Event takes its place. The plan you had is filed as a thread so it is not lost." },
+  { term: "Threads", sys: "mythic", what: "One of the two Adventure Lists: the loose ends you are chasing. Twenty-five slots; entering one twice makes it come up more often." },
+  { term: "Characters (list)", sys: "mythic", what: "The other Adventure List: everyone in play. Random Events draw from it, so keep it current." },
+  { term: "Meaning Table", sys: "mythic", what: "A hundred words. The app rolls two of them; the pair is a prompt, not an answer — you decide what it means here." },
+  { term: "Fate Chart", sys: "mythic", what: "The default way of answering a Fate question: a target number read off the odds and the Chaos Factor, rolled under on a d100." },
+  { term: "Fate Check", sys: "mythic", what: "The alternative: 2d10 plus modifiers for the odds and the Chaos Factor. Same questions, no chart. Pick one per adventure." },
+  { term: "Mystery", sys: "mythic", what: "This app's own aid, in neither book: something you suspect but cannot prove. Each clue raises the odds, and Fate decides when it breaks open." },
+  { term: "Clue", sys: "mythic", what: "Anything you found that points at a mystery. Write down what it was — the reveal is read against your clues, not against the count." },
+  { term: "Mission briefing", sys: "mythic", what: "This app's own opening step: the objective, the complication, your cover and the opponent, rolled before scene 1 so the lists are not empty." }
+];
+
+export const GLOSSARY_SYSTEMS = [
+  { key: "classified", name: "Classified" },
+  { key: "mythic", name: "Solo play (Mythic)" },
+  { key: "app", name: "This app" }
+];
+
+/** Case-insensitive search over terms and definitions. */
+export function glossaryFind(q) {
+  const s = String(q || "").trim().toLowerCase();
+  if (!s) return [];
+  return GLOSSARY.filter(g => g.term.toLowerCase().includes(s) || g.what.toLowerCase().includes(s));
+}
 
 /* ================================================================ the tutorial */
 

@@ -15,7 +15,7 @@ import { modal, showToast, confirmModal, promptModal, chooseModal } from "./ui.j
 import * as S from "../data-solo.js";
 import * as Store from "./store.js";
 import { Settings } from "./settings.js";
-import { appendHelp } from "./help.js";
+import { appendHelp, glossaryRow } from "./help.js";
 
 /* ---------------------------------------------------------------- dice */
 
@@ -143,10 +143,16 @@ function section(title, sub) {
 
 function appendHeader(host, adv) {
   const card = el("div", { class: "card" });
+  const linked = adv.characterId ? Store.getCharacter(adv.characterId) : null;
   card.appendChild(el("div", { class: "row" },
     el("div", { class: "grow" },
       el("h1", { text: adv.name || "Untitled adventure" }),
-      el("div", { class: "small muted", text: linkLabel(adv) })),
+      // Unlinked, the line is the control that fixes it rather than a note about it (N10).
+      linked
+        ? el("div", { class: "small muted", text: linkLabel(adv) })
+        : el("div", { class: "row tight" },
+            el("button", { class: "btn sm ghost", type: "button", onclick: () => linkDossier() }, "Link a dossier"),
+            el("span", { class: "small muted", text: adv.fateMode === "check" ? "Fate Check" : "Fate Chart" }))),
     el("button", { class: "btn sm", type: "button", onclick: () => openAdventureMenu(host) }, "Adventures")
   ));
 
@@ -279,18 +285,33 @@ async function openAdventureMenu(host) {
     }
     return;
   }
-  if (key === "__link") {
-    const chars = Store.allCharacters();
-    if (!chars.length) { showToast("No dossiers on this device", "err"); return; }
-    const pick = await chooseModal("Link a dossier", chars.map(c => ({
-      key: c.id, label: c.identity.name || "Unnamed", desc: "Events that name the player character will use this dossier."
-    })).concat([{ key: "__none", label: "No dossier", desc: "Run the adventure without a linked character." }]));
-    if (!pick) return;
-    save(a => { a.characterId = pick === "__none" ? null : pick; });
-    return;
-  }
+  if (key === "__link") { await linkDossier(); return; }
   Store.setActiveAdventure(key);
   rerender();
+}
+
+/**
+ * Point this adventure at a character.
+ *
+ * An unlinked adventure still plays — Fate does not need a dossier — but the in-scene checks
+ * disappear and events that name the player character have nobody to name, and the screen
+ * used to say so in four quiet words in the header. With no dossiers at all it offers to make
+ * one rather than reporting the obvious (N10).
+ */
+async function linkDossier() {
+  const chars = Store.allCharacters();
+  if (!chars.length) {
+    const make = await confirmModal(
+      "Solo play runs on an ordinary dossier: it is what the in-scene checks roll against, and what a Random Event means when it points at you. There are none on this device yet.",
+      { title: "No dossier yet", okLabel: "Create a character" });
+    if (make) import("./router.js").then(m => m.navigate("create"));
+    return;
+  }
+  const pick = await chooseModal("Link a dossier", chars.map(c => ({
+    key: c.id, label: c.identity.name || "Unnamed", desc: "Events that name the player character will use this dossier."
+  })).concat([{ key: "__none", label: "No dossier", desc: "Run the adventure without a linked character." }]));
+  if (!pick) return;
+  save(a => { a.characterId = pick === "__none" ? null : pick; });
 }
 
 /**
@@ -2456,6 +2477,8 @@ function appendTopics(host) {
     el("span", { class: "n", text: "Event Focus table" })));
   card.appendChild(el("button", { class: "skill-row", type: "button", onclick: () => showSceneAdjustment() },
     el("span", { class: "n", text: "Scene Adjustment table" })));
+  // Two systems' vocabulary meet on this screen, which is where a new player most needs it (N7).
+  card.appendChild(glossaryRow());
 
   host.appendChild(sec);
 }
