@@ -16,7 +16,8 @@ const ROUTES = {
   gm: { label: "GM", icon: "★", title: "GM Screen", gated: () => Settings.gmScreen(), render: h => imp("./gm.js", m => m.renderGM(h)) },
   solo: { label: "Solo", icon: "◈", title: "Solo", gated: () => Settings.solo(), render: h => imp("./solo.js", m => m.renderSolo(h)) },
   settings: { label: "Settings", icon: "⚑", title: "Settings", render: h => imp("./screens.js", m => m.renderSettings(h)) },
-  tutorial: { label: "Tutorial", icon: "◎", title: "Tutorial", render: h => imp("./help.js", m => m.renderTutorial(h)) }
+  tutorial: { label: "Tutorial", icon: "◎", title: "Tutorial", render: h => imp("./help.js", m => m.renderTutorial(h)) },
+  play: { label: "How to play", icon: "▶", title: "How to play", render: h => imp("./help.js", m => m.renderPlayGuide(h)) }
 };
 
 /* Primary tabs shown in the bottom navigation. The rest are reachable from Home

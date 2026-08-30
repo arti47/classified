@@ -70,7 +70,8 @@ export function renderHome(host) {
   quick.appendChild(tile("Combat", "Declaration and action order", () => navigate("combat")));
   quick.appendChild(tile("Rules", "Searchable reference", () => navigate("rules")));
   quick.appendChild(tile("Roll log", "Re-derive any roll", () => navigate("log")));
-  quick.appendChild(tile("Tutorial", "Run a solo mission, start to finish", () => navigate("tutorial")));
+  quick.appendChild(tile("How to play", "Start a game, keep it going, end it well", () => navigate("play")));
+  quick.appendChild(tile("Tutorial", "One mission played, start to finish", () => navigate("tutorial")));
   // The Solo tile is here whether or not the toggle is on: a screen you have to know about
   // before you can find it is a screen a new player never finds (N1).
   quick.appendChild(Settings.solo()
@@ -103,9 +104,9 @@ function appendStartHere(host, c) {
     { done: !!c, label: "Create an operative",
       sub: "Point-buy your own, or tap a published sample character to start immediately.",
       action: "Create a character", go: () => navigate("create") },
-    { done: false, label: "Read the walkthrough",
-      sub: "One mission played end to end, with the rolls that came up. Ten minutes.",
-      action: "Open the tutorial", go: () => navigate("tutorial") },
+    { done: Store.rollLog().length > 0, label: "Learn how a game runs",
+      sub: "Start a game, keep it going, end it well — the guide ticks itself off as you play.",
+      action: "How to play", go: () => navigate("play") },
     { done: Settings.solo(), label: "Play solo, without a group",
       sub: "Mythic answers the questions a referee would, so nobody has to run the game.",
       action: "Turn on solo play", go: () => offerSolo() }

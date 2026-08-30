@@ -1175,6 +1175,65 @@ export async function browserTests(t, { chromium, executablePath, baseURL }) {
         `which lands on the target through the accumulation table (${targeted.woundAfter})`);
       t.ok(targeted.reported, "and says what they are now");
 
+      // The play guide: the one screen that answers "what do I do next in my own game".
+      const guide = await page.evaluate(async () => {
+        const Store = await import("./src/store.js");
+        const S = await import("./src/settings.js");
+        (await import("./src/ui.js")).closeAllModals();
+        await new Promise(r => setTimeout(r, 150));
+
+        const go = async h => {
+          location.hash = "#/home"; await new Promise(r => setTimeout(r, 90));
+          location.hash = "#/" + h; await new Promise(r => setTimeout(r, 260));
+          return document.getElementById("screen");
+        };
+        const nextStep = el => {
+          const card = el.querySelector(".next-step");
+          return card ? card.querySelector("b, div[style*='font-weight']").textContent : null;
+        };
+
+        // With solo off the guide is the table game, and ends where the referee says.
+        S.set("solo", false);
+        let screen = await go("play");
+        const table = {
+          track: screen.textContent.includes("Playing with a group"),
+          next: nextStep(screen),
+          loop: screen.textContent.includes("Roll what you attempt"),
+          endsAtCombat: screen.textContent.includes("Combat → End Mission")
+        };
+
+        // With solo on it is the solo game, and it knows a dossier exists.
+        S.set("solo", true);
+        screen = await go("play");
+        const solo = {
+          track: screen.textContent.includes("Playing alone"),
+          ticks: screen.querySelectorAll(".guide-step.is-done").length,
+          next: nextStep(screen),
+          loop: screen.textContent.includes("Start the scene") && screen.textContent.includes("End the scene"),
+          endsInSolo: screen.textContent.includes("Solo → End the mission"),
+          acts: [...screen.querySelectorAll(".section-title")].map(x => x.textContent)
+        };
+
+        // And it moves on as the game does.
+        const adv = Store.createAdventure({ name: "Guide run", characterId: Store.activeId() });
+        screen = await go("play");
+        const afterAdventure = nextStep(screen);
+        Store.deleteAdventure(adv.id);
+        return { table, solo, afterAdventure };
+      });
+      t.ok(guide.table.track, "with solo off the guide teaches the game you are set up for");
+      t.ok(guide.table.loop, "carrying the loop a table game actually runs");
+      t.ok(guide.table.endsAtCombat, "and ending where a refereed mission ends");
+      t.ok(guide.solo.track, "with solo on it teaches the solo game instead");
+      t.ok(guide.solo.loop, "whose loop is the scene boundary");
+      t.ok(guide.solo.endsInSolo, "and whose ending is on the Solo screen");
+      t.deep(guide.solo.acts, ["Start a game", "Keep it going", "End it well"],
+        "in the three acts a game has");
+      t.ok(guide.solo.ticks >= 1, "a step already done is ticked off rather than asked for again");
+      t.ok(!!guide.solo.next, `and one step is pulled out as the thing to do next (${guide.solo.next})`);
+      t.ok(guide.afterAdventure !== guide.solo.next,
+        "which moves on as the game moves on, rather than being a fixed list");
+
       // A deleted dossier must not leave live-looking controls pointing at nothing.
       const orphans = await page.evaluate(async () => {
         const Store = await import("./src/store.js");
@@ -2033,7 +2092,7 @@ export async function browserTests(t, { chromium, executablePath, baseURL }) {
           shown: !!start,
           steps: start ? start.querySelectorAll(".card-row").length : 0,
           solo: start ? /solo/i.test(start.textContent) : false,
-          tutorial: start ? /tutorial|walkthrough/i.test(start.textContent) : false
+          guide: start ? /how to play/i.test(start.textContent) : false
         };
         [...document.querySelectorAll("#screen .start-here button")].find(b => /Hide this/.test(b.textContent)).click();
         await new Promise(r => setTimeout(r, 160));
@@ -2148,8 +2207,9 @@ export async function browserTests(t, { chromium, executablePath, baseURL }) {
         t.ok(r.help, `${route} keeps its how-to panel when nothing is open`);
       }
       t.ok(newcomer.startHere.shown, "a fresh device opens on a first-run card");
-      t.ok(newcomer.startHere.steps >= 3, "with a step for the dossier, the walkthrough and solo play");
-      t.ok(newcomer.startHere.solo && newcomer.startHere.tutorial, "and it names both by hand");
+      t.ok(newcomer.startHere.steps >= 3, "with a step for the dossier, learning the loop and solo play");
+      t.ok(newcomer.startHere.solo && newcomer.startHere.guide,
+        "and it points at solo play and the play guide by name");
       t.ok(newcomer.startHere.hidden && newcomer.startHere.staysHidden, "Hide this removes it, and it stays removed");
       t.ok(!newcomer.soloOff.navHasSolo, "with solo off there is no Solo tab, as before");
       t.ok(newcomer.soloOff.tile, "but Home still carries a Play solo tile, so it can be found at all");

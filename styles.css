@@ -567,3 +567,10 @@ details.acc > .acc-body { padding: 0 var(--pad) var(--pad); }
 /* The first-run card: the one place on Home that should draw the eye before anything else. */
 .start-here { border-left: 3px solid var(--stamp); }
 .start-here .card-row:first-of-type { border-top: 1px solid var(--rule); margin-top: 8px; }
+
+/* The play guide: a checklist you are inside of, so a done step recedes and the next one
+   is the only thing with a button on it. */
+.guide-step { margin-bottom: 10px; }
+.guide-step.is-done { opacity: .62; }
+.guide-tick { width: 16px; color: var(--ok); font-weight: 700; flex: none; }
+.next-step { border-color: var(--stamp); border-left-width: 3px; }

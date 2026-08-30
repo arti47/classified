@@ -62,6 +62,11 @@ fully offline after the first load.
   actually has — combat, wounds, chases, reactions, interrogation, social play, the world
   around them, and the shape of the story. Fate never replaces a Classified roll — it settles
   what is true, and you still roll skills the ordinary way.
+- **How to play** — a guide at Home → How to play that answers the only question a new
+  player has: what do I do next in my own game. Three acts — start a game, keep it going, end
+  it well — that tick themselves off as you play, with the next step pulled to the top and the
+  scene loop written out. It knows whether you are playing solo or with a group, because the
+  two end differently.
 - **How to use it** — every screen and every Solo panel carries a collapsed "How to use"
   accordion, and a Tutorial screen walks one solo mission from creating the operative to the
   after-action report. Both switch off in Settings once you know your way around.

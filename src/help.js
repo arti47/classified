@@ -11,7 +11,8 @@
 import { el, clear } from "./core.js";
 import { modal } from "./ui.js";
 import { Settings, set as setSetting } from "./settings.js";
-import { HELP, TUTORIAL, helpFor, GLOSSARY, GLOSSARY_SYSTEMS, glossaryFind } from "../data-help.js";
+import { HELP, TUTORIAL, PLAY_GUIDE, helpFor, GLOSSARY, GLOSSARY_SYSTEMS, glossaryFind } from "../data-help.js";
+import * as Store from "./store.js";
 
 /**
  * A collapsed "How to use" accordion for a screen or panel.
@@ -146,6 +147,129 @@ export function enableSolo(go = true) {
 /* ---------------------------------------------------------------- tutorial */
 
 /** The walkthrough: one mission from nothing to the after-action report. Reads only. */
+/* ---------------------------------------------------------------- the play guide */
+
+/**
+ * Where you are in a game, and the one thing to do next.
+ *
+ * The tutorial narrates a mission somebody else played; the how-to panels explain the panel
+ * in front of you; the first-run card names three things and disappears the moment play
+ * begins. None of them answers "what do I do next in my own game", which is the only
+ * question a new player actually has — so this screen does, and stays useful for the whole
+ * arc: start a game, keep it going, end it well.
+ *
+ * State comes from the live dossier and adventure, so a step ticks itself off as it is done.
+ */
+function guideState() {
+  const c = Store.activeCharacter();
+  const advs = Store.soloAdventures();
+  const adv = Store.activeAdventure();
+  const played = advs.some(a => a.scene > 1 || a.completedAt);
+  return {
+    hasCharacter: !!c,
+    soloOn: Settings.solo(),
+    hasAdventure: !!adv,
+    hasBriefing: !!(adv && adv.briefing),
+    playedAScene: played || !!(adv && adv.scenePhase === "play"),
+    missionClosed: advs.some(a => a.completedAt),
+    spentXP: !!(c && (c.xp.spent || 0) > 0),
+    hasRolled: Store.rollLog().length > 0,
+    inCampaign: !!(typeof localStorage !== "undefined" && localStorage.getItem("classified.campaign")),
+    never: false
+  };
+}
+
+export function renderPlayGuide(host, opts = {}) {
+  clear(host);
+  const state = guideState();
+  const solo = Settings.solo();
+  const track = solo ? PLAY_GUIDE.solo : PLAY_GUIDE.table;
+
+  host.appendChild(el("div", { class: "card" },
+    el("h1", { text: "How to play" }),
+    ...PLAY_GUIDE.intro.map(t => el("p", { class: "small muted", text: t }))));
+
+  // Which game you are playing decides how it ends, so it is named rather than assumed.
+  host.appendChild(el("div", { class: "card" },
+    el("div", { class: "row" },
+      el("div", { class: "grow" },
+        el("div", { class: "field-label", text: "You are set up for" }),
+        el("div", { style: "font-weight:600", text: track.name }),
+        el("div", { class: "small muted", text: track.sub })),
+      el("button", { class: "btn sm", type: "button",
+        onclick: () => (solo ? goTo("solo", host) : goTo("offerSolo", host)) },
+        solo ? "Open Solo" : "Play solo instead"))));
+
+  // The next undone step in the whole guide, pulled to the top: one thing to do, always.
+  const flat = track.acts.flatMap(a => (a.steps || []).map(st => ({ act: a, st })));
+  const next = flat.find(x => !state[x.st.when]);
+  if (next) {
+    const card = el("div", { class: "card next-step" });
+    card.appendChild(el("div", { class: "field-label", text: "Do this next" }));
+    card.appendChild(el("div", { style: "font-weight:600", text: next.st.label }));
+    card.appendChild(el("p", { class: "small muted", style: "margin-top:4px", text: next.st.sub }));
+    if (next.st.tap) card.appendChild(el("p", { class: "small mono tut-tap", text: next.st.tap }));
+    card.appendChild(el("button", {
+      class: "btn primary block", type: "button", style: "margin-top:10px",
+      onclick: () => goTo(next.st.go, host)
+    }, next.st.action || "Go"));
+    host.appendChild(card);
+  } else {
+    host.appendChild(el("div", { class: "banner ok" },
+      el("b", { text: "You have played a mission end to end" }),
+      el("div", { class: "small", text: "Everything below is here as a reminder of the loop." })));
+  }
+
+  for (const act of track.acts) {
+    const sec = el("div", { class: "section" },
+      el("div", { class: "section-title", text: act.title }));
+    sec.appendChild(el("p", { class: "small muted", text: act.what }));
+
+    for (const st of act.steps || []) {
+      const done = !!state[st.when];
+      const row = el("div", { class: "card guide-step" + (done ? " is-done" : "") });
+      row.appendChild(el("div", { class: "row tight" },
+        el("span", { class: "guide-tick", text: done ? "✓" : "" }),
+        el("b", { class: "grow", text: st.label })));
+      row.appendChild(el("p", { class: "small muted", style: "margin:4px 0 0", text: st.sub }));
+      if (st.tap) row.appendChild(el("p", { class: "small mono tut-tap", text: st.tap }));
+      if (!done && st.go) {
+        row.appendChild(el("button", { class: "btn sm", type: "button", style: "margin-top:8px",
+          onclick: () => goTo(st.go, host) }, st.action || "Go"));
+      }
+      sec.appendChild(row);
+    }
+
+    // The middle act is a loop rather than a checklist: it is what you do every scene.
+    if (act.loop) {
+      const card = el("div", { class: "card flush" });
+      for (const step of act.loop) {
+        card.appendChild(el("div", { class: "card-row col" },
+          el("div", { class: "row tight" },
+            el("span", { class: "tut-n", text: String(step.n) }),
+            el("b", { class: "grow", text: step.label })),
+          el("span", { class: "small muted", text: step.sub }),
+          step.tap ? el("span", { class: "small mono tut-tap", text: step.tap }) : null));
+      }
+      sec.appendChild(card);
+      if (act.note) sec.appendChild(el("p", { class: "small muted", text: act.note }));
+    }
+
+    host.appendChild(sec);
+  }
+
+  host.appendChild(el("div", { class: "btn-row", style: "margin-top:8px" },
+    el("button", { class: "btn", type: "button", onclick: () => goTo("tutorial", host) }, "See a mission played"),
+    el("button", { class: "btn ghost", type: "button", onclick: () => openGlossary() }, "Glossary")));
+}
+
+/** Route or act. Kept here so the guide's data stays free of anything but copy. */
+function goTo(where, host) {
+  if (!where) return;
+  if (where === "offerSolo") { offerSolo(); return; }
+  import("./router.js").then(m => m.navigate(where));
+}
+
 export function renderTutorial(host) {
   host.appendChild(el("div", { class: "card" },
     el("h1", { text: TUTORIAL.title }),

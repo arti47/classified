@@ -377,6 +377,158 @@ export function glossaryFind(q) {
  * Where the example needs a Classified roll it shows the tap and the rule, rather than
  * re-teaching combat — the two systems working side by side is the thing worth showing.
  */
+/* ================================================================ the play guide */
+
+/**
+ * How to actually play: start a game, keep it going, and end it well.
+ *
+ * This is the one thing the app was missing. The tutorial narrates a mission somebody else
+ * played, in the past tense; the how-to panels explain the panel in front of you; the
+ * first-run card names three things and then disappears the moment play begins. None of them
+ * answers "what do I do next in my own game", which is the only question a new player has.
+ *
+ * So this is a guide that stays with you the whole way. `when` is a state key the screen
+ * resolves against the live dossier and adventure, so a step ticks itself off as you do it
+ * and the guide always knows which act you are in. `go` is the control it takes you to.
+ *
+ * Two tracks, because a solo game and a game with a referee end differently: the solo player
+ * closes the mission themselves, the table's referee calls it.
+ */
+export const PLAY_GUIDE = {
+  intro: [
+    "A game of Classified is a mission: a briefing, a run of scenes, and an end that pays experience.",
+    "Everything below ticks itself off as you do it, so this screen always knows where you are."
+  ],
+
+  solo: {
+    name: "Playing alone",
+    sub: "Mythic answers the questions a referee would, so nobody has to run the game.",
+    acts: [
+      {
+        key: "start", title: "Start a game", what: "Four taps to a mission you can play.",
+        steps: [
+          { key: "dossier", when: "hasCharacter", label: "Make an operative",
+            sub: "Point-buy your own, or tap one of the five published sample characters and start immediately.",
+            tap: "Create → a rank, then the steps along the top → Create dossier",
+            go: "create", action: "Create one" },
+          { key: "solo", when: "soloOn", label: "Turn on solo play",
+            sub: "It adds the Solo tab, which is where a game without a referee is run from.",
+            tap: "Home → Play solo",
+            go: "offerSolo", action: "Turn it on" },
+          { key: "adventure", when: "hasAdventure", label: "Start an adventure",
+            sub: "An adventure is one mission: its Chaos Factor, its scenes, its threads and its journal.",
+            tap: "Solo → Adventures → Start a new adventure",
+            go: "solo", action: "Go to Solo" },
+          { key: "briefing", when: "hasBriefing", label: "Roll the mission briefing",
+            sub: "Roll all fills every row at once. Write over anything the words did not say to you, word the lines that go on your lists, then commit. You now have an objective, a complication, a cover identity, intel and an opponent — and two threads for the oracle to point at.",
+            tap: "Solo → Write the mission briefing → Roll all → Commit",
+            go: "solo", action: "Write it" }
+        ]
+      },
+      {
+        key: "sustain", title: "Keep it going", what: "One scene at a time. This is the whole loop, and it repeats until the mission resolves.",
+        loop: [
+          { n: 1, label: "Start the scene",
+            sub: "Say what you expect to happen. A d10 over the Chaos Factor gives you that scene; at or under, it is altered or interrupted, and the app rolls whatever that owes.",
+            tap: "Start scene N" },
+          { n: 2, label: "Play it with three tools, in this order",
+            sub: "Something the character does — roll a check. Something about the world that is yes or no — ask Fate at honest odds. Something open, like what is in the case — roll a Meaning Table and read the first thing that fits.",
+            tap: "Roll a check · Ask Fate · Meaning Tables" },
+          { n: 3, label: "Act on what interrupts you",
+            sub: "A doubles roll inside the Chaos Factor fires a Random Event. Its buttons act on your lists for you — add the character, strike the thread off.",
+            tap: "the event dialog" },
+          { n: 4, label: "Mark a clue when play turns one up",
+            sub: "Only if you have a mystery open. Each clue raises the odds and asks whether the case breaks open now.",
+            tap: "Mysteries → + Clue" },
+          { n: 5, label: "End the scene",
+            sub: "Were you in control of how it went? That steps the Chaos Factor. Add what opened, strike off what closed, tick any mystery the scene bore on. One undo covers all of it.",
+            tap: "End scene N" }
+        ],
+        note: "Stop whenever you like — everything is saved. If you are stopping for the night, End Session on the Combat screen clears exhaustion and re-arms First Aid.",
+        steps: [
+          { key: "scene", when: "playedAScene", label: "Play your first scene",
+            sub: "Start it, use the tools, end it. That is the loop; every scene after is the same five steps.",
+            tap: "Solo → Start scene 1",
+            go: "solo", action: "Start scene 1" }
+        ]
+      },
+      {
+        key: "end", title: "End it well", what: "A mission that is not closed pays nothing.",
+        steps: [
+          { key: "finished", when: "missionClosed", label: "Close the mission",
+            sub: "It is over when the objective resolves — or ask Fate \"is this finished?\" at Unlikely if you are not sure. Ending it asks how it went, says what is still open, and fires Classified's End Mission for your dossier: experience, Reputation, a Hero Point on a success, and the one-advance-per-mission gate cleared.",
+            tap: "Solo → End the mission",
+            go: "solo", action: "End it" },
+          { key: "spend", when: "spentXP", label: "Spend the experience",
+            sub: "One skill and one characteristic may rise per mission. Reputation can be bought back down, which is the only way it falls.",
+            tap: "Advancement → Raise",
+            go: "advance", action: "Go to Advancement" },
+          { key: "next", when: "never", label: "Start the next mission",
+            sub: "The dossier carries forward with everything it earned. Copy all on the journal gives you the mission as text for a write-up first.",
+            tap: "Solo → Adventures → Start a new adventure",
+            go: "solo", action: "Start another" }
+        ]
+      }
+    ]
+  },
+
+  table: {
+    name: "Playing with a group",
+    sub: "One person runs the game. The app is your character sheet, your dice and your tracker.",
+    acts: [
+      {
+        key: "start", title: "Start a game", what: "Bring a character; the referee brings the mission.",
+        steps: [
+          { key: "dossier", when: "hasCharacter", label: "Make an operative",
+            sub: "Agree a rank with your referee first — it sets the Creation Point budget.",
+            tap: "Create → a rank → the steps along the top → Create dossier",
+            go: "create", action: "Create one" },
+          { key: "campaign", when: "inCampaign", label: "Join the table, if you are sharing one",
+            sub: "Optional. One person creates the campaign and reads out the three-word code; everyone else joins with it. Rolls and the combat tracker are then shared.",
+            tap: "Settings → Multiplayer → Join with a code",
+            go: "settings", action: "Open Settings" }
+        ]
+      },
+      {
+        key: "sustain", title: "Keep it going", what: "The referee frames the scenes. You roll for what your character does.",
+        loop: [
+          { n: 1, label: "Roll what you attempt",
+            sub: "Tap the skill on your sheet, or Roll for any of the book's procedures — persuasion, seduction, interrogation, gambling, a chase, a grenade.",
+            tap: "Sheet → a skill · Roll" },
+          { n: 2, label: "Run fights on the tracker",
+            sub: "Start an encounter, add the opposition, declare slowest-first and act fastest-first. An attack applies the wound it works out to the target you picked.",
+            tap: "Combat → Start an encounter" },
+          { n: 3, label: "Spend Hero Points when it matters",
+            sub: "One point shifts a Success Quality by a step, or reduces a Wound Rank. On a check your referee rolls in secret you must commit before the result is read.",
+            tap: "the Hero chip above the screen" },
+          { n: 4, label: "Clear the flags at the boundaries",
+            sub: "End Scene clears aim, cover and posture between fights. End Session clears exhaustion and re-arms First Aid when you stop for the night.",
+            tap: "Combat → End Scene · End Session" }
+        ],
+        steps: [
+          { key: "rolled", when: "hasRolled", label: "Make your first roll",
+            sub: "Tap any skill on the sheet. The dialog carries the Difficulty Factor ladder and everything standing against you.",
+            tap: "Sheet → a skill",
+            go: "sheet", action: "Open the sheet" }
+        ]
+      },
+      {
+        key: "end", title: "End it well", what: "Your referee calls the mission; the app pays it.",
+        steps: [
+          { key: "mission", when: "never", label: "Run End Mission when the referee says it is over",
+            sub: "It awards experience from rank, outcome and role-playing, adds a Hero Point on a success, +3 Reputation, and clears the one-advance-per-mission gate. One undo covers it.",
+            tap: "Combat → End Mission",
+            go: "combat", action: "Go to Combat" },
+          { key: "spend", when: "spentXP", label: "Spend the experience",
+            sub: "One skill and one characteristic per mission, and no more.",
+            tap: "Advancement → Raise",
+            go: "advance", action: "Go to Advancement" }
+        ]
+      }
+    ]
+  }
+};
+
 export const TUTORIAL = {
   title: "Running a solo mission",
   intro: [
