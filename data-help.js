@@ -377,6 +377,106 @@ export function glossaryFind(q) {
  * Where the example needs a Classified roll it shows the tap and the rule, rather than
  * re-teaching combat — the two systems working side by side is the thing worth showing.
  */
+/* ================================================================ the guided player */
+
+/**
+ * The coach: the app running the game for you, one beat at a time.
+ *
+ * The play guide tells you what to do; a player who will not read a manual will not read a
+ * guide either. So this is the same arc turned into a single instruction with a single
+ * button, recomputed after every action — never more than one thing to do, and never a word
+ * of jargon without the plain meaning beside it.
+ *
+ * Keys here are beats, resolved by `coach.js` against the live dossier and adventure.
+ */
+export const COACH = {
+  title: "Play",
+  blurb: "This runs the game for you. One instruction at a time — do the thing, tap the button, and it tells you what happens next.",
+
+  beats: {
+    character: {
+      say: "You need an agent to play.",
+      why: "Everything else hangs off a character sheet. Take a ready-made one and you are playing in a second.",
+      primary: "Give me a ready-made agent",
+      secondary: "I want to build my own"
+    },
+    adventure: {
+      say: "Time to get a mission.",
+      why: "The app writes it for you — what you are after, what is in the way, who you are pretending to be, and who is against you.",
+      primary: "Start a mission"
+    },
+    briefing: {
+      say: "Your mission is not written yet.",
+      why: "One tap rolls the whole thing. You can rewrite any line afterwards.",
+      primary: "Roll my mission"
+    },
+    scene: {
+      say: "Say what you are about to do.",
+      why: "One line, in your own words — walk into the bar, search the office, follow the car. Then the app decides whether it goes to plan.",
+      placeholder: "Search the freight office after dark",
+      primary: "Go"
+    },
+    play: {
+      say: "You are in the scene. What is happening?",
+      why: "Pick whichever of these three fits what you want to know. There is no wrong choice.",
+      options: [
+        { key: "do", label: "My agent tries something",
+          sub: "Sneak, shoot, persuade, drive, pick a lock — anything you attempt. The dice decide how well it goes." },
+        { key: "true", label: "I need to know if something is true",
+          sub: "Is the guard asleep? Is there a back door? A yes-or-no question about the world." },
+        { key: "idea", label: "I am stuck, give me something",
+          sub: "Two words to read as whatever fits — what is in the room, who walks in, what goes wrong." }
+      ],
+      finish: "Finish this scene"
+    },
+    ask: {
+      say: "What do you want to know?",
+      why: "Ask something a yes or a no actually settles, then say how likely you think it is.",
+      placeholder: "Is the office empty?",
+      odds: [
+        { key: "nearcert", label: "Almost certainly yes" },
+        { key: "likely", label: "Probably" },
+        { key: "fifty", label: "Could go either way" },
+        { key: "unlikely", label: "Probably not" },
+        { key: "veryunl", label: "Almost certainly not" }
+      ],
+      primary: "Ask"
+    },
+    ended: {
+      say: "Scene done. Ready for the next one?",
+      why: "The app has moved the pressure up or down depending on how that went.",
+      primary: "Next scene"
+    },
+    wrap: {
+      say: "Ready to call it a mission?",
+      why: "Ending it properly pays your agent: experience, reputation, and the right to improve a skill.",
+      primary: "End the mission"
+    },
+    done: {
+      say: "Mission closed and paid.",
+      why: "Your agent keeps everything they earned. Start another whenever you like.",
+      primary: "Start another mission",
+      secondary: "Spend the experience"
+    }
+  },
+
+  /** Said once, after the briefing lands, so the player knows what they are doing. */
+  briefingSaid: [
+    "That is your mission. It is on the Solo screen under Mission briefing if you want to read it again.",
+    "Now play it out one scene at a time. The app will keep telling you what to do."
+  ],
+
+  /** What the app says after each kind of result, so a roll always points somewhere. */
+  after: {
+    yes: "That is a yes. Play it as true and carry on.",
+    no: "That is a no. Something else has to happen — try another way.",
+    exceptionalYes: "A big yes: more than you asked for.",
+    exceptionalNo: "A hard no, and something about the situation is worse than you thought.",
+    roll: "That is how well it went. Read the result and say what happens.",
+    idea: "Read those two words as whatever fits the moment. First thing that comes to mind is the right one."
+  }
+};
+
 /* ================================================================ the play guide */
 
 /**

@@ -70,7 +70,7 @@ export function renderHome(host) {
   quick.appendChild(tile("Combat", "Declaration and action order", () => navigate("combat")));
   quick.appendChild(tile("Rules", "Searchable reference", () => navigate("rules")));
   quick.appendChild(tile("Roll log", "Re-derive any roll", () => navigate("log")));
-  quick.appendChild(tile("How to play", "Start a game, keep it going, end it well", () => navigate("play")));
+  quick.appendChild(tile("Play", "The app walks you through it, one step at a time", () => navigate("play")));
   quick.appendChild(tile("Tutorial", "One mission played, start to finish", () => navigate("tutorial")));
   // The Solo tile is here whether or not the toggle is on: a screen you have to know about
   // before you can find it is a screen a new player never finds (N1).

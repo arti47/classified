@@ -30,6 +30,7 @@ const APP_SHELL = [
   "./src/combat.js",
   "./src/gm.js",
   "./src/solo.js",
+  "./src/coach.js",
   "./src/help.js",
   "./src/screens.js",
   "./src/router.js"

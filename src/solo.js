@@ -95,6 +95,7 @@ export function renderSolo(host) {
   }
 
   appendHeader(host, adv);
+  appendCoach(host);
   appendHelp(host, "solo", {
     actions: [{ label: "Open the tutorial", onClick: () => import("./router.js").then(m => m.navigate("tutorial")) }]
   });
@@ -140,6 +141,18 @@ function section(title, sub) {
 }
 
 /* ---------------------------------------------------------------- header */
+
+/**
+ * The guided player, at the top of the screen it guides. Dynamically imported so the Mythic
+ * layer keeps no static dependency on the conductor that drives it, and skipped when the
+ * player has switched the how-to copy off — at that point they know where they are.
+ */
+function appendCoach(host) {
+  if (!Settings.showHelp()) return;
+  const slot = el("div", { class: "coach-slot" });
+  host.appendChild(slot);
+  import("./coach.js").then(m => m.renderCoach(slot, { compact: true }));
+}
 
 function appendHeader(host, adv) {
   const card = el("div", { class: "card" });
@@ -856,6 +869,78 @@ export async function openBriefing(adv) {
   }
 }
 
+/**
+ * Roll and commit the whole briefing without a dialog, and hand back what it says in plain
+ * words. This is what the guided player calls: somebody who will not read a manual will not
+ * fill in a seven-row form either, and every row is rewritable afterwards from the pinned
+ * accordion, so nothing is lost by rolling it all now.
+ */
+export async function autoBriefing(adv) {
+  const state = {};
+  let npc = null;
+
+  for (const row of S.BRIEFING_ROWS) {
+    if (row.npc) {
+      npc = await generateOpponent();
+      state[row.key] = { text: npc.name, words: npc.identityWords || [], rolls: npc.identityRolls || [] };
+      continue;
+    }
+    if (row.hidden) {
+      const r = await soloD100("Hidden truth d100");
+      const hit = S.hiddenTruth(r);
+      state[row.key] = { text: hit.text, words: [], rolls: [r] };
+      continue;
+    }
+    const pair = await rollPair(row.table);
+    state[row.key] = {
+      text: pair.words.join(row.join || " · "), words: pair.words, rolls: pair.rolls
+    };
+  }
+
+  save(a => {
+    a.briefing = { rows: state, npc, writtenAt: Date.now(), seededIds: [] };
+    if (state.codename.text && /^untitled/i.test(a.name || "")) a.name = state.codename.text;
+
+    for (const row of S.BRIEFING_ROWS) {
+      if (!row.seeds) continue;
+      const text = row.npc ? (npc ? (npc.alias || npc.name) : "") : state[row.key].text;
+      if (!text) continue;
+      const list = (a[row.seeds] = a[row.seeds] || []);
+      if (list.length >= S.LIST_SLOTS || list.some(i => i.text === text)) continue;
+      const entry = { id: uid("li"), text, weight: 1 };
+      list.push(entry);
+      a.briefing.seededIds.push(entry.id);
+    }
+
+    a.scenePhase = "setup";
+    journal(a, "note", `Mission briefing: ${state.objective.text}`,
+      [state.genre.text, state.cover.text].filter(Boolean).join(" · "));
+
+    const hiddenSubject = state.hidden.rolls.length ? S.hiddenTruth(state.hidden.rolls[0]).subject : null;
+    if (hiddenSubject && S.MYSTERY_SUBJECT_BY_KEY[hiddenSubject]) {
+      const source = hiddenSubject === "opponent"
+        ? (npc ? (npc.alias || npc.name) : "The primary opponent")
+        : (state[hiddenSubject] && state[hiddenSubject].text) || S.MYSTERY_SUBJECT_BY_KEY[hiddenSubject].name;
+      (a.mysteries = a.mysteries || []).push({
+        id: uid("mys"), subject: hiddenSubject, label: source, sourceId: null,
+        clues: 0, clueLog: [], misses: 0, lastScene: a.scene || 1,
+        createdAt: Date.now(), revealedAt: null, reveal: null
+      });
+      journal(a, "note", `Mystery opened: ${source}`, state.hidden.text);
+    }
+  });
+
+  return {
+    codename: state.codename.text,
+    objective: state.objective.text,
+    complication: state.complication.text,
+    cover: state.cover.text,
+    intel: state.intel.text,
+    opponent: npc ? npc.name : "",
+    hidden: state.hidden.rolls.length ? S.hiddenTruth(state.hidden.rolls[0]) : null
+  };
+}
+
 /* ---------------------------------------------------------------- in play */
 
 /**
@@ -1083,18 +1168,23 @@ export async function askFate(adv, oddsKey, question) {
  * only marked as in play once that has resolved, so the screen never claims a scene is
  * running before it is.
  */
-export async function startScene(adv) {
-  const input = el("input", { type: "text", placeholder: "The safe house, to warn the courier" });
-  const body = el("div", {},
-    el("label", { class: "field" },
-      el("span", { text: `What do you expect scene ${adv.scene} to be?` }), input),
-    el("p", { class: "small muted", text:
-      `A d10 over ${adv.chaos} plays it as you expect. At or under, an odd roll alters the scene and an even roll interrupts it with a Random Event.` }));
+export async function startScene(adv, opts = {}) {
+  let expected = typeof opts.expected === "string" ? opts.expected.trim() : null;
 
-  const go = await confirmModal(body, { title: `Start scene ${adv.scene}`, okLabel: "Test the scene" });
-  if (!go) return;
+  // The guided player has already asked what you are about to do, so it hands the answer in
+  // rather than making the same question appear twice in a row.
+  if (expected === null) {
+    const input = el("input", { type: "text", placeholder: "The safe house, to warn the courier" });
+    const body = el("div", {},
+      el("label", { class: "field" },
+        el("span", { text: `What do you expect scene ${adv.scene} to be?` }), input),
+      el("p", { class: "small muted", text:
+        `A d10 over ${adv.chaos} plays it as you expect. At or under, an odd roll alters the scene and an even roll interrupts it with a Random Event.` }));
 
-  const expected = input.value.trim();
+    const go = await confirmModal(body, { title: `Start scene ${adv.scene}`, okLabel: "Test the scene" });
+    if (!go) return;
+    expected = input.value.trim();
+  }
   const roll = await soloD10("scene test d10");
   const res = S.sceneTest(roll, adv.chaos);
 

@@ -574,3 +574,11 @@ details.acc > .acc-body { padding: 0 var(--pad) var(--pad); }
 .guide-step.is-done { opacity: .62; }
 .guide-tick { width: 16px; color: var(--ok); font-weight: 700; flex: none; }
 .next-step { border-color: var(--stamp); border-left-width: 3px; }
+
+/* The guided player: one instruction, one button. It has to read as the app talking to you,
+   so it is the only card with the stamp colour on its edge and the largest type on the screen. */
+.coach { border-left: 3px solid var(--stamp); }
+.coach-say { font-size: 18px; margin: 0; }
+.coach.is-compact .coach-say { font-size: 16px; }
+.coach .opt-btn { margin-bottom: 8px; }
+.coach-go { margin-top: 10px; }

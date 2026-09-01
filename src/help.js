@@ -185,6 +185,22 @@ export function renderPlayGuide(host, opts = {}) {
   const solo = Settings.solo();
   const track = solo ? PLAY_GUIDE.solo : PLAY_GUIDE.table;
 
+  // The guided player comes first and takes the whole screen for somebody who just wants to
+  // play. The written guide underneath is for the player who wants to know why. The slot is
+  // captured rather than looked up later: `host` is reassigned below, and a promise that
+  // resolves after that would search the wrong element.
+  const coachSlot = el("div", { class: "coach-slot" });
+  host.appendChild(coachSlot);
+  import("./coach.js").then(m => m.renderCoach(coachSlot));
+
+  const acc = el("details", { class: "acc" }, el("summary", {},
+    el("span", { text: "How a game works" }),
+    el("span", { class: "small muted", text: "the whole arc" })));
+  const guide = el("div", { class: "acc-body", style: "padding:0" });
+  acc.appendChild(guide);
+  host.appendChild(acc);
+  host = guide;
+
   host.appendChild(el("div", { class: "card" },
     el("h1", { text: "How to play" }),
     ...PLAY_GUIDE.intro.map(t => el("p", { class: "small muted", text: t }))));

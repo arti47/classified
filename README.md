@@ -62,7 +62,12 @@ fully offline after the first load.
   actually has — combat, wounds, chases, reactions, interrogation, social play, the world
   around them, and the shape of the story. Fate never replaces a Classified roll — it settles
   what is true, and you still roll skills the ordinary way.
-- **How to play** — a guide at Home → How to play that answers the only question a new
+- **Play** — Home → Play hands the whole game to the app: it makes you an agent, writes the
+  mission, and then tells you the single next thing to do, one button at a time, all the way to
+  a closed mission. Inside a scene it reduces the system to three choices — my agent tries
+  something, I need to know if something is true, I am stuck — and picks the right procedure
+  for you. Nothing to read first.
+- **How a game works** — a guide under the Play screen that answers the only question a new
   player has: what do I do next in my own game. Three acts — start a game, keep it going, end
   it well — that tick themselves off as you play, with the next step pulled to the top and the
   scene loop written out. It knows whether you are playing solo or with a group, because the

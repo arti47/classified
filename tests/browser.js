@@ -2367,6 +2367,118 @@ export async function browserTests(t, { chromium, executablePath, baseURL }) {
       });
       t.ok(themed, "the theme toggle overrides the system preference");
 
+      // The guided player: a whole mission driven from the coach card and nothing else.
+      const coached = await page.evaluate(async () => {
+        const Store = await import("./src/store.js");
+        const S = await import("./src/settings.js");
+        const UI = await import("./src/ui.js");
+        UI.closeAllModals();
+        await new Promise(r => setTimeout(r, 150));
+
+        // A device that looks empty to the coach, without destroying what the rest of the
+        // suite is standing on: the beat is derived from what is *active*, so unsetting is
+        // enough and nothing else has to be deleted.
+        // activeAdventure() falls back to the first record rather than stranding a player,
+        // so the only way to look like a device that has never played is to have none. This
+        // block runs last for exactly that reason.
+        for (const a of Store.soloAdventures()) Store.deleteAdventure(a.id);
+        const keep = Store.allCharacters().map(c => c.id);
+        Store.setActive(null);
+        S.set("solo", false);
+        S.set("showHelp", true);
+
+        const go = async () => {
+          location.hash = "#/home"; await new Promise(r => setTimeout(r, 90));
+          location.hash = "#/play"; await new Promise(r => setTimeout(r, 350));
+          return document.getElementById("screen");
+        };
+        const coach = () => document.querySelector(".coach");
+        const says = () => { const c = coach(); return c ? c.querySelector(".coach-say").textContent : ""; };
+        const tap = async label => {
+          const btn = [...coach().querySelectorAll("button")].find(b => b.textContent.includes(label));
+          if (!btn) return false;
+          btn.click();
+          await new Promise(r => setTimeout(r, 400));
+          return true;
+        };
+        const clearModals = async () => {
+          for (let i = 0; i < 10 && document.querySelector(".modal"); i++) {
+            const m = document.querySelector(".modal");
+            const btn = [...m.querySelectorAll(".modal-foot .btn")].pop();
+            if (btn) btn.click(); else break;
+            await new Promise(r => setTimeout(r, 120));
+          }
+        };
+
+        await go();
+        const step1 = says();
+        const madeAgent = await tap("ready-made agent");
+        await new Promise(r => setTimeout(r, 300));
+        const hasCharacter = !!Store.activeCharacter();
+
+        await go();
+        const step2 = says();
+        await tap("Start a mission");
+        await new Promise(r => setTimeout(r, 900));
+        const briefed = !!(Store.activeAdventure() && Store.activeAdventure().briefing);
+        const soloOn = S.Settings.solo();
+        const briefingShown = document.querySelector(".modal")
+          ? /What you are after/.test(document.querySelector(".modal").textContent) : false;
+        await clearModals();
+
+        await go();
+        const step3 = says();
+        const field = coach().querySelector('input[type="text"]');
+        const asksWhat = !!field;
+        if (field) { field.value = "Search the freight office after dark"; }
+        await tap("Go");
+        await new Promise(r => setTimeout(r, 500));
+        await clearModals();                       // the scene-test chain ends on Play scene
+        await new Promise(r => setTimeout(r, 250));
+
+        await go();
+        const live = Store.activeAdventure();
+        const inPlay = !!live && live.scenePhase === "play";
+        const step4 = says();
+        const options = [...coach().querySelectorAll(".opt-btn")].map(b => b.textContent);
+
+        await tap("Finish this scene");
+        await new Promise(r => setTimeout(r, 400));
+        await clearModals();                       // the End Scene dialog, taken as it stands
+        await new Promise(r => setTimeout(r, 300));
+
+        await go();
+        const step5 = says();
+        const now = Store.activeAdventure();
+        const scene = now ? now.scene : 0;
+
+        for (const c of Store.allCharacters()) if (!keep.includes(c.id)) Store.deleteCharacter(c.id);
+        if (keep.length) Store.setActive(keep[0]);
+        UI.closeAllModals();
+        return {
+          step1, madeAgent, hasCharacter,
+          step2, soloOn, briefed, briefingShown,
+          step3, asksWhat, inPlay, step4, options, step5, scene
+        };
+      });
+      t.ok(/agent to play/i.test(coached.step1), "with nothing on the device the coach asks for an agent");
+      t.ok(coached.madeAgent && coached.hasCharacter, "and one tap makes a playable one");
+      t.ok(/mission/i.test(coached.step2), "then it offers a mission");
+      t.ok(coached.soloOn, "turning on solo play itself rather than asking the player to find the toggle");
+      t.ok(coached.briefed, "and rolling the whole briefing in that one tap");
+      t.ok(coached.briefingShown, "which it reads back in plain words, not table names");
+      t.ok(/what you are about to do/i.test(coached.step3) && coached.asksWhat,
+        "then it asks what you are about to do, in a field on the card");
+      t.ok(coached.inPlay, "and opens the scene");
+      t.eq(coached.options.length, 3, "a scene offers three plain choices and nothing else");
+      t.ok(coached.options.some(o => /tries something/i.test(o)) &&
+           coached.options.some(o => /true/i.test(o)) &&
+           coached.options.some(o => /stuck/i.test(o)),
+        "do something, find out if something is true, or ask for an idea");
+      t.eq(coached.scene, 2, "finishing the scene moves the mission on");
+      t.ok(/next one|what now/i.test(coached.step5), "and the coach asks for the next scene");
+
+
       t.eq(errors.length, 0, "zero JavaScript errors during the whole run" +
         (errors.length ? `: ${errors.slice(0, 3).join(" | ")}` : ""));
 
