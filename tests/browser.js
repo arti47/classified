@@ -92,12 +92,30 @@ export async function browserTests(t, { chromium, executablePath, baseURL }) {
         location.hash = "#/home";
         await new Promise(r => setTimeout(r, 150));
         out.combatCard = hadFight === !!document.querySelector(".desk .combat-card");
+        // The sheet's meters are pictures of the printed numbers, so each must agree with its
+        // number: a characteristic's bar is its share of 15, a Base Chance box its share of 30.
+        location.hash = "#/sheet";
+        await new Promise(r => setTimeout(r, 250));
+        out.meters = [...document.querySelectorAll(".grid-5 .stat-box")].every(b => {
+          const v = Number(b.querySelector(".v").textContent);
+          const w = parseFloat(b.querySelector(".meter-fill").style.width);
+          return Math.abs(w - v / 15 * 100) < 0.2;
+        });
+        const boxes = [...document.querySelectorAll(".skill-row .b")].filter(b => /^\d+$/.test(b.textContent));
+        out.fills = boxes.length > 0 && boxes.every(b => {
+          const f = parseFloat(b.style.getPropertyValue("--fill"));
+          return Math.abs(f - Math.round(Math.min(1, Number(b.textContent) / 30) * 100)) < 1;
+        });
+        out.track = !!document.querySelector(".dossier-head .wound-track");
         if (created) Store.deleteCharacter(created.id);
         return out;
       });
       t.ok(desk.agent && desk.open, "Home's agent card carries the wound track and a real Open button");
       t.ok(desk.toSheet, "and opening it lands on the sheet");
       t.ok(desk.combatCard, "a combat card is on the desk exactly when an encounter is running");
+      t.ok(desk.meters, "every characteristic's bar is its value's share of 15");
+      t.ok(desk.fills, "every Base Chance box is filled to its share of the cap of 30");
+      t.ok(desk.track, "the dossier head carries the wound track");
 
       // Every Home tile carries an icon, and the icon adds no text to the tile's name.
       await page.evaluate(() => { location.hash = "#/home"; });

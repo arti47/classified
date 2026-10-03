@@ -72,6 +72,16 @@ export function icon(key) {
   return svg;
 }
 
+/* ---------------------------------------------------------------- meters */
+
+/* A number already printed beside it, drawn to scale: `fraction` of 0–1. Decoration only
+ * (aria-hidden), so it never becomes a second source for the number. */
+export function meter(fraction, kind = "") {
+  const f = Math.max(0, Math.min(1, Number(fraction) || 0));
+  return el("span", { class: "meter" + (kind ? " " + kind : ""), "aria-hidden": "true" },
+    el("span", { class: "meter-fill", style: `width:${(f * 100).toFixed(1)}%` }));
+}
+
 /* ---------------------------------------------------------------- dice */
 
 export function d100() { return 1 + Math.floor(Math.random() * 100); }

@@ -1175,3 +1175,35 @@ details.acc.help-acc { margin-bottom: 12px; }
 .wt-seg { flex: 1 1 0; height: 7px; border-radius: 2px; background: var(--rule); }
 .wt-seg.on { background: color-mix(in srgb, var(--danger) 55%, var(--paper-2)); }
 .wt-seg.on.is-now, .wound-track.is-dead .wt-seg { background: var(--danger); }
+
+/* ---------------------------------------------------------------- meters */
+
+.meter { display: block; height: 5px; border-radius: 3px; background: var(--rule); overflow: hidden; margin: 6px 0 4px; }
+.meter-fill { display: block; height: 100%; border-radius: 3px; background: var(--ink-2); transition: width .4s var(--ease); }
+.stat-box .meter { margin: 2px 8px 6px; }
+.stat-box .meter-fill { background: var(--stamp); }
+.meter.carry { height: 10px; margin-top: 12px; border-radius: 5px; box-shadow: inset 0 1px 2px rgba(0,0,0,.18); }
+.meter.carry .meter-fill { background: var(--ok); }
+.meter.carry.is-over .meter-fill { background: var(--danger); }
+.meter.afford { max-width: 180px; height: 4px; margin: 6px 0 2px; }
+.meter.afford .meter-fill { background: var(--warn); }
+.meter.afford.is-full .meter-fill { background: var(--ok); }
+
+/* Base Chance boxes fill from the bottom to their share of the cap of 30. */
+.skill-row .b {
+  background: linear-gradient(to top, color-mix(in srgb, var(--stamp) 22%, var(--paper-3)) var(--fill, 0%), var(--paper-3) var(--fill, 0%));
+}
+.skill-row.untrained .b { background: linear-gradient(to top, color-mix(in srgb, var(--ink-3) 14%, transparent) var(--fill, 0%), transparent var(--fill, 0%)); }
+
+/* The sheet head's wound line: the name, then the ladder it sits on. */
+.head-wound { display: flex; align-items: center; gap: 10px; margin-top: 8px; }
+.head-wound .wound-track { flex: 1 1 auto; margin: 0; }
+
+/* Reputation bands: the table's four bands as a strip, the standing one lit. */
+.rep-bands { display: flex; gap: 3px; margin-top: 10px; max-width: 360px; }
+.rep-bands .rb { flex: 1 1 0; display: flex; flex-direction: column; gap: 4px; min-width: 0; }
+.rep-bands .rb-bar { height: 7px; border-radius: 2px; background: var(--rule); }
+.rep-bands .rb.past .rb-bar { background: color-mix(in srgb, var(--warn) 45%, var(--paper-2)); }
+.rep-bands .rb.on .rb-bar { background: var(--warn); }
+.rep-bands .rb-l { font: 600 9px/1.1 var(--mono); letter-spacing: .04em; color: var(--ink-3); text-align: center; }
+.rep-bands .rb.on .rb-l { color: var(--ink); }

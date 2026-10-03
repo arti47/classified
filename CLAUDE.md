@@ -769,6 +769,12 @@ layer carries the flag rather than the UI.
   encounter in progress (round, phase, combatants) into Combat. The whole card takes the tap
   and its Open button is the keyboard's way in. `woundTrack()` in `screens.js` draws the
   Stun-to-Incapacitated ladder from `WOUND_LEVELS`, beside the wound's printed name.
+- **Numbers drawn to scale.** Each meter is a picture of a number printed beside it, never a
+  second source for it, and `aria-hidden`: a characteristic's bar is its share of
+  `CHARACTERISTIC_MAX`; a Base Chance box fills from the bottom to its share of
+  `MAX_BASE_CHANCE`; carried weight against Carrying Capacity on Gear, red past the limit;
+  unspent experience against each raise's cost on Advancement; the Reputation Table's four
+  bands with the standing one lit; and the wound track on the dossier head.
 - **Folders.** Screens that belong together share a divider strip under the header
   (`#subNav`): the **Dossier** folder is Sheet · Gear · Advance · Log, the **Library** folder is
   Rules · How to play · Tutorial plus a Glossary action. The bottom tab that owns a folder is
@@ -808,7 +814,7 @@ No `data-<expansion>.js` — no expansions were supplied.
 
 | Module | Responsibility |
 |---|---|
-| `core.js` | Constants, DOM helpers, raw dice, formatting, and the stroke-icon set (`icon()`). **No imports.** |
+| `core.js` | Constants, DOM helpers, raw dice, formatting, the stroke-icon set (`icon()`) and the decorative `meter()`. **No imports.** |
 | `ui.js` | Themed modal, toast, confirm, prompt, chooser |
 | `rules.js` | Pure rules lookups over the data libraries. No DOM, no state. |
 | `derived.js` | Character-derived calculation, normalization, migration, validation |
@@ -1391,3 +1397,4 @@ tables are this app's own work and are marked as such (S6).
 | 2026-10-03 | UX/UI round 6 of 6 — final sweep: resource-strip cells sized by the length of what they show, narrow-phone tracking for the tab labels and header, and a rules-fidelity audit of the six rounds | Stress-run at 320 and 360px with a wound, a standing condition, Reputation 345, 12,500 experience and $1,250,000: the strip held its width but clipped the two large values, and SETTINGS and the screen title truncated at 320px. Fidelity: `git diff` from before round 1 shows no change to any `data*.js`, `rules.js`, `derived.js`, `store.js` or fixture, and the only logic added to `roller.js` draws bands it is handed | 1311 checks green, including no chip value clipped with $1,250,000 standing. axe-core clean on every route and the roll dialogs in both themes bar the documented `meta-viewport`; zero overflow at 320, 360, 390, 768 and 1280px; zero console errors | `classified-v39` |
 | 2026-10-03 | Second UX series, round 1 of 6 — folders: a divider strip under the header joins Sheet, Gear, Advancement and the Roll log as the Dossier, and Rules, How to play and the Tutorial (plus a Glossary action) as the Library; the owning bottom tab stays lit across its folder; Gear and Advance icons added to the set | Asked whether every part that should be linked is. Three screens with no tab — Gear, Advancement, the log — were reachable only through the $ and XP chips and a Home tile, and How to play and the Tutorial only from Home, so moving between neighbours meant going back to Home | 1319 checks green, including both strips' tabs and current marks on every screen in them, the owning tab lit as the location, the Glossary action present, and no strip outside a folder | `classified-v40` |
 | 2026-10-03 | Second UX series, round 2 of 6 — Home as a briefing desk: an agent ID card with photograph and wound track, a live mission card with the Chaos gauge when solo is on, a live encounter card with round, phase and combatants, each opening its screen | Home showed the agent as one line and said nothing about a mission or a fight in progress, so returning to the app meant opening each tab to find where you were | 1325 checks green, including the agent card's wound track and Open button landing on the sheet, and the combat card present exactly when an encounter is running. axe clean on every route bar `meta-viewport` | `classified-v41` |
+| 2026-10-03 | Second UX series, round 3 of 6 — numbers drawn to scale: characteristic bars, Base Chance boxes filled to their share of 30, the wound track on the dossier head, a carry gauge on Gear, affordability bars on every Advancement raise, and the Reputation Table's bands as a strip | Asked for graphics that make the screens read faster. Every value on the sheet was a bare digit, so whether 12 was high, or whether a raise was nearly affordable, took arithmetic the screen could have done | 1331 checks green, including every characteristic bar matching its value over 15 and every Base Chance box its value over 30, read back from the rendered DOM. axe clean bar `meta-viewport` | `classified-v42` |

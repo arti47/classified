@@ -1,6 +1,6 @@
 /* screens.js — home, rules library, roll log, advancement, settings and about. */
 
-import { el, clear, money, signed, dfLabel, fmtDate, clamp, icon } from "./core.js";
+import { el, clear, money, signed, dfLabel, fmtDate, clamp, icon, meter } from "./core.js";
 import { modal, showToast, confirmModal, promptModal, chooseModal } from "./ui.js";
 import * as D from "../data.js";
 import * as R from "./rules.js";
@@ -31,6 +31,14 @@ export function woundTrack(key) {
       class: "wt-seg" + (dead || (now.order >= w.order && now.order > 0) ? " on" : "") + (w.key === now.key ? " is-now" : ""),
       title: w.name
     })));
+}
+
+/* The Reputation Table's bands as a strip, the standing band lit. Labels are the table's own. */
+function repBands(rep) {
+  const at = D.REPUTATION_TABLE.findIndex(r => rep <= r.max);
+  return el("span", { class: "rep-bands", "aria-hidden": "true" },
+    D.REPUTATION_TABLE.map((r, i) => el("span", { class: "rb" + (i === at ? " on" : i < at ? " past" : "") },
+      el("span", { class: "rb-bar" }), el("span", { class: "rb-l", text: r.label }))));
 }
 
 export function renderHome(host) {
@@ -755,7 +763,8 @@ export function renderAdvance(host) {
     attrSec.appendChild(el("div", { class: "card-row" },
       el("div", { class: "grow" },
         el("div", { text: `${ch.name} ${cur} → ${next}` }),
-        el("div", { class: "small muted", text: gated ? "Already raised this mission" : `${cost} experience (150 × ${next})` })),
+        el("div", { class: "small muted", text: gated ? "Already raised this mission" : `${cost} experience (150 × ${next})` }),
+        gated || next > D.CHARACTERISTIC_MAX ? null : meter(available / cost, "afford" + (available >= cost ? " is-full" : ""))),
       el("button", {
         class: "btn sm" + (canAfford && !gated ? " primary" : ""), type: "button",
         disabled: !canAfford || gated || next > D.CHARACTERISTIC_MAX,
@@ -790,7 +799,8 @@ export function renderAdvance(host) {
         el("div", { class: "small muted", text:
           atCap ? `At the cap of ${s.maxRank} — raise the underlying characteristic first`
             : gated ? "Already raised this mission"
-            : `${cost} experience (30 × ${next}) · Base Chance ${s.base} → ${Math.min(D.MAX_BASE_CHANCE, s.base + 1)}` })),
+            : `${cost} experience (30 × ${next}) · Base Chance ${s.base} → ${Math.min(D.MAX_BASE_CHANCE, s.base + 1)}` }),
+        gated || atCap ? null : meter(available / cost, "afford" + (available >= cost ? " is-full" : ""))),
       el("button", {
         class: "btn sm" + (canAfford && !gated && !atCap ? " primary" : ""), type: "button",
         disabled: !canAfford || gated || atCap,
@@ -834,7 +844,8 @@ export function renderAdvance(host) {
     el("div", { class: "row" },
       el("div", { class: "grow" },
         el("div", { class: "mono", style: "font-size:24px", text: String(c.reputation || 0) }),
-        el("div", { class: "small muted", text: D.REPUTATION_TABLE.find(r => (c.reputation || 0) <= r.max).label + " band" })),
+        el("div", { class: "small muted", text: D.REPUTATION_TABLE.find(r => (c.reputation || 0) <= r.max).label + " band" }),
+        repBands(c.reputation || 0)),
       el("button", {
         class: "btn sm", type: "button",
         disabled: available < D.REPUTATION_REDUCTION.dataScrub.xpPerPoint || (c.reputation || 0) <= 0,

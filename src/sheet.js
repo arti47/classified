@@ -1,7 +1,7 @@
 /* sheet.js — the live character sheet, in-play tracking, and the persistent
  * resource header shown on every in-play screen. */
 
-import { el, clear, $, money, signed, dfLabel, uid, percent, d100 } from "./core.js";
+import { el, clear, $, money, signed, dfLabel, uid, percent, d100, meter } from "./core.js";
 import { modal, showToast, confirmModal, promptModal, chooseModal } from "./ui.js";
 import * as D from "../data.js";
 import * as R from "./rules.js";
@@ -15,7 +15,7 @@ import {
   openRoll, openAttack, openWeaponPicker, openSkillPicker, openQuickRoll,
   applyDamageToCharacter, openTakeDamage, getD100, resolve, presentResult
 } from "./roller.js";
-import { openRulesTopic } from "./screens.js";
+import { openRulesTopic, woundTrack } from "./screens.js";
 import { navigate } from "./router.js";
 import { appendHelp } from "./help.js";
 
@@ -477,6 +477,8 @@ export function renderSheet(host) {
   const app = R.APPEARANCE_BY_KEY[c.identity.appearance];
   if (app) traits.push(app.name);
   if (traits.length) head.appendChild(el("div", { class: "small muted", text: traits.join(" · ") }));
+  head.appendChild(el("div", { class: "head-wound" },
+    el("span", { class: "small", text: R.woundLevel(c.state.wound).name }), woundTrack(c.state.wound)));
   if (c.identity.cover) head.appendChild(el("div", { class: "small", style: "margin-top:6px" },
     el("b", { text: "Cover: " }), c.identity.cover));
   host.appendChild(head);
@@ -509,6 +511,7 @@ export function renderSheet(host) {
     },
       el("div", { class: "k", text: ch.abbr }),
       el("div", { class: "v", text: String(c.attributes[ch.key]) }),
+      meter(c.attributes[ch.key] / D.CHARACTERISTIC_MAX),
       el("div", { class: "s", text: ch.name })
     ));
   }
@@ -543,7 +546,7 @@ export function renderSheet(host) {
     },
       el("span", { class: "n", text: a.name }),
       el("span", { class: "r", text: "Ability" }),
-      el("span", { class: "b", text: String(a.base) })
+      el("span", { class: "b", style: bcFill(a.base), text: String(a.base) })
     ));
   }
   abSection.appendChild(abCard);
@@ -573,7 +576,7 @@ export function renderSheet(host) {
       },
         el("span", { class: "n", text: r.name + (r.gmRolled ? " ⃰" : "") }),
         el("span", { class: "r", text: r.trained ? `rank ${r.rank}/${r.maxRank}` : "untrained −3 DF" }),
-        el("span", { class: "b", text: String(r.base) })
+        el("span", { class: "b", style: bcFill(r.base), text: String(r.base) })
       ));
     }
     acc.appendChild(bodyEl);
@@ -675,6 +678,11 @@ export function renderSheet(host) {
   ));
 }
 
+/* A Base Chance box filled from the bottom to its share of the 30 cap. */
+function bcFill(base) {
+  return `--fill:${Math.round(Math.max(0, Math.min(1, base / D.MAX_BASE_CHANCE)) * 100)}%`;
+}
+
 function section(title, sub) {
   const s = el("div", { class: "section" });
   s.appendChild(el("div", { class: "section-head" }, el("div", { class: "section-title", text: title })));
@@ -743,6 +751,7 @@ export function renderGear(host) {
       el("span", { class: "pill " + (dv.carriedWeight > dv.carryMax ? "q5" : "q1"),
         text: dv.carriedWeight > dv.carryMax ? "Over limit" : "Within limit" })
     ),
+    meter(dv.carryMax ? dv.carriedWeight / dv.carryMax : 0, "carry" + (dv.carriedWeight > dv.carryMax ? " is-over" : "")),
     el("p", { class: "small muted", style: "margin-top:8px", text:
       `Strength ${c.attributes.str} allows ${dv.carryRange} carried for ${c.attributes.wil} minutes. Beyond that, ${D.EXHAUSTION_DF_PENALTY} Difficulty Factor on everything until 15 minutes of rest.` })
   );
