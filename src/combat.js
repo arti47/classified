@@ -107,7 +107,14 @@ function combatantCard(cb, state, host) {
   const card = el("div", { class: "combatant" + (cb.acted ? " acted" : "") });
 
   card.appendChild(el("div", { class: "c-head" },
-    el("span", { class: "c-name", text: cb.name }),
+    // A combatant who is a dossier on this device names it as a link: the sheet is where their
+    // wounds, gear and every roll live, and the tracker is only the fight.
+    cb.characterId && Store.getCharacter(cb.characterId)
+      ? el("button", { class: "c-name c-link", type: "button", onclick: () => {
+          Store.setActive(cb.characterId);
+          import("./router.js").then(m => m.navigate("sheet"));
+        } }, cb.name)
+      : el("span", { class: "c-name", text: cb.name }),
     el("span", { class: "pill neutral", text: "Speed " + cb.speed }),
     wound.key !== "none" ? el("span", { class: "pill q5", text: wound.name }) : null
   ));

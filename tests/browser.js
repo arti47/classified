@@ -107,6 +107,14 @@ export async function browserTests(t, { chromium, executablePath, baseURL }) {
           return Math.abs(f - Math.round(Math.min(1, Number(b.textContent) / 30) * 100)) < 1;
         });
         out.track = !!document.querySelector(".dossier-head .wound-track");
+        // The GM's party peek opens the dossier it summarises.
+        location.hash = "#/gm";
+        await new Promise(r => setTimeout(r, 250));
+        document.querySelector("#screen .card.flush .skill-row")?.click();
+        await new Promise(r => setTimeout(r, 250));
+        [...document.querySelectorAll(".modal-foot .btn")].find(b => b.textContent.trim() === "Open")?.click();
+        await new Promise(r => setTimeout(r, 250));
+        out.peekOpens = location.hash === "#/sheet";
         if (created) Store.deleteCharacter(created.id);
         return out;
       });
@@ -116,6 +124,7 @@ export async function browserTests(t, { chromium, executablePath, baseURL }) {
       t.ok(desk.meters, "every characteristic's bar is its value's share of 15");
       t.ok(desk.fills, "every Base Chance box is filled to its share of the cap of 30");
       t.ok(desk.track, "the dossier head carries the wound track");
+      t.ok(desk.peekOpens, "the GM party peek opens the dossier it summarises");
 
       // Every Home tile carries an icon, and the icon adds no text to the tile's name.
       await page.evaluate(() => { location.hash = "#/home"; });
@@ -377,6 +386,32 @@ export async function browserTests(t, { chromium, executablePath, baseURL }) {
           })()
         };
       });
+      // Cross-links from the Solo screen: the linked dossier's name leads to its sheet, and
+      // the reference list carries the Rules library whose tab Solo has taken.
+      const soloLinks = await page.evaluate(async () => {
+        const out = { name: !!document.querySelector("#screen .solo-header .link-btn"),
+          rules: [...document.querySelectorAll("#screen .skill-row")].some(b => b.textContent.trim() === "Rules") };
+        document.querySelector("#screen .solo-header .link-btn")?.click();
+        await new Promise(r => setTimeout(r, 300));
+        out.toSheet = location.hash === "#/sheet";
+        // The derived Speed box opens the Speed panel; Carry leads to Gear.
+        const speed = [...document.querySelectorAll("#screen button.stat-box")].find(b => /Speed/i.test(b.querySelector(".k").textContent));
+        speed?.click();
+        await new Promise(r => setTimeout(r, 250));
+        out.speedPanel = !!document.querySelector(".modal");
+        document.querySelectorAll(".modal-head .icon-btn").forEach(b => b.click());
+        await new Promise(r => setTimeout(r, 150));
+        const carry = [...document.querySelectorAll("#screen button.stat-box")].find(b => /Carry/i.test(b.querySelector(".k").textContent));
+        carry?.click();
+        await new Promise(r => setTimeout(r, 250));
+        out.toGear = location.hash === "#/gear";
+        location.hash = "#/solo";
+        await new Promise(r => setTimeout(r, 300));
+        return out;
+      });
+      t.ok(soloLinks.name && soloLinks.toSheet, "the Solo header's linked dossier name opens that dossier's sheet");
+      t.ok(soloLinks.rules, "the Solo reference carries the Rules library, whose tab Solo has taken");
+      t.ok(soloLinks.speedPanel && soloLinks.toGear, "the sheet's derived Speed opens its panel and Carry opens Gear");
       t.ok(startFlow.gauge.length === 9 && startFlow.gauge.filter(Boolean).length === startFlow.chaos,
         "the Chaos gauge has nine cells and lights exactly the Chaos Factor");
       t.ok(startFlow.order, "the solo loop sits before the lists and journal, so a phone reads it in play order");

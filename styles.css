@@ -1225,3 +1225,14 @@ details.acc.help-acc { margin-bottom: 12px; }
 .solo-header { overflow: hidden; }
 .solo-header > :not(.watermark), .cover-card > :not(.watermark) { position: relative; }
 .cover-card .watermark { right: -10px; bottom: -40px; width: 150px; height: 150px; }
+
+/* An inline name that leads to its dossier: underlined text, not a button-shaped box. */
+.link-btn, .combatant .c-link {
+  appearance: none; background: none; border: 0; padding: 0; margin: 0; cursor: pointer;
+  color: inherit; text-align: left; text-decoration: underline; text-decoration-style: dotted;
+  text-decoration-color: var(--rule-2); text-underline-offset: 4px;
+}
+.link-btn { font: inherit; font-weight: 600; color: var(--ink-2); }
+.link-btn:hover, .combatant .c-link:hover { text-decoration-style: solid; text-decoration-color: var(--stamp); color: var(--ink); }
+.banner-btn { display: block; width: 100%; text-align: left; font: inherit; font-size: 13.5px; color: inherit; cursor: pointer; }
+.banner-btn:hover { box-shadow: var(--shadow-2); }

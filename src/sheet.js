@@ -346,8 +346,9 @@ async function rollDraw(c) {
   });
 }
 
-function stat(k, v, s) {
-  return el("div", { class: "stat-box" },
+function stat(k, v, s, onclick) {
+  // A derived stat with somewhere to go is a button, like a resource chip (F3).
+  return el(onclick ? "button" : "div", { class: "stat-box" + (onclick ? " clickable" : ""), type: onclick ? "button" : null, onclick: onclick || null },
     el("div", { class: "k", text: k }),
     el("div", { class: "v", text: String(v) }),
     s ? el("div", { class: "s", text: s }) : null);
@@ -521,9 +522,9 @@ export function renderSheet(host) {
   // Derived
   const derSection = section("Derived");
   derSection.appendChild(el("div", { class: "grid grid-3" },
-    stat("Speed", dv.speed, "PER + DEX"),
+    stat("Speed", dv.speed, "PER + DEX", () => openSpeedPanel(c)),
     stat("H-to-H", dv.hthDamage, "Damage Rank"),
-    stat("Carry", dv.carryRange, `for ${c.attributes.wil} min`),
+    stat("Carry", dv.carryRange, `for ${c.attributes.wil} min`, () => navigate("gear")),
     stat("Run/Swim", dv.runSwim + " min", "at maximum"),
     stat("Stamina", dv.stamina + " hr", "before exhaustion"),
     stat("Draw", signed(dv.drawBonus), "Draw Situation")

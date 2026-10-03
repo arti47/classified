@@ -170,8 +170,14 @@ function appendHeader(host, adv) {
     el("div", { class: "grow" },
       el("h1", { text: adv.name || "Untitled adventure" }),
       // Unlinked, the line is the control that fixes it rather than a note about it (N10).
+      // Linked, the dossier's name is the way to its sheet: the agent the oracle is answering for.
       linked
-        ? el("div", { class: "small muted", text: linkLabel(adv) })
+        ? el("div", { class: "small muted" },
+            el("button", { class: "link-btn", type: "button", onclick: () => {
+              Store.setActive(linked.id);
+              import("./router.js").then(m => m.navigate("sheet"));
+            } }, linked.identity.name || "an unnamed operative"),
+            ` · ${adv.fateMode === "check" ? "Fate Check" : "Fate Chart"}`)
         : el("div", { class: "row tight" },
             el("button", { class: "btn sm ghost", type: "button", onclick: () => linkDossier() }, "Link a dossier"),
             el("span", { class: "small muted", text: adv.fateMode === "check" ? "Fate Check" : "Fate Chart" }))),
@@ -219,12 +225,6 @@ function appendHeader(host, adv) {
 function count(list, noun) {
   const n = (list || []).length;
   return `${n} ${noun}${n === 1 ? "" : "s"}`;
-}
-
-function linkLabel(adv) {
-  const linked = adv.characterId ? Store.getCharacter(adv.characterId) : null;
-  const who = linked ? (linked.identity.name || "an unnamed operative") : "no dossier linked";
-  return `${who} · ${adv.fateMode === "check" ? "Fate Check" : "Fate Chart"}`;
 }
 
 async function openAdventureMenu(host) {
@@ -2581,6 +2581,11 @@ function appendTopics(host) {
     el("span", { class: "n", text: "Scene Adjustment table" })));
   // Two systems' vocabulary meet on this screen, which is where a new player most needs it (N7).
   card.appendChild(glossaryRow());
+  // Solo takes the Rules tab's slot, so the Classified library is linked from the reference it
+  // stands beside rather than left to the Home tile alone.
+  card.appendChild(el("button", { class: "skill-row", type: "button",
+    onclick: () => import("./router.js").then(m => m.navigate("rules")) },
+    el("span", { class: "n", text: "Rules" })));
 
   host.appendChild(sec);
 }

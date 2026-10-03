@@ -5,6 +5,7 @@ import { modal, showToast, chooseModal, promptModal } from "./ui.js";
 import * as D from "../data.js";
 import * as R from "./rules.js";
 import * as Store from "./store.js";
+import { navigate } from "./router.js";
 import * as Sync from "./sync.js";
 import { derived, conditionSummary } from "./derived.js";
 import { generateNPC, showNPC } from "./combat.js";
@@ -133,7 +134,11 @@ function peekCharacter(c) {
       text: "Fields of Experience: " + c.foe.map(k => R.FOE_BY_KEY[k]?.name).filter(Boolean).join(", ") }));
   }
 
-  modal({ title: c.identity.name || "Dossier", body, wide: true, actions: [{ label: "Close", kind: "primary" }] });
+  // The peek is a summary; the dossier itself is one tap further, opened as the active one.
+  modal({ title: c.identity.name || "Dossier", body, wide: true, actions: [
+    { label: "Close", kind: "ghost" },
+    { label: "Open", kind: "primary", onClick: () => { Store.setActive(c.id); navigate("sheet"); } }
+  ] });
 }
 
 function box(k, v) {

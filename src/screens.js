@@ -112,8 +112,10 @@ export function renderHome(host) {
 
     const conds = conditionSummary(c);
     if (conds.length) {
-      host.appendChild(el("div", { class: "banner warn", text:
-        conds.map(x => x.name + (x.dfMod ? ` (${signed(x.dfMod)} DF)` : "")).join(" · ") }));
+      // The standing conditions open their own breakdown, as the DF chip does (F3).
+      host.appendChild(el("button", { class: "banner warn banner-btn", type: "button",
+        onclick: () => import("./sheet.js").then(m => m.openConditions(Store.activeCharacter())) },
+        conds.map(x => x.name + (x.dfMod ? ` (${signed(x.dfMod)} DF)` : "")).join(" · ")));
     }
   }
 
