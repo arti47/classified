@@ -122,6 +122,13 @@ export const RANKS = [
 
 /* ---------------------------------------------------------------- 4. PHYSICAL TRAITS */
 
+/* Gender [Ch.2]: descriptive, and it chooses which column of the Physical Traits Table a
+ * character reads. The table prints two columns, so there are two genders here. */
+export const GENDERS = [
+  { key: "male", name: "Male" },
+  { key: "female", name: "Female" }
+];
+
 /* Physical Traits Table [Ch.2]. Nine symmetric bands; cost/reputation shared by both
  * columns. Height/weight rows should not differ by more than one band (guideline). */
 export const PHYSICAL_BANDS = [

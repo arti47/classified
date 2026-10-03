@@ -363,8 +363,8 @@ button { -webkit-tap-highlight-color: transparent; }
 .btn-row { display: flex; gap: 8px; flex-wrap: wrap; }
 .btn-row .btn { flex: 1 1 auto; }
 
-label.field { display: block; margin-bottom: var(--gap); }
-label.field > span, .field-label {
+label.field, div.field { display: block; margin-bottom: var(--gap); }
+label.field > span, div.field > span, .field-label {
   display: block; font: 700 10.5px/1 var(--mono); letter-spacing: .14em;
   text-transform: uppercase; color: var(--ink-3); margin-bottom: 6px;
 }
@@ -1467,3 +1467,7 @@ button.solo-cell:hover { border-color: var(--ink-3); }
 .guide-step.is-next { border-color: var(--stamp); border-style: dashed; }
 /* A choice the rules do not allow right now: dashed and plain, never faded (contrast holds). */
 button.chip:disabled { cursor: not-allowed; border-style: dashed; background: transparent; color: var(--ink-2); }
+
+/* The name and its roll on one line; the button keeps its label whole. */
+.name-row { flex-wrap: nowrap; align-items: stretch; }
+.name-row > .btn { flex: none; white-space: nowrap; min-height: 44px; }

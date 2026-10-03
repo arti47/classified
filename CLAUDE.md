@@ -219,7 +219,8 @@ marked on the sheet.
 ### 3.7 Creation options
 
 Rank → Creation Points (Rookie 300, Agent 600, Special Agent 900). Then, in rule-legal
-order: gender (descriptive; switches the height/weight column), height and weight band,
+order: gender (descriptive; switches the height/weight column — so **Male or Female**, the
+table's two columns, `GENDERS`), height and weight band,
 appearance, characteristics, skills, Weaknesses (+Creation Points), profession and years.
 
 - **Physical traits** are charged *and* add Reputation. Average is the most expensive
@@ -233,6 +234,12 @@ appearance, characteristics, skills, Weaknesses (+Creation Points), profession a
   year; a profession Field takes a whole slot and a General Field half of one, unless the
   profession lists it (Computers, Economics, Linguistics), when it counts whole. All five
   published samples spend exactly their years under this count.
+- **Name** is the player's. The book prints no name tables, so the wizard carries the app's
+  own (house aid, `data-names.js`): **Roll a name** puts a d100 given name for the chosen
+  gender and a d100 surname into the editable field — 100 male, 100 female and 100 surnames
+  from across the 1960s espionage circuit. It needs a gender first, since that picks the
+  given-name table. Gender sits beside the name on the first step and is shown, not asked
+  again, on the Traits step.
 - **Scar check** at creation: Agent 50%, Special Agent 75%. Each visible scar is +20
   Reputation.
 
@@ -673,6 +680,7 @@ Recorded inline where they bite. Each is a case where the printing was unclear o
 | R8 | Hero Points have no printed cap or decay | Implement as uncapped and persistent. `maxHeroPoints()` returns null deliberately. |
 | R9 | The book defines missions and sessions but no scene | End Scene is shipped as an **explicitly labelled house aid**. |
 | R10 | Draw Situation ties | Not covered by the book. The app reports a dead heat and defers to the GM rather than inventing a rule. |
+| R12 | The book asks for a name and gender and prints no name table; gender was a free-text field that only ever selected one of two printed columns | **Gender is two choices**, Male and Female — the Physical Traits Table's own columns. An old free-text value is read the way the table always read it (starts with *f* → female, *m* → male, otherwise unset). **Names roll on the app's own tables** (house aid, `data-names.js`), period-plausible and international, three d100 tables. A list of given names and surnames carries no setting content, so the scope guard holds, on the S25 precedent |
 | R11 | Horse STR 18 and shark STR 16 exceed the 1–15 characteristic range | Reproduced as printed; animals are not bound by the PC range. |
 
 ### Solo rulings
@@ -864,6 +872,7 @@ layer carries the flag rather than the UI.
 | `data-npcs.js` | NPC stereotypes and generation tables, OSIRIS, the encounter system |
 | `data-pregens.js` | The five published pre-generated characters |
 | `data-help.js` | **How-to copy** — one entry per screen and per Solo panel, the solo tutorial, and the glossary of both systems' terms. UI text, not rules. |
+| `data-names.js` | **Agent-name tables** (house aid) — d100 male and female given names and d100 surnames, authored for the 1960s espionage frame. Not the book's, so not in `data.js` |
 | `data-solo.js` | **Mythic layer** — Fate, Chaos, scenes, events, and all 37 Meaning Tables (§3.20). No Classified rules in this file. |
 | `firebase-config.js` | Placeholder config + `FIREBASE_ENABLED` flag |
 | `database.rules.json` | RTDB security rules with player/GM roles |
@@ -1238,7 +1247,7 @@ are flagged rather than presented as extracted (S1).
       - [x] Roll-log integration through `Store.addRoll()`.
       - [x] Regression checks: chart monotonicity, derived thresholds, event trigger,
             chaos clamping, list weighting, and every table exactly 100 entries.
-- [x] **Hardening.** Committed regression harness (1443 checks); accessibility pass;
+- [x] **Hardening.** Committed regression harness (1459 checks); accessibility pass;
       rules-accuracy audit with every finding closed (§11).
 
 ---
@@ -1258,7 +1267,8 @@ are flagged rather than presented as extracted (S1).
 6. **Cache discipline.** Any shipped-file change bumps `CACHE_VERSION`.
 7. **Root-cause fixes.** Debug to the actual cause; record cause and fix in the changelog.
 8. **Scope guard.** Core rules only. No setting or adventure content. Anything invented is
-   explicitly labelled a house aid — End Scene (R9) and the solo Mysteries (S20).
+   explicitly labelled a house aid — End Scene (R9), the solo Mysteries (S20) and the name
+   tables (R12).
 9. **Module discipline.** Respect the §5.1 responsibilities; import and export explicitly.
 
 ---
@@ -1513,3 +1523,4 @@ tables are this app's own work and are marked as such (S6).
 | 2026-10-03 | Settled the two leftovers from S26: the Solo bar is one row at every phone width — the city moved under the scene number and the primary action's label may wrap inside its button — and the Mysteries subtitle and the new-mystery dialog no longer describe a clock | The bar wrapped its button onto a second row at 360px, costing about 150px of every page. The mystery copy still read "fill the clock… when the last segment falls", drift left over from S21, which removed the clock; the panel's own how-to already said there is none. Copy corrected to what the engine does — clues raise the odds and Fate decides the moment — with the user's go-ahead | 1403 checks green, including the bar's readings and button sharing one row and no clock wording left on the Solo screen. axe clean bar `meta-viewport`; zero overflow at 360, 390 and 1280px; zero console errors | `classified-v54` |
 | 2026-10-03 | Redundancy and link audit (L1–L9): one copy of every shared helper (`section`, `statBox`, `rerender` in core, `copyText` in ui), six dead helpers removed, the GM broadcast given a receiver, the campaign's seats on the GM screen, Duplicate on the dossier list, the play guide's tap lines routed to the screen they name with one control per destination, rules topics leading to their tools, and a roll's author linked to the dossier | Asked to double-check for redundant functions and for anything that should be linked and is not. Root causes: helpers copied into each new module instead of moved to core when the second one needed them; two sync functions and a store function written for surfaces that were never built; and `tapRoute()` defaulting to Solo, which was right for the solo track and wrong for every Combat line on the table track | 1427 checks green, including a source sweep that each shared helper is defined once and the dead ones stay gone, and browser checks for every new link. A duplicate-label crawl of all thirteen routes at 390 and 1280px leaves only per-item controls. axe clean bar `meta-viewport`; zero console errors | `classified-v55` |
 | 2026-10-03 | Fields of Experience counted in slots, and a redraw keeps its place (L10, L11) | Reported: Fields of Experience showing 2/0, and the skills accordion collapsing on every raise. Root causes: the wizard counted Fields by head and never gated the chips, so General Fields (half a slot each) overstated the count and any Field could be taken at zero years; and every redraw — the router's and the wizard's — rebuilt accordions closed and scrolled to the top. The slot count is profession-aware because the published samples take Computers, Economics and Linguistics as profession Fields; under it all five fill exactly their years | 1443 checks green, including all five samples' slots against their years, 0/0 with nothing offered at zero years, two General Fields reading 1/1 and shutting the rest, and a skill raise leaving its group open with the scroll kept | `classified-v56` |
+| 2026-10-03 | Suggested names (R12): **Roll a name** beside the Name field — a d100 given name for the chosen gender and a d100 surname, from `data-names.js`, the app's own 100 male, 100 female and 100 surnames from across the 1960s espionage circuit. Gender became two chips, Male and Female, beside the name on the first step; the Traits step shows which column it reads | Asked for suggested names off a table, first and last, with gender male or female only. Decided with the user: an international mix of period names. The book prints no name tables, so these are labelled a house aid and kept out of `data.js`. Gender had been free text that only ever selected one of the table's two columns; old values are read as that column on load | 1459 checks green, including three full d100 tables with no repeats, the two genders, old free-text genders normalised, and a browser run that cannot roll before a gender is chosen, rolls a female given name and a surname into the field, and shows the female column on Traits. Zero overflow at 360px; zero console errors | `classified-v57` |

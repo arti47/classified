@@ -2884,6 +2884,35 @@ export async function browserTests(t, { chromium, executablePath, baseURL }) {
       t.eq(linked.duplicated, 1, "a dossier can be duplicated from the dossier list");
       t.ok(linked.byLink && linked.byGoes === "#/sheet", "a roll's author in the log opens that dossier");
 
+      // Suggested names: gender is two chips, and a roll fills the Name field from its tables.
+      const naming = await page.evaluate(async () => {
+        const wait = ms => new Promise(r => setTimeout(r, ms));
+        const W = await import("./src/wizard.js");
+        const N = await import("./data-names.js");
+        W.startWizard("rookie");
+        location.hash = "#/home"; await wait(120);
+        location.hash = "#/create"; await wait(300);
+        const host = document.getElementById("screen");
+        const rollBtn = () => [...host.querySelectorAll("button")].find(b => b.textContent === "Roll a name");
+        const out = { freeText: !!host.querySelector('input[placeholder*="non-binary"]'), disabledFirst: rollBtn()?.disabled };
+        out.genders = [...host.querySelectorAll('[role="radiogroup"] .chip')].map(c => c.textContent);
+        [...host.querySelectorAll('[role="radiogroup"] .chip')].find(c => c.textContent === "Female").click(); await wait(200);
+        rollBtn().click(); await wait(100);
+        const name = host.querySelector('input[aria-label="Name"]').value;
+        const [first, ...rest] = name.split(" ");
+        out.firstOk = N.FEMALE_NAMES.includes(first);
+        out.lastOk = N.SURNAMES.includes(rest.join(" "));
+        const steps = [...host.querySelectorAll(".wstep")];
+        steps.find(b => b.textContent.includes("Traits")).click(); await wait(200);
+        out.column = /female column/.test(host.textContent);
+        return out;
+      });
+      t.ok(!naming.freeText, "gender is no longer a free-text field");
+      t.deep(naming.genders, ["Male", "Female"], "it is two choices, Male and Female");
+      t.ok(naming.disabledFirst === true, "a name cannot be rolled until a gender is chosen");
+      t.ok(naming.firstOk && naming.lastOk, "a roll fills the Name with a given name for that gender and a surname");
+      t.ok(naming.column, "and the Traits step reads that gender's column");
+
       // Reported: Fields of Experience read 2/0, and raising a skill shut its group and jumped
       // the page to the top.
       const wiz = await page.evaluate(async () => {

@@ -66,6 +66,13 @@ export function normalize(c) {
     if (c.identity.weightBand === undefined) out.identity.weightBand = c.identity.bandIndex;
     delete out.identity.bandIndex;
   }
+  // Gender is one of the Physical Traits Table's two columns. A free-text value saved before
+  // it became a choice is read the way the table always read it: anything starting with "f"
+  // is the female column, anything starting with "m" the male one, and the rest unset.
+  {
+    const g = String(out.identity.gender || "").trim().toLowerCase();
+    out.identity.gender = g.startsWith("f") ? "female" : g.startsWith("m") ? "male" : "";
+  }
   out.attributes = { ...base.attributes, ...(c.attributes || {}) };
   out.state = { ...base.state, ...(c.state || {}) };
   out.state.conditions = { ...(c.state?.conditions || {}) };

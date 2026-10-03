@@ -12,6 +12,7 @@ import { HELP, TUTORIAL, helpFor, GLOSSARY, GLOSSARY_SYSTEMS, glossaryFind } fro
 import { normalizeAdventure, wipeAdventures as Store_wipeAdventures, wipeCharacters as Store_wipeCharacters } from "../src/store.js";
 import { readFileSync, readdirSync } from "node:fs";
 import { d100Faces } from "../src/core.js";
+import * as NAMES from "../data-names.js";
 
 export function unitTests(t) {
 
@@ -323,6 +324,17 @@ export function unitTests(t) {
   t.group("Published sample characters");
 
   t.eq(PREGENS.length, 5, "all five published sample characters are present");
+  // The name tables (house aid): three full d100 tables, no repeats, one given-name table per
+  // column of the Physical Traits Table, which is why gender is two choices.
+  for (const k of ["MALE_NAMES", "FEMALE_NAMES", "SURNAMES"]) {
+    t.ok(NAMES[k].length === 100 && new Set(NAMES[k]).size === 100, `${k} is a d100 table of 100 different names`);
+  }
+  t.deep(D.GENDERS.map(g => g.key), ["male", "female"], "gender is the Physical Traits Table's two columns");
+  t.ok(NAMES.givenNames("female") === NAMES.FEMALE_NAMES && NAMES.givenNames("male") === NAMES.MALE_NAMES && NAMES.givenNames("") === null,
+    "each gender rolls its own given names, and no gender rolls none");
+  t.deep(["Female", "m", "non-binary", ""].map(g => normalize({ ...blankCharacter("rookie"), identity: { ...blankCharacter("rookie").identity, gender: g } }).identity.gender),
+    ["female", "male", "", ""], "an old free-text gender reads as the column it always selected");
+
   // Fields of Experience are counted in slots: one per profession year, a General Field half
   // of one unless the profession lists it. All five samples spend exactly their years.
   t.ok(PREGENS.every(p => R.foeSlotsUsed(p.foe, p.profession) === p.professionYears),

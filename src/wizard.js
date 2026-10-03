@@ -2,6 +2,7 @@
  * Creation Point budget is always on screen. */
 
 import { el, clear, signed, uid, percent, d100, clamp, statBox, preserveView } from "./core.js";
+import { givenNames, SURNAMES } from "../data-names.js";
 import { modal, showToast, confirmModal, promptModal, chooseModal } from "./ui.js";
 import * as D from "../data.js";
 import * as R from "./rules.js";
@@ -92,6 +93,23 @@ function update(host, mutator) {
   preserveView(host, () => renderWizard(host));
 }
 
+/** Set the gender, and re-read the height and weight from the column it selects. */
+function setGender(d, gender) {
+  d.identity.gender = gender;
+  const col = b => (gender === "female" ? b.female : b.male);
+  const hb = D.PHYSICAL_BANDS.find(b => b.i === d.identity.heightBand);
+  const wb = D.PHYSICAL_BANDS.find(b => b.i === d.identity.weightBand);
+  if (hb) d.identity.height = col(hb).h;
+  if (wb) d.identity.weight = col(wb).w;
+}
+
+/** A d100 on the given names for this gender and a d100 on the surnames. */
+export function rollAgentName(gender) {
+  const first = givenNames(gender);
+  if (!first) return "";
+  return `${first[d100() - 1]} ${SURNAMES[d100() - 1]}`;
+}
+
 function sectionTitle(text, sub) {
   const wrap = el("div", { class: "section" });
   wrap.appendChild(el("div", { class: "section-title", text }));
@@ -120,10 +138,33 @@ const STEP_RENDERERS = {
       ));
     }
 
-    body.appendChild(el("label", { class: "field", style: "margin-top:14px" },
+    // Gender first: it picks the Physical Traits column and the given-name table.
+    body.appendChild(el("div", { class: "field-label", style: "margin-top:14px", text: "Gender" }));
+    body.appendChild(el("div", { class: "chip-wrap", role: "radiogroup", "aria-label": "Gender", style: "margin-bottom:12px" },
+      ...D.GENDERS.map(g => el("button", {
+        class: "chip" + (draft.identity.gender === g.key ? " on" : ""), type: "button",
+        role: "radio", "aria-checked": draft.identity.gender === g.key ? "true" : "false",
+        onclick: () => update(host, d => setGender(d, g.key))
+      }, g.name))));
+
+    // The name, with a roll on the app's own name tables (house aid) beside it. The roll only
+    // suggests: it lands in the field, which stays the player's to change.
+    const nameInput = el("input", { type: "text", value: draft.identity.name, placeholder: "Agent name",
+      "aria-label": "Name", oninput: e => { draft.identity.name = e.target.value; } });
+    const canRoll = !!givenNames(draft.identity.gender);
+    body.appendChild(el("div", { class: "field" },
       el("span", { text: "Name" }),
-      el("input", { type: "text", value: draft.identity.name, placeholder: "Agent name",
-        oninput: e => { draft.identity.name = e.target.value; } })));
+      el("div", { class: "row tight name-row" },
+        el("div", { class: "grow" }, nameInput),
+        el("button", { class: "btn", type: "button", disabled: !canRoll,
+          title: canRoll ? "Roll a first and last name" : "Choose a gender first",
+          onclick: () => {
+            draft.identity.name = rollAgentName(draft.identity.gender);
+            nameInput.value = draft.identity.name;
+          } }, "Roll a name"))));
+    body.appendChild(el("p", { class: "small muted", style: "margin-top:-6px", text: canRoll
+      ? "A d100 on the given names and a d100 on the surnames. Roll again, or write over it."
+      : "Choose a gender to roll a name — it picks the given-name table." }));
 
     body.appendChild(el("label", { class: "field" },
       el("span", { text: "Native language" }),
@@ -171,10 +212,12 @@ const STEP_RENDERERS = {
         "Height and weight are more than one row apart. Classified characters are typically fit and trim; the GM may allow any proportion." }));
     }
 
-    body.appendChild(el("label", { class: "field", style: "margin-top:12px" },
-      el("span", { text: "Gender (descriptive only; switches the height and weight column)" }),
-      el("input", { type: "text", value: draft.identity.gender || "", placeholder: "e.g. female, male, non-binary",
-        onchange: e => update(host, d => { d.identity.gender = e.target.value; }) })));
+    // Gender is set once, with the name on the first step; here it only picks the column.
+    body.appendChild(el("div", { class: "banner", style: "margin-top:12px" },
+      el("div", { class: "small", text: `Showing the ${isFemale ? "female" : "male"} column. ` +
+        (draft.identity.gender ? "Gender is set with the name on the first step." : "No gender chosen yet — set it with the name on the first step.") }),
+      el("button", { class: "btn sm ghost", type: "button", style: "margin-top:6px",
+        onclick: () => { stepIndex = 0; renderWizard(host); } }, "Change it")));
 
     body.appendChild(el("div", { class: "field-label", style: "margin-top:12px", text: "Appearance" }));
     for (const a of D.APPEARANCES) {
