@@ -63,7 +63,13 @@ export async function browserTests(t, { chromium, executablePath, baseURL }) {
             tabs: [...bar.querySelectorAll(".sub-tab[data-route]")].map(b => b.dataset.route),
             current: (bar.querySelector('.sub-tab[aria-current="page"]') || {}).dataset?.route || null,
             lit: (document.querySelector('.nav-btn[aria-current="location"]') || {}).dataset?.route || null,
-            glossary: [...bar.querySelectorAll(".sub-tab.is-action")].some(b => /Glossary/.test(b.textContent))
+            glossary: [...bar.querySelectorAll(".sub-tab.is-action")].some(b => /Glossary/.test(b.textContent)),
+            whole: (() => {
+              const on = bar.querySelector('.sub-tab[aria-current="page"]');
+              if (!on) return true;
+              const a = on.getBoundingClientRect(), b = bar.querySelector(".sub-nav-strip").getBoundingClientRect();
+              return a.left >= b.left - 1 && a.right <= b.right + 1;
+            })()
           };
         });
       }
@@ -73,6 +79,8 @@ export async function browserTests(t, { chromium, executablePath, baseURL }) {
       t.ok(["rules", "play", "tutorial"].every(r => folders[r].shown && folders[r].tabs.join() === "rules,play,tutorial" && folders[r].glossary),
         "Rules, How to play and the Tutorial share a Library strip that also opens the Glossary");
       t.ok(!folders.home.shown && !folders.combat.shown, "screens outside a folder carry no strip");
+      await page.waitForTimeout(50);
+      t.ok(Object.values(folders).every(f => f.whole), "the current divider tab is always shown whole, never cut at the strip's edge");
 
       // The briefing desk: the agent card opens the sheet, and a running encounter puts a card
       // on the desk that opens Combat.

@@ -64,7 +64,11 @@ function renderSubNav(route) {
   }
   bar.appendChild(strip);
   const on = strip.querySelector('[aria-current="page"]');
-  if (on) requestAnimationFrame(() => { strip.scrollLeft = Math.max(0, on.offsetLeft - 16); });
+  // Scroll only as far as it takes to show the current tab whole; a strip that fits stays put.
+  if (on) requestAnimationFrame(() => {
+    const right = on.offsetLeft + on.offsetWidth - strip.clientWidth;
+    if (right > strip.scrollLeft) strip.scrollLeft = right + 8;
+  });
 }
 
 let current = "home";
