@@ -8,8 +8,19 @@ import { showToast } from "./ui.js";
 import * as Store from "./store.js";
 import * as Sync from "./sync.js";
 
+/* The header's height changes with the resource strip, so anything that sticks under it
+ * (the wizard's budget bar) reads it from a variable rather than guessing. */
+function trackChrome() {
+  const header = document.getElementById("appHeader");
+  if (!header) return;
+  const set = () => document.documentElement.style.setProperty("--chromeH", header.offsetHeight + "px");
+  set();
+  if (typeof ResizeObserver === "function") new ResizeObserver(set).observe(header);
+}
+
 function boot() {
   applyTheme();
+  trackChrome();
   window.matchMedia("(prefers-color-scheme: dark)").addEventListener("change", () => {
     if (Settings.theme() === "system") applyTheme();
   });

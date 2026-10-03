@@ -10,12 +10,15 @@
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="default">
 <meta name="apple-mobile-web-app-title" content="Classified">
-<meta name="theme-color" content="#8c1c13">
+<meta name="theme-color" content="#e9dfc7" media="(prefers-color-scheme: light)">
+<meta name="theme-color" content="#0f141c" media="(prefers-color-scheme: dark)">
 <meta name="description" content="Player companion for the Classified role-playing game of covert operations.">
 <title>Classified Player</title>
 <link rel="manifest" href="manifest.json">
 <link rel="icon" href="icon.svg" type="image/svg+xml">
 <link rel="apple-touch-icon" href="icon.svg">
+<link rel="preload" href="fonts/special-elite-400.woff2" as="font" type="font/woff2" crossorigin>
+<link rel="preload" href="fonts/plex-sans-400.woff2" as="font" type="font/woff2" crossorigin>
 <link rel="stylesheet" href="styles.css">
 </head>
 <body>
@@ -28,8 +31,8 @@
       <span class="header-title" id="headerTitle">Dossier</span>
     </div>
     <div class="header-actions">
-      <button type="button" class="icon-btn" id="themeBtn" aria-label="Toggle colour theme" title="Toggle theme">◐</button>
-      <button type="button" class="icon-btn" id="diceBtn" aria-label="Open the dice roller" title="Roller">⚄</button>
+      <button type="button" class="icon-btn" id="themeBtn" aria-label="Toggle colour theme" title="Toggle theme"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" aria-hidden="true"><circle cx="12" cy="12" r="8.5"/><path d="M12 3.5a8.5 8.5 0 0 1 0 17z" fill="currentColor"/></svg></button>
+      <button type="button" class="icon-btn" id="diceBtn" aria-label="Open the dice roller" title="Roller"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linejoin="round" aria-hidden="true"><rect x="4" y="4" width="16" height="16" rx="3.5"/><circle cx="8.5" cy="8.5" r="1.2" fill="currentColor"/><circle cx="15.5" cy="8.5" r="1.2" fill="currentColor"/><circle cx="12" cy="12" r="1.2" fill="currentColor"/><circle cx="8.5" cy="15.5" r="1.2" fill="currentColor"/><circle cx="15.5" cy="15.5" r="1.2" fill="currentColor"/></svg></button>
     </div>
   </div>
   <div class="resource-header" id="resourceHeader" hidden></div>

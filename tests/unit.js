@@ -517,6 +517,18 @@ export function unitTests(t) {
   t.ok(!stale.length, "and every APP_SHELL entry is a file that exists" +
     (stale.length ? ` (${stale.join(", ")})` : ""));
 
+  // The bundled faces are part of the look offline: every font the stylesheet loads is in the
+  // shell, and every font file in the shell exists.
+  const css = readFileSync(new URL("../styles.css", import.meta.url), "utf8");
+  const cssFonts = [...css.matchAll(/url\("(fonts\/[^"]+\.woff2)"\)/g)].map(m => "./" + m[1]);
+  const fontFiles = readdirSync(new URL("../fonts/", import.meta.url)).filter(f => f.endsWith(".woff2")).map(f => "./fonts/" + f);
+  t.ok(cssFonts.length >= 3 && cssFonts.every(f => shell.includes(f)),
+    "every font the stylesheet loads is cached in APP_SHELL");
+  t.ok(shell.filter(f => f.endsWith(".woff2")).every(f => fontFiles.includes(f)),
+    "and every font in APP_SHELL is a file that exists");
+  t.ok(readdirSync(new URL("../fonts/", import.meta.url)).some(f => f.startsWith("LICENSE")),
+    "the bundled fonts ship with their licences");
+
   // One cache version, in one place. It used to be declared in main.js as well, where nothing
   // read it and it had already drifted a version behind the worker that does.
   const versions = [];

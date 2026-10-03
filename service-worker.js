@@ -1,7 +1,7 @@
 /* service-worker.js — network-first with an offline app-shell fallback.
  * Bump CACHE_VERSION whenever any shipped file changes. */
 
-const CACHE_VERSION = "classified-v33";
+const CACHE_VERSION = "classified-v34";
 
 const APP_SHELL = [
   "./",
@@ -9,6 +9,13 @@ const APP_SHELL = [
   "./styles.css",
   "./manifest.json",
   "./icon.svg",
+  "./fonts/special-elite-400.woff2",
+  "./fonts/plex-sans-400.woff2",
+  "./fonts/plex-sans-500.woff2",
+  "./fonts/plex-sans-600.woff2",
+  "./fonts/plex-sans-700.woff2",
+  "./fonts/plex-mono-400.woff2",
+  "./fonts/plex-mono-700.woff2",
   "./data.js",
   "./data-monsters.js",
   "./data-npcs.js",

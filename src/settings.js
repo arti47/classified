@@ -72,6 +72,19 @@ export function applyTheme() {
   const root = document.documentElement;
   if (t === "system") root.removeAttribute("data-theme");
   else root.setAttribute("data-theme", t);
+  // The browser chrome follows the paper: an explicit choice overrides both media-matched
+  // theme-color tags, and "system" hands them back to the media queries.
+  const colours = { light: "#e9dfc7", dark: "#0f141c" };
+  for (const meta of document.querySelectorAll('meta[name="theme-color"]')) {
+    if (!meta.dataset.media) meta.dataset.media = meta.getAttribute("media") || "";
+    if (t === "system") {
+      meta.setAttribute("media", meta.dataset.media);
+      meta.setAttribute("content", meta.dataset.media.includes("dark") ? colours.dark : colours.light);
+    } else {
+      meta.removeAttribute("media");
+      meta.setAttribute("content", colours[t] || colours.light);
+    }
+  }
 }
 
 export function cycleTheme() {

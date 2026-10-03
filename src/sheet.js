@@ -455,7 +455,7 @@ export function renderSheet(host) {
   appendHelp(host, "sheet");
 
   // Identity
-  const head = el("div", { class: "card" });
+  const head = el("div", { class: "card dossier-head" });
   head.appendChild(el("div", { class: "row" },
     portraitEl(c),
     el("div", { class: "grow" },
@@ -487,9 +487,15 @@ export function renderSheet(host) {
     ));
   }
 
+  // Two columns on a wide screen: the numbers on the left, the lists on the right. On a
+  // phone the columns simply stack, in the same order as before.
+  host.classList.add("two-col");
+  const colA = el("div", { class: "col-a" });
+  const colB = el("div", { class: "col-b" });
+
   // Characteristics
   const attrSection = section("Characteristics");
-  const attrGrid = el("div", { class: "grid grid-3" });
+  const attrGrid = el("div", { class: "grid grid-5" });
   for (const ch of D.CHARACTERISTICS) {
     attrGrid.appendChild(el("button", {
       class: "stat-box clickable", type: "button",
@@ -501,7 +507,7 @@ export function renderSheet(host) {
     ));
   }
   attrSection.appendChild(attrGrid);
-  host.appendChild(attrSection);
+  colA.appendChild(attrSection);
 
   // Derived
   const derSection = section("Derived");
@@ -519,7 +525,7 @@ export function renderSheet(host) {
     derSection.appendChild(el("div", { class: "banner warn", text:
       `Overloaded. Carrying more than ${dv.carryMax} lbs is impossible; at maximum load you tire after ${c.attributes.wil} minutes and take ${D.EXHAUSTION_DF_PENALTY} Difficulty Factor until you rest 15 minutes.` }));
   }
-  host.appendChild(derSection);
+  colA.appendChild(derSection);
 
   // Abilities
   const abSection = section("Abilities", "Fixed at Base Chance 20 and never improvable.");
@@ -535,7 +541,7 @@ export function renderSheet(host) {
     ));
   }
   abSection.appendChild(abCard);
-  host.appendChild(abSection);
+  colA.appendChild(abSection);
 
   // Skills
   const showUntrained = Settings.showUntrained();
@@ -568,7 +574,7 @@ export function renderSheet(host) {
     skSection.appendChild(acc);
   }
   skSection.appendChild(el("p", { class: "small muted", text: "⃰ Sixth Sense is always rolled by the GM; you can never call for it." }));
-  host.appendChild(skSection);
+  colB.appendChild(skSection);
 
   // Languages
   const langSection = section("Languages");
@@ -591,7 +597,7 @@ export function renderSheet(host) {
   }
   if (!(c.languages || []).length) langCard.appendChild(el("div", { class: "card-row muted small", text: "No additional languages." }));
   langSection.appendChild(langCard);
-  host.appendChild(langSection);
+  colB.appendChild(langSection);
 
   // Fields of Experience
   if ((c.foe || []).length) {
@@ -606,7 +612,7 @@ export function renderSheet(host) {
       }, f.name));
     }
     foeSection.appendChild(wrap);
-    host.appendChild(foeSection);
+    colB.appendChild(foeSection);
   }
 
   // Weaknesses
@@ -626,7 +632,7 @@ export function renderSheet(host) {
       ));
     }
     wkSection.appendChild(card);
-    host.appendChild(wkSection);
+    colB.appendChild(wkSection);
   }
 
   // Scars
@@ -641,15 +647,11 @@ export function renderSheet(host) {
         s.note ? el("span", { class: "small muted", text: s.note }) : null));
     }
     scSection.appendChild(card);
-    host.appendChild(scSection);
+    colB.appendChild(scSection);
   }
 
-  // Actions
-  host.appendChild(el("div", { class: "btn-row", style: "margin:16px 0" },
-    el("button", { class: "btn primary", type: "button", onclick: () => openQuickRoll(c) }, "Roll"),
-    el("button", { class: "btn", type: "button", onclick: () => openWeaponPicker(c) }, "Attack"),
-    el("button", { class: "btn", type: "button", onclick: () => openNotes(c) }, "Notes")
-  ));
+  host.appendChild(colA);
+  host.appendChild(colB);
 
   const val = validate(c);
   if (val.errors.length) {
@@ -657,6 +659,14 @@ export function renderSheet(host) {
       el("b", { text: "Legality problems" }),
       ...val.errors.map(e => el("div", { class: "small", text: "• " + e }))));
   }
+
+  // Actions: a dock that rides above the nav, so Roll is one thumb away however far down
+  // the sheet you are. Last in the flow, which is what lets `position: sticky` hold it.
+  host.appendChild(el("div", { class: "btn-row action-dock" },
+    el("button", { class: "btn primary", type: "button", onclick: () => openQuickRoll(c) }, "Roll"),
+    el("button", { class: "btn", type: "button", onclick: () => openWeaponPicker(c) }, "Attack"),
+    el("button", { class: "btn", type: "button", onclick: () => openNotes(c) }, "Notes")
+  ));
 }
 
 function section(title, sub) {

@@ -2282,6 +2282,13 @@ export async function browserTests(t, { chromium, executablePath, baseURL }) {
             tag: n.tagName,
             h: Math.round(n.getBoundingClientRect().height)
           }));
+          // The strip is one bar that fits the width: no sideways scroll, no chip past the edge.
+          const strip = document.getElementById("resourceHeader");
+          out.navIcons = [...document.querySelectorAll(".nav-btn .ico")].every(n => n.querySelector("svg"));
+          out.strip = {
+            scrolls: strip.scrollWidth > strip.clientWidth + 1,
+            outside: [...strip.children].some(n => n.getBoundingClientRect().right > strip.getBoundingClientRect().right + 1)
+          };
           const df = [...document.querySelectorAll(".res-chip")].find(n => n.querySelector(".lab").textContent === "DF");
           if (df) {
             df.click(); await wait(220);
@@ -2340,6 +2347,9 @@ export async function browserTests(t, { chromium, executablePath, baseURL }) {
       t.ok(plumbing.chips.every(x => x.h >= 30), "every chip is a real touch target" +
         (plumbing.chips ? " (" + plumbing.chips.map(x => x.label + " " + x.h).join(", ") + ")" : ""));
       t.ok(plumbing.chips.some(x => x.label === "DF"), "a standing condition shows its Difficulty Factor");
+      t.ok(plumbing.strip && !plumbing.strip.scrolls && !plumbing.strip.outside,
+        "the resource strip fits the width with no sideways scroll, a wound and a condition standing");
+      t.ok(plumbing.navIcons, "every nav tab draws an SVG icon rather than a glyph that can fall back to emoji");
       t.ok(/Medium Wound/.test(plumbing.dfPanel || "") && /Exhausted/.test(plumbing.dfPanel || ""),
         "and the DF chip opens the breakdown rather than doing nothing");
       t.ok(/-5 Difficulty Factor in total/.test(plumbing.dfPanel || ""), "with the total it applies");

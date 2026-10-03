@@ -21,7 +21,7 @@ export function renderHome(host) {
   clear(host);
   const c = Store.activeCharacter();
 
-  host.appendChild(el("div", { class: "card" },
+  host.appendChild(el("div", { class: "card cover-card" },
     el("h1", { text: "Classified" }),
     el("p", { class: "small muted", text: "The role-playing game of covert operations. Player companion." })
   ));
@@ -40,7 +40,7 @@ export function renderHome(host) {
     ));
   } else {
     const dv = derived(c);
-    host.appendChild(el("div", { class: "card" },
+    host.appendChild(el("div", { class: "card agent-card" },
       el("div", { class: "row" },
         el("div", { class: "grow" },
           el("h2", { text: c.identity.name || "Unnamed operative" }),
@@ -57,7 +57,7 @@ export function renderHome(host) {
     }
   }
 
-  const quick = el("div", { class: "grid grid-2", style: "margin-top:6px" });
+  const quick = el("div", { class: "grid grid-2 tile-grid", style: "margin-top:6px" });
   const tile = (label, sub, go) => el("button", {
     class: "opt-btn", type: "button", onclick: go
   }, el("span", { class: "on-name" }, el("span", { text: label })), el("span", { class: "on-desc", text: sub }));
