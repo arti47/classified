@@ -17,6 +17,22 @@ import { OSIRIS_NPCS, OSIRIS_OVERVIEW, NPC_STEREOTYPES, NPC_CREATION_STEPS, INTE
 
 /* ---------------------------------------------------------------- home */
 
+/**
+ * The wound ladder drawn as a track: Stun through Incapacitated, lit up to the wound standing,
+ * all red at Killed. Read from WOUND_LEVELS, so it is the same ladder the accumulation table
+ * walks; the wound's own name is always printed beside it.
+ */
+export function woundTrack(key) {
+  const now = R.woundLevel(key);
+  const steps = D.WOUND_LEVELS.filter(w => w.order >= 1 && w.order <= 5);
+  const dead = now.key === "killed";
+  return el("span", { class: "wound-track" + (dead ? " is-dead" : ""), role: "img", "aria-label": now.name },
+    steps.map(w => el("span", {
+      class: "wt-seg" + (dead || (now.order >= w.order && now.order > 0) ? " on" : "") + (w.key === now.key ? " is-now" : ""),
+      title: w.name
+    })));
+}
+
 export function renderHome(host) {
   clear(host);
   const c = Store.activeCharacter();
@@ -39,16 +55,51 @@ export function renderHome(host) {
       el("button", { class: "btn primary", type: "button", onclick: () => navigate("create") }, "Create a character")
     ));
   } else {
-    const dv = derived(c);
-    host.appendChild(el("div", { class: "card agent-card" },
-      el("div", { class: "row" },
-        el("div", { class: "grow" },
-          el("h2", { text: c.identity.name || "Unnamed operative" }),
-          el("div", { class: "small muted", text:
-            `${R.RANK_BY_KEY[c.identity.rank]?.name || ""} · ${R.woundLevel(c.state.wound).name} · ${c.state.heroPoints} Hero Points` })),
-        el("button", { class: "btn sm primary", type: "button", onclick: () => navigate("sheet") }, "Open")
-      )
-    ));
+    // The briefing desk: whatever is live laid out as cards you open — the agent, the mission
+    // under way, the fight in progress. The whole card takes the tap; its Open button is the
+    // keyboard's way in, and needs no handler of its own because the click bubbles to the card.
+    const desk = el("div", { class: "desk" });
+    const wound = R.woundLevel(c.state.wound);
+    const url = c.identity.portraitUrl;
+    desk.appendChild(el("div", { class: "card agent-card desk-card", onclick: () => navigate("sheet") },
+      el("span", { class: "id-photo" + (url ? " has-photo" : "") }, url ? el("img", { src: url, alt: "" }) : icon("sheet")),
+      el("div", { class: "desk-body" },
+        el("span", { class: "desk-kicker", text: "Dossier" }),
+        el("h2", { text: c.identity.name || "Unnamed operative" }),
+        el("span", { class: "small muted", text:
+          `${R.RANK_BY_KEY[c.identity.rank]?.name || ""} · ${wound.name} · ${c.state.heroPoints} Hero Points` }),
+        woundTrack(c.state.wound)),
+      el("button", { class: "btn sm primary desk-open", type: "button" }, "Open")));
+
+    const adv = Settings.solo() ? Store.activeAdventure() : null;
+    if (adv) {
+      desk.appendChild(el("div", { class: "card desk-card mission-card", onclick: () => navigate("solo") },
+        el("span", { class: "id-photo" }, icon("solo")),
+        el("div", { class: "desk-body" },
+          el("span", { class: "desk-kicker", text: "Solo" }),
+          el("h2", { text: adv.name || "Untitled adventure" }),
+          el("span", { class: "desk-stats" },
+            el("span", {}, el("span", { class: "k", text: "Scene" }), el("b", { text: String(adv.scene) })),
+            el("span", {}, el("span", { class: "k", text: "Chaos Factor" }), el("b", { text: String(adv.chaos) }))),
+          el("span", { class: "chaos-gauge", "aria-hidden": "true" },
+            Array.from({ length: 9 }, (_, i) => el("span", { class: i < adv.chaos ? "on" + (i >= 6 ? " hot" : "") : "" })))),
+        el("button", { class: "btn sm desk-open", type: "button" }, "Open")));
+    }
+
+    const fight = Store.combatState();
+    if (fight && fight.active) {
+      desk.appendChild(el("div", { class: "card desk-card combat-card", onclick: () => navigate("combat") },
+        el("span", { class: "id-photo" }, icon("combat")),
+        el("div", { class: "desk-body" },
+          el("span", { class: "desk-kicker", text: "Combat" }),
+          el("span", { class: "desk-stats" },
+            el("span", {}, el("span", { class: "k", text: "Round" }), el("b", { text: String(fight.round) })),
+            el("span", {}, el("span", { class: "k", text: "Phase" }), el("b", { text: fight.phase === "declaration" ? "Declaration" : "Action" }))),
+          el("span", { class: "chip-wrap" }, (fight.combatants || []).slice(0, 6).map(cb =>
+            el("span", { class: "chip static" + (cb.acted ? " is-acted" : ""), text: cb.name })))),
+        el("button", { class: "btn sm desk-open", type: "button" }, "Open")));
+    }
+    host.appendChild(desk);
 
     const conds = conditionSummary(c);
     if (conds.length) {

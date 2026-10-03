@@ -74,6 +74,31 @@ export async function browserTests(t, { chromium, executablePath, baseURL }) {
         "Rules, How to play and the Tutorial share a Library strip that also opens the Glossary");
       t.ok(!folders.home.shown && !folders.combat.shown, "screens outside a folder carry no strip");
 
+      // The briefing desk: the agent card opens the sheet, and a running encounter puts a card
+      // on the desk that opens Combat.
+      const desk = await page.evaluate(async () => {
+        const Store = await import("./src/store.js");
+        const created = Store.activeCharacter() ? null : Store.createCharacter("agent");
+        if (created) Store.setActive(created.id);
+        const hadFight = Store.combatState().active;
+        location.hash = "#/home";
+        await new Promise(r => setTimeout(r, 200));
+        const out = { agent: !!document.querySelector(".desk .agent-card .wound-track"),
+          open: !!document.querySelector(".desk .agent-card button.desk-open") };
+        document.querySelector(".desk .agent-card .desk-open").click();
+        await new Promise(r => setTimeout(r, 200));
+        out.toSheet = location.hash === "#/sheet";
+        out.combatCard = hadFight === !!document.querySelector(".desk .combat-card");
+        location.hash = "#/home";
+        await new Promise(r => setTimeout(r, 150));
+        out.combatCard = hadFight === !!document.querySelector(".desk .combat-card");
+        if (created) Store.deleteCharacter(created.id);
+        return out;
+      });
+      t.ok(desk.agent && desk.open, "Home's agent card carries the wound track and a real Open button");
+      t.ok(desk.toSheet, "and opening it lands on the sheet");
+      t.ok(desk.combatCard, "a combat card is on the desk exactly when an encounter is running");
+
       // Every Home tile carries an icon, and the icon adds no text to the tile's name.
       await page.evaluate(() => { location.hash = "#/home"; });
       await page.waitForTimeout(200);
