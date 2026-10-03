@@ -121,6 +121,40 @@ export function art(key) {
   return svg;
 }
 
+/* ---------------------------------------------------------------- dice faces */
+
+/* The dice behind a number, drawn: a d100 as its two percentile dice (tens and units, 100 read
+ * as 00 + 0), or any list of single dice. Decoration only — the number itself is printed
+ * beside them as text and is what every reader and test takes. The value is decided before
+ * this is called; the tumble only flickers the faces for a moment before showing it. */
+export function d100Faces(roll) {
+  const r = Number(roll) || 0;
+  if (r >= 100) return ["00", "0"];
+  return [String(Math.floor(r / 10) * 10).padStart(2, "0"), String(r % 10)];
+}
+
+export function diceFaces(faces, { tens = false } = {}) {
+  const wrap = el("span", { class: "dice-faces", "aria-hidden": "true" },
+    faces.map((f, i) => el("span", { class: "die-face" + (tens && i === 0 ? " is-tens" : "") }, el("b", { text: String(f) }))));
+  const still = typeof matchMedia === "function" && matchMedia("(prefers-reduced-motion: reduce)").matches;
+  if (!still) {
+    const bs = [...wrap.querySelectorAll("b")];
+    wrap.classList.add("is-tumbling");
+    let n = 0;
+    const t = setInterval(() => {
+      n++;
+      bs.forEach((b, i) => { b.textContent = tens && i === 0 ? String(Math.floor(Math.random() * 10) * 10).padStart(2, "0") : String(Math.floor(Math.random() * 10)); });
+      if (n >= 9) {
+        clearInterval(t);
+        bs.forEach((b, i) => { b.textContent = String(faces[i]); });
+        wrap.classList.remove("is-tumbling");
+        wrap.classList.add("is-landed");
+      }
+    }, 45);
+  } else wrap.classList.add("is-landed");
+  return wrap;
+}
+
 /* ---------------------------------------------------------------- meters */
 
 /* A number already printed beside it, drawn to scale: `fraction` of 0–1. Decoration only

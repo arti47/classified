@@ -1,7 +1,7 @@
 /* service-worker.js — network-first with an offline app-shell fallback.
  * Bump CACHE_VERSION whenever any shipped file changes. */
 
-const CACHE_VERSION = "classified-v45";
+const CACHE_VERSION = "classified-v46";
 
 const APP_SHELL = [
   "./",

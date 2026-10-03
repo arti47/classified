@@ -11,6 +11,7 @@ import * as SOLO from "../data-solo.js";
 import { HELP, TUTORIAL, helpFor, GLOSSARY, GLOSSARY_SYSTEMS, glossaryFind } from "../data-help.js";
 import { normalizeAdventure, wipeAdventures as Store_wipeAdventures, wipeCharacters as Store_wipeCharacters } from "../src/store.js";
 import { readFileSync, readdirSync } from "node:fs";
+import { d100Faces } from "../src/core.js";
 
 export function unitTests(t) {
 
@@ -566,6 +567,15 @@ export function unitTests(t) {
   // Empty states draw line art from core.js, never an emoji that renders differently per device.
   const emojiEmpty = srcJs.filter(f => /class: "big", text:/.test(readFileSync(new URL("../src/" + f, import.meta.url), "utf8")));
   t.ok(!emojiEmpty.length, "no empty state draws an emoji glyph" + (emojiEmpty.length ? ` (${emojiEmpty.join(", ")})` : ""));
+
+  // The percentile dice drawn on a result read back as the roll for every value 1–100.
+  const badFaces = [];
+  for (let r = 1; r <= 100; r++) {
+    const [t10, u] = d100Faces(r);
+    const back = t10 === "00" && u === "0" ? 100 : Number(t10) + Number(u);
+    if (back !== r || !/^\d0$/.test(t10) && t10 !== "00" || !/^\d$/.test(u)) badFaces.push(r);
+  }
+  t.ok(!badFaces.length, "every d100 from 1 to 100 draws as tens + units dice that read back as itself" + (badFaces.length ? ` (${badFaces.join(", ")})` : ""));
 
   // One cache version, in one place. It used to be declared in main.js as well, where nothing
   // read it and it had already drifted a version behind the worker that does.

@@ -785,6 +785,11 @@ layer carries the flag rather than the UI.
   is a link to it; the GM's party peek has **Open**; the sheet's derived Speed opens the Speed
   panel and Carry opens Gear; Home's standing-conditions banner opens the Difficulty Factor
   breakdown; and the Solo reference carries **Rules**, since Solo takes the Rules tab's slot.
+- **Dice drawn.** A d100 result shows its two percentile dice — the tens die dark, the units
+  light, 100 read as 00 + 0 — above the printed number; a Fate Check shows its two d10s, a
+  scene test its d10. The value is decided before the faces are drawn; they tumble for under
+  half a second and land, and stay still under reduced motion. Meaning words land on a typed
+  paper slip rather than a stamp, since they are a prompt, not a verdict.
 - **Folders.** Screens that belong together share a divider strip under the header
   (`#subNav`): the **Dossier** folder is Sheet · Gear · Advance · Log, the **Library** folder is
   Rules · How to play · Tutorial plus a Glossary action. The bottom tab that owns a folder is
@@ -824,7 +829,7 @@ No `data-<expansion>.js` — no expansions were supplied.
 
 | Module | Responsibility |
 |---|---|
-| `core.js` | Constants, DOM helpers, raw dice, formatting, the stroke-icon set (`icon()`), the line-art props (`art()`) and the decorative `meter()`. **No imports.** |
+| `core.js` | Constants, DOM helpers, raw dice, formatting, the stroke-icon set (`icon()`), the line-art props (`art()`), the dice faces (`diceFaces()`, `d100Faces()`) and the decorative `meter()`. **No imports.** |
 | `ui.js` | Themed modal, toast, confirm, prompt, chooser |
 | `rules.js` | Pure rules lookups over the data libraries. No DOM, no state. |
 | `derived.js` | Character-derived calculation, normalization, migration, validation |
@@ -1411,3 +1416,4 @@ tables are this app's own work and are marked as such (S6).
 | 2026-10-03 | Second UX series, round 4 of 6 — line art: twelve single-stroke spy props in `core.js` drawn into every empty state (no dossier, no gear, no vehicle, nothing carried, no advancement, an empty log, no adventure, empty Threads and Characters, no mysteries, an empty journal, no tasks) and as watermarks on the Home cover and the Solo header | Asked for relevant graphics. The five large empty states were colour emoji that rendered differently on every platform and fought the dossier palette, and the small ones were a bare line of grey text in a dashed box | 1332 checks green, including a source sweep that no empty state draws an emoji glyph. axe clean bar `meta-viewport`; zero overflow, zero console errors in both themes | `classified-v43` |
 | 2026-10-03 | Second UX series, round 5 of 6 — cross-link audit: the linked dossier name on the Solo header, combatant names that are dossiers, an Open action on the GM party peek, the derived Speed and Carry boxes, the Home conditions banner, and a Rules row in the Solo reference all lead to the screen that owns them | Asked whether every part that should link does. A route-by-route map found six one-way stops: each screen named something with a home of its own — a dossier, Speed, carried weight, the standing conditions, the rules library — and gave no way to get there. With solo on, the Rules library had no route from anywhere but a Home tile | 1340 checks green, including each new link driven in the browser to its destination. axe clean bar `meta-viewport` | `classified-v44` |
 | 2026-10-03 | Second UX series, round 6 of 6 — final sweep: the divider strip scrolls only as far as it takes to show the current tab whole, the Solo header keeps its Adventures button beside the name, and a rules-fidelity audit of the six rounds | Stress-run at 320px with a wound, a condition and large sums: at 320 the strip scrolled Gear into view by cutting Sheet off the left edge. Fidelity: `git diff` across the series shows no change to any `data*.js`, `rules.js`, `derived.js`, `store.js`, fixture or `roller.js`; every new graphic draws a number already printed beside it | 1342 checks green on two consecutive runs, including the current divider tab shown whole on every folder screen. axe clean on every route and the roll dialogs in both themes bar `meta-viewport`; zero overflow at 320, 360, 390, 768 and 1280px; zero console errors | `classified-v45` |
+| 2026-10-03 | Third UX series, round 1 of 6 — dice and result art: percentile dice faces with a short tumble on every Classified roll and Fate Chart answer, two d10 faces on a Fate Check, one on a scene test, and Meaning word pairs on a typed slip | Asked for more relevant graphics. A roll was a bare number with no dice behind it, and Meaning words were drawn as the same red stamp as a verdict, though they are a prompt to interpret | 1345 checks green, including every d100 from 1 to 100 drawing as tens + units dice that read back as itself, and the landed faces in the browser matching the printed roll. axe clean bar `meta-viewport` | `classified-v46` |

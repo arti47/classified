@@ -10,7 +10,7 @@
  * engine and importing it would breach the rule.
  */
 
-import { el, clear, uid, d100, d10, die, announce, clamp, fmtDate, signed, art } from "./core.js";
+import { el, clear, uid, d100, d10, die, announce, clamp, fmtDate, signed, art, diceFaces, d100Faces } from "./core.js";
 import { modal, showToast, confirmModal, promptModal, chooseModal } from "./ui.js";
 import * as S from "../data-solo.js";
 import * as Store from "./store.js";
@@ -1087,6 +1087,7 @@ export async function askFate(adv, oddsKey, question) {
 
   const body = el("div", {});
   body.appendChild(el("div", { class: "roll-result" },
+    res.mechanic === "check" ? diceFaces([res.die1, res.die2]) : diceFaces(d100Faces(res.roll), { tens: true }),
     el("div", { class: "roll-d100", text: res.mechanic === "check" ? `${res.die1}+${res.die2}` : String(res.roll) }),
     el("div", { class: "roll-quality " + (res.yes ? "q1" : "q5"), text: res.answer }),
     el("div", { class: "roll-formula", text: res.mechanic === "check"
@@ -1214,6 +1215,7 @@ export async function startScene(adv, opts = {}) {
 
   const out = el("div", {});
   out.appendChild(el("div", { class: "roll-result" },
+    diceFaces([roll]),
     el("div", { class: "roll-d100", text: String(roll) }),
     el("div", { class: "roll-quality " + (res.key === "expected" ? "q1" : res.key === "altered" ? "q3" : "q5"), text: res.name }),
     el("div", { class: "roll-formula", text: `d10 ${roll} against Chaos Factor ${res.chaos}` })));
@@ -2057,7 +2059,7 @@ export async function rollMeaning(adv, tableKey) {
 
   const body = el("div", {});
   body.appendChild(el("div", { class: "roll-result" },
-    el("div", { class: "roll-quality", style: "font-size:22px", text: pair.words.join(" · ") }),
+    el("div", { class: "roll-quality is-words", text: pair.words.join(" · ") }),
     el("div", { class: "roll-formula", text: `${pair.label} · rolled ${pair.rolls.join(" and ")}` })));
   body.appendChild(el("p", { class: "small muted", text: table.subject }));
   if (pair.doubled) body.appendChild(el("div", { class: "banner warn", text: S.DOUBLES_NOTE }));

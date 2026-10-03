@@ -4,7 +4,7 @@
  * wherever they are invoked.
  */
 
-import { el, clear, d100, d10, die, announce, clamp, dfLabel, signed, percent } from "./core.js";
+import { el, clear, d100, d10, die, announce, clamp, dfLabel, signed, percent, diceFaces, d100Faces } from "./core.js";
 import { modal, showToast, promptModal, chooseModal, confirmModal } from "./ui.js";
 import * as D from "../data.js";
 import * as R from "./rules.js";
@@ -123,7 +123,7 @@ export function presentResult(res, { character, onDone, extra, title } = {}) {
   const qEl = el("div", { class: "roll-quality q" + res.quality, text: D.QUALITY_NAMES[res.quality] });
   const formula = el("div", { class: "roll-formula", text: formulaText(res) });
 
-  body.appendChild(el("div", { class: "roll-result" }, rollEl, qEl, formula));
+  body.appendChild(el("div", { class: "roll-result" }, diceFaces(d100Faces(res.roll), { tens: true }), rollEl, qEl, formula));
   const bandsEl = bandsRow(res);
   body.appendChild(bandsEl);
   body.appendChild(d100Track(res.bands, res.roll));

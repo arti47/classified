@@ -210,6 +210,16 @@ export async function browserTests(t, { chromium, executablePath, baseURL }) {
       const showsResult = await page.evaluate(() => !!document.querySelector(".roll-d100"));
       t.ok(showsResult, "the roll resolves and shows a d100 result with quality bands");
 
+      // The percentile dice, once landed, read as the roll: tens + units, with 100 as 00 + 0.
+      await page.waitForTimeout(650);
+      const faces = await page.evaluate(() => {
+        const f = [...document.querySelectorAll(".modal .dice-faces .die-face b")].map(b => b.textContent);
+        const roll = Number(document.querySelector(".modal .roll-d100").textContent);
+        const val = f.length === 2 ? (f[0] === "00" && f[1] === "0" ? 100 : Number(f[0]) + Number(f[1])) : null;
+        return { f, roll, val };
+      });
+      t.ok(faces.f.length === 2 && faces.val === faces.roll, `the two percentile dice land on the roll (${faces.f.join(" + ")} = ${faces.roll})`);
+
       // The d100 track is a picture of the bands, so it has to agree with them: the pin sits at
       // the roll, and the segment under the pin is the quality the result names.
       const track = await page.evaluate(() => {
