@@ -224,7 +224,7 @@ export function renderPlayGuide(host, opts = {}) {
     card.appendChild(el("div", { class: "field-label", text: "Do this next" }));
     card.appendChild(el("div", { style: "font-weight:600", text: next.st.label }));
     card.appendChild(el("p", { class: "small muted", style: "margin-top:4px", text: next.st.sub }));
-    if (next.st.tap) card.appendChild(el("p", { class: "small mono tut-tap", text: next.st.tap }));
+    if (next.st.tap) card.appendChild(tapLine(next.st.tap, host, next.st.go));
     card.appendChild(el("button", {
       class: "btn primary block", type: "button", style: "margin-top:10px",
       onclick: () => goTo(next.st.go, host)
@@ -248,7 +248,7 @@ export function renderPlayGuide(host, opts = {}) {
         el("span", { class: "guide-tick", text: done ? "✓" : "" }),
         el("b", { class: "grow", text: st.label })));
       row.appendChild(el("p", { class: "small muted", style: "margin:4px 0 0", text: st.sub }));
-      if (st.tap) row.appendChild(el("p", { class: "small mono tut-tap", text: st.tap }));
+      if (st.tap) row.appendChild(tapLine(st.tap, host, st.go));
       if (!done && st.go) {
         row.appendChild(el("button", { class: "btn sm", type: "button", style: "margin-top:8px",
           onclick: () => goTo(st.go, host) }, st.action || "Go"));
@@ -265,7 +265,7 @@ export function renderPlayGuide(host, opts = {}) {
             el("span", { class: "tut-n", text: String(step.n) }),
             el("b", { class: "grow", text: step.label })),
           el("span", { class: "small muted", text: step.sub }),
-          step.tap ? el("span", { class: "small mono tut-tap", text: step.tap }) : null));
+          step.tap ? tapLine(step.tap, host, step.go) : null));
       }
       sec.appendChild(card);
       if (act.note) sec.appendChild(el("p", { class: "small muted", text: act.note }));
@@ -277,6 +277,25 @@ export function renderPlayGuide(host, opts = {}) {
   host.appendChild(el("div", { class: "btn-row", style: "margin-top:8px" },
     el("button", { class: "btn", type: "button", onclick: () => goTo("tutorial", host) }, "See a mission played"),
     el("button", { class: "btn ghost", type: "button", onclick: () => openGlossary() }, "Glossary")));
+}
+
+/**
+ * A tap line ("Solo → Start an adventure") as the control that goes there. The line's own words
+ * are the label; where it leads is read from its first stop, so the copy in data-help.js stays
+ * copy. Everything that is not Create, Settings or the Sheet happens on the Solo screen, which
+ * is offered rather than opened while solo play is off.
+ */
+function tapRoute(tap) {
+  const first = String(tap).split("→")[0].trim().toLowerCase();
+  if (first.startsWith("create")) return "create";
+  if (first.startsWith("settings")) return "settings";
+  if (first.startsWith("sheet")) return "sheet";
+  return Settings.solo() ? "solo" : "offerSolo";
+}
+
+function tapLine(tap, host, go) {
+  return el("button", { class: "small mono tut-tap is-link", type: "button",
+    onclick: () => goTo(go || tapRoute(tap), host) }, tap);
 }
 
 /** Route or act. Kept here so the guide's data stays free of anything but copy. */
@@ -297,9 +316,7 @@ export function renderTutorial(host) {
       el("span", { class: "tut-n", text: String(step.n) }),
       el("h2", { class: "grow", style: "margin:0;font-size:16px", text: step.title })));
     for (const p of step.body) card.appendChild(el("p", { class: "small", text: p }));
-    if (step.tap) {
-      card.appendChild(el("p", { class: "small mono tut-tap", text: step.tap }));
-    }
+    if (step.tap) card.appendChild(tapLine(step.tap, host));
     if (step.rule) {
       card.appendChild(el("button", {
         class: "btn sm ghost", type: "button",

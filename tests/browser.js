@@ -60,6 +60,19 @@ export async function browserTests(t, { chromium, executablePath, baseURL }) {
       }
       t.ok(!headerArt.length, "every screen's header label carries its line-art prop beside its name" + (headerArt.length ? ` (missing: ${headerArt.join(", ")})` : ""));
 
+      // The tutorial's tap lines are the way there: each is a button that leaves the tutorial.
+      await page.evaluate(() => { location.hash = "#/tutorial"; });
+      await page.waitForTimeout(200);
+      const taps = await page.evaluate(async () => {
+        const btns = [...document.querySelectorAll("#screen button.tut-tap.is-link")];
+        const n = btns.length;
+        const create = btns.find(b => /^Create/.test(b.textContent));
+        create?.click();
+        await new Promise(r => setTimeout(r, 250));
+        return { n, toCreate: location.hash === "#/create" };
+      });
+      t.ok(taps.n >= 8 && taps.toCreate, `every tutorial tap line is a link, and the Create one opens Create (${taps.n} links)`);
+
       // Folders: the dossier's four screens and the library's three share a divider strip,
       // and the bottom tab that owns the folder stays lit on each of them.
       const folders = {};

@@ -206,7 +206,9 @@ function logRow(r) {
   // Solo rows carry a Mythic outcome, not a Classified Success Quality: the Quality columns
   // are meaningless for a Fate answer, so they are not printed for one.
   if (r.solo) {
-    return el("div", { class: "log-entry" },
+    // A Mythic row belongs to the adventure's journal: with solo on, it leads to the Solo screen.
+    const go = Settings.solo() ? () => navigate("solo") : null;
+    return el(go ? "button" : "div", { class: "log-entry" + (go ? " is-link" : ""), type: go ? "button" : null, onclick: go },
       el("span", { class: "lr", text: String(r.roll) }),
       el("div", { class: "ld" },
         el("div", { class: "lt" },
