@@ -1072,7 +1072,7 @@ export const MYSTERY_SUBJECTS = [
 
 export const MYSTERY_SUBJECT_BY_KEY = Object.fromEntries(MYSTERY_SUBJECTS.map(s => [s.key, s]));
 
-/** What fills a segment. Recorded here so the UI and the how-to copy cannot drift apart. */
+/** What counts as a clue. Recorded here so the UI and the how-to copy cannot drift apart. */
 export const MYSTERY_TICKS = [
   { key: "clue", name: "A clue you mark", desc: "One tap, when the fiction produced something that moved it." },
   { key: "scene", name: "A scene that bore on it", desc: "Ticked at End Scene, alongside the list upkeep." },
@@ -1148,7 +1148,7 @@ export const MYSTERY_ANSWERS = {
 };
 
 /**
- * The shape of the revelation, rolled when the last segment fills. Authored for this app's
+ * The shape of the revelation, rolled when the mystery breaks open. Authored for this app's
  * 1960s-espionage context — the shape is what makes a bare word pair readable at the moment
  * it matters most, so the reveal rolls this first and then a pair from the subject's table.
  */

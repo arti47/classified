@@ -1435,8 +1435,18 @@ button.solo-cell:hover { border-color: var(--ink-3); }
 @media (max-width: 899px) {
   .solo-page:not(.is-current) { display: none; }
 }
-@media (max-width: 360px) {
-  .solo-status .solo-primary { flex-basis: 100%; max-width: none; }
+/* One row at any phone width: the city rides under the scene number rather than taking a
+   cell of its own, and the button's label may take two lines rather than a row of its own. */
+.solo-cell .city-tag {
+  grid-column: 1 / -1; margin-top: 4px; padding: 2px 5px; font-size: 9.5px; letter-spacing: .04em;
+  max-width: 128px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; display: block;
+}
+.solo-cell .city-tag::before { display: inline-block; margin-right: 4px; vertical-align: 0; }
+@media (max-width: 899px) {
+  .solo-status { flex-wrap: nowrap; gap: 6px; align-items: stretch; }
+  .solo-cell { padding: 4px 6px; column-gap: 4px; align-content: center; }
+  .solo-cell .v { font-size: 18px; }
+  .solo-status .solo-primary { flex: 1 1 0; min-width: 0; max-width: none; min-height: 0; white-space: normal; line-height: 1.2; padding: 6px 8px; font-size: 12.5px; }
 }
 @media (min-width: 900px) {
   .solo-tabs { display: none; }

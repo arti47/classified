@@ -178,8 +178,9 @@ function soloBar(host, adv) {
         Array.from({ length: 9 }, (_, i) => el("span", { class: i < adv.chaos ? "on" + (i >= 6 ? " hot" : "") : "" })))),
     el("div", { class: "solo-cell" },
       el("span", { class: "k", text: "Scene" }),
-      el("span", { class: "v", text: String(adv.scene) })),
-    adv.city ? el("span", { class: "city-tag", title: "Where the adventure is now" }, adv.city) : null,
+      el("span", { class: "v", text: String(adv.scene) }),
+      // The city sits under the scene it is the setting of, so the row stays one row.
+      adv.city ? el("span", { class: "city-tag", title: adv.city }, adv.city) : null),
     el("button", { class: "btn primary solo-primary", type: "button", onclick: next.run }, next.label)));
 
   const tabs = el("div", { class: "solo-tabs", role: "tablist", "aria-label": "Solo pages" });
@@ -1602,7 +1603,7 @@ export async function rollRandomEvent(adv, opts = {}) {
       onClick: () => addToList("characters", "Characters", pair.words.join(" "))
     });
   }
-  // An event pointing at the mystery's own thread is the kind of clue the clock exists for,
+  // An event pointing at the mystery's own thread is the kind of clue a mystery exists for,
   // so it ticks itself rather than waiting to be noticed.
   if (drawn && drawn.item && focus.list === "threads") {
     const mys = (adv.mysteries || []).find(m => !m.revealedAt && m.sourceId === drawn.item.id);
@@ -1698,7 +1699,7 @@ async function rollPair(tableKey) {
 /* ---------------------------------------------------------------- mysteries (house aid) */
 
 /**
- * Mystery clocks. Not a Mythic procedure and not a Classified one — see ruling S20; the panel
+ * Mysteries. Not a Mythic procedure and not a Classified one — see ruling S20; the panel
  * says so itself, the way End Scene does on the Combat screen.
  */
 function appendMysteries(host, adv) {
@@ -1706,7 +1707,7 @@ function appendMysteries(host, adv) {
   const open = list.filter(m => !m.revealedAt);
   const done = list.filter(m => m.revealedAt);
 
-  const sec = section("Mysteries", "A question you do not know the answer to yet. Fill the clock as play turns it up; the answer is rolled when the last segment falls.", "solo.mysteries");
+  const sec = section("Mysteries", "A question you do not know the answer to yet. Every clue raises the odds that it breaks open; Fate decides when, and the answer is rolled then.", "solo.mysteries");
 
   sec.querySelector(".section-head").appendChild(el("button", {
     class: "btn sm primary", type: "button", onclick: () => newMystery(adv)
@@ -1853,7 +1854,7 @@ async function newMystery(adv) {
   items.push({ key: "custom", label: "Something else", desc: "Type the question yourself." });
 
   const pick = await chooseModal("What is the mystery about?", items, {
-    intro: "A house aid: a clock that fills as play turns the question up, and an answer rolled when it fills."
+    intro: "A house aid: clues raise the odds that it breaks open, Fate decides the moment, and the answer is rolled when it does."
   });
   if (!pick) return;
 
@@ -1880,7 +1881,7 @@ async function newMystery(adv) {
 }
 
 /**
- * Fill one segment. Returns the mystery as it stands after the tick, or null if there was
+ * Mark one clue. Returns the mystery as it stands after the tick, or null if there was
  * nothing to tick — the automatic sources use that to stay quiet.
  */
 export function openMystery({ subject, label, sourceId = null, silent = false }) {

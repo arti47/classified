@@ -519,7 +519,11 @@ export async function browserTests(t, { chromium, executablePath, baseURL }) {
           primaryInBar: document.querySelectorAll("#screen .solo-bar .solo-primary").length,
           primaries: document.querySelectorAll("#screen .solo-primary").length,
           before: shown(), helpBars: document.querySelectorAll("#screen details.help-acc").length,
-          marks: document.querySelectorAll("#screen .section-head .help-q").length
+          marks: document.querySelectorAll("#screen .section-head .help-q").length,
+          // One row: every reading and the button share a line, however long the label.
+          rows: new Set([...document.querySelectorAll("#screen .solo-status > *")]
+            .map(n => { const r = n.getBoundingClientRect(); return Math.round((r.top + r.bottom) / 2 / 16); })).size,
+          clockWords: /\bclock\b|last segment/i.test(document.getElementById("screen").textContent)
         };
         document.querySelector('#screen .solo-tab[data-page="oracle"]').click();
         await new Promise(r => setTimeout(r, 80));
@@ -545,6 +549,8 @@ export async function browserTests(t, { chromium, executablePath, baseURL }) {
       t.ok(phone.fateOnOracle, "Ask Fate lives on the Oracle page");
       t.eq(phone.sticky, "sticky", "the status bar is sticky over every page");
       t.ok(phone.primaryInBar === 1 && phone.primaries === 1, "and carries the one primary action");
+      t.eq(phone.rows, 1, "the bar's readings and primary action sit on one row");
+      t.ok(!phone.clockWords, "nothing on Solo still describes a mystery as a clock (S21)");
       t.eq(phone.helpBars, 0, "no how-to bars on Solo");
       t.ok(phone.marks >= 6, `the how-to copy is a ? on each heading instead (${phone.marks})`);
       await page.setViewportSize({ width: 1280, height: 900 });
