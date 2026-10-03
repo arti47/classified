@@ -539,6 +539,30 @@ export function unitTests(t) {
   }
   t.ok(!unlabelled.length, "every ✕ button carries an aria-label" + (unlabelled.length ? ` (${unlabelled.join(", ")})` : ""));
 
+  // Contrast is a property of the tokens, so it is checked on the tokens: muted text on every
+  // paper tone, the stamp red on the paper, and white on the red fill, in both themes, at AA.
+  const tokenBlock = sel => {
+    const i = css.indexOf(sel + " {");
+    const block = css.slice(i, css.indexOf("}", i));
+    return Object.fromEntries([...block.matchAll(/--([\w-]+):\s*(#[0-9a-fA-F]{6})/g)].map(m => [m[1], m[2]]));
+  };
+  const lum = hex => {
+    const c = [1, 3, 5].map(i => parseInt(hex.slice(i, i + 2), 16) / 255)
+      .map(v => v <= 0.03928 ? v / 12.92 : ((v + 0.055) / 1.055) ** 2.4);
+    return 0.2126 * c[0] + 0.7152 * c[1] + 0.0722 * c[2];
+  };
+  const ratio = (a, b) => { const x = lum(a), y = lum(b); return (Math.max(x, y) + 0.05) / (Math.min(x, y) + 0.05); };
+  for (const [name, sel] of [["light", ":root"], ["dark", ':root[data-theme="dark"]']]) {
+    const tk = { ...tokenBlock(":root"), ...(name === "dark" ? tokenBlock(sel) : {}) };
+    const pairs = [
+      ["ink-3", "paper"], ["ink-3", "paper-2"], ["ink-3", "paper-3"], ["ink-3", "tab"],
+      ["ink", "paper-2"], ["stamp", "paper"], ["stamp", "paper-2"]
+    ];
+    const low = pairs.filter(([f, b]) => ratio(tk[f], tk[b]) < 4.5).map(([f, b]) => `${f} on ${b} ${ratio(tk[f], tk[b]).toFixed(2)}`);
+    if (ratio("#ffffff", tk["stamp-fill"]) < 4.5) low.push("white on stamp-fill");
+    t.ok(!low.length, `${name} theme tokens hold AA contrast for text` + (low.length ? ` (${low.join(", ")})` : ""));
+  }
+
   // One cache version, in one place. It used to be declared in main.js as well, where nothing
   // read it and it had already drifted a version behind the worker that does.
   const versions = [];

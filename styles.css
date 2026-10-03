@@ -29,7 +29,7 @@
   --paper-hi: #fffaee;      /* highlight edge */
   --ink: #1d1914;
   --ink-2: #463d31;
-  --ink-3: #685c4b;         /* 4.6:1 on --paper */
+  --ink-3: #5c5141;         /* ≥4.7:1 on every paper tone, tabs included */
   --rule: #d2c4a1;
   --rule-2: #ab9a72;
   --line: rgba(155,28,18,.16); /* index-card red margin rule */
@@ -74,12 +74,12 @@
     --paper-hi: #243042;
     --ink: #ebe6da;
     --ink-2: #bfb8a8;
-    --ink-3: #959083;
+    --ink-3: #a39e91;
     --rule: #263142;
     --rule-2: #3a4a60;
     --line: rgba(224,71,58,.18);
-    --stamp: #df4637;
-    --stamp-2: #f2604f;
+    --stamp: #ef5a4a;
+    --stamp-2: #f7756a;
     --stamp-ink: #fff;
     --stamp-fill: #c0372a;
     --on-signal: #0b1017;
@@ -104,12 +104,12 @@
   --paper-hi: #243042;
   --ink: #ebe6da;
   --ink-2: #bfb8a8;
-  --ink-3: #959083;
+  --ink-3: #a39e91;
   --rule: #263142;
   --rule-2: #3a4a60;
   --line: rgba(224,71,58,.18);
-  --stamp: #df4637;
-  --stamp-2: #f2604f;
+  --stamp: #ef5a4a;
+  --stamp-2: #f7756a;
   --stamp-ink: #fff;
   --stamp-fill: #c0372a;
   --on-signal: #0b1017;
@@ -195,9 +195,7 @@ body::before {
   font: 400 12px/1 var(--display); letter-spacing: .14em;
   color: var(--stamp); border: 2px solid currentColor; outline: 1px solid currentColor; outline-offset: 1px;
   padding: 4px 6px 3px; transform: rotate(-4deg); flex: none;
-  border-radius: 3px; white-space: nowrap; opacity: .92;
-  -webkit-mask-image: radial-gradient(circle at 30% 40%, #000 60%, rgba(0,0,0,.72) 100%);
-  mask-image: radial-gradient(circle at 30% 40%, #000 60%, rgba(0,0,0,.72) 100%);
+  border-radius: 3px; white-space: nowrap;
 }
 .header-title {
   font: 400 19px/1.1 var(--display); letter-spacing: .02em;
@@ -622,7 +620,9 @@ button.chip:active { transform: translateY(1px); }
 
 /* The in-scene tools, quietened between scenes: still usable, visibly not the next step. */
 .solo-inplay { transition: opacity .2s; }
-.solo-inplay.is-quiet { opacity: .62; }
+/* Quietened by shape, not by fading: text keeps its contrast, the stamps lose their fill. */
+.solo-inplay.is-quiet .btn.primary { background: transparent; color: var(--stamp); border: 1.5px solid var(--stamp); box-shadow: none; }
+.solo-inplay.is-quiet .section-head ~ * .btn, .solo-inplay.is-quiet .card { box-shadow: none; }
 .solo-inplay.is-quiet .section-title { color: var(--ink-3); }
 .solo-inplay.is-quiet .section-title::before { background: var(--ink-3); }
 
@@ -663,7 +663,7 @@ button.chip:active { transform: translateY(1px); }
 .band:last-child { border-right: none; }
 .band .bl { display: block; font-size: 9px; color: var(--ink-3); letter-spacing: .08em; text-transform: uppercase; }
 .band.hit { background: var(--stamp-fill); color: #fff; }
-.band.hit .bl { color: rgba(255,255,255,.85); }
+.band.hit .bl { color: #fff; }
 
 .df-ladder { display: grid; grid-template-columns: repeat(auto-fill, minmax(44px, 1fr)); gap: 5px; }
 .df-step {
@@ -823,7 +823,8 @@ details.acc > .acc-body > .card.flush:last-child { margin-bottom: 0; }
   padding: 12px var(--pad); margin-bottom: 8px; box-shadow: var(--shadow-1);
   transition: opacity .2s, border-color .2s, box-shadow .2s;
 }
-.combatant.acted { opacity: .5; box-shadow: none; }
+.combatant.acted { box-shadow: none; background: transparent; border-style: dashed; }
+.combatant.acted .c-name { color: var(--ink-3); text-decoration: line-through; text-decoration-color: var(--rule-2); }
 .combatant.current { border-color: var(--stamp); box-shadow: inset 4px 0 0 var(--stamp), var(--shadow-2); }
 .combatant .c-head { display: flex; align-items: center; gap: 10px; }
 .combatant .c-name { font: 400 17px/1.2 var(--display); flex: 1 1 auto; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
@@ -871,7 +872,8 @@ details.acc > .acc-body > .card.flush:last-child { margin-bottom: 0; }
 /* The play guide: a checklist you are inside of, so a done step recedes and the next one
    is the only thing with a button on it. */
 .guide-step { margin-bottom: 10px; }
-.guide-step.is-done { opacity: .6; }
+.guide-step.is-done { box-shadow: none; background: transparent; border-style: dashed; }
+.guide-step.is-done h3, .guide-step.is-done .grow { color: var(--ink-3); }
 .guide-tick { width: 18px; color: var(--ok); font-weight: 700; flex: none; }
 .next-step { border-color: var(--stamp); border-left-width: 4px; }
 
