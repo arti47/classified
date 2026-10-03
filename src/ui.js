@@ -114,7 +114,8 @@ export function modal(opts = {}) {
   openModals.push(api);
   root.appendChild(backdrop);
 
-  const target = dialog.querySelector("input, select, textarea, button:not(.icon-btn)") ||
+  const target = dialog.querySelector("[autofocus]") ||
+    dialog.querySelector("input, select, textarea, button:not(.icon-btn)") ||
     dialog.querySelector(".modal-foot .btn") || closeBtn;
   window.setTimeout(() => target.focus(), 20);
 

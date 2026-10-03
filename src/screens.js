@@ -87,6 +87,7 @@ export function renderHome(host) {
         el("div", { class: "desk-body" },
           el("span", { class: "desk-kicker", text: "Solo" }),
           el("h2", { text: adv.name || "Untitled adventure" }),
+          adv.city ? el("span", { class: "city-tag" }, adv.city) : null,
           el("span", { class: "desk-stats" },
             el("span", {}, el("span", { class: "k", text: "Scene" }), el("b", { text: String(adv.scene) })),
             el("span", {}, el("span", { class: "k", text: "Chaos Factor" }), el("b", { text: String(adv.chaos) }))),

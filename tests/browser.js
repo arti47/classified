@@ -574,7 +574,21 @@ export async function browserTests(t, { chromium, executablePath, baseURL }) {
         Store.updateAdventure(a => { a.scenePhase = "setup"; a.sceneKind = null; a.sceneExpected = ""; });
         const p = Solo.startScene(Store.activeAdventure());
         await new Promise(r => setTimeout(r, 60));
-        document.querySelector(".modal input").value = "Meet the courier";
+        // The setting arrives pre-rolled: a city and three lines, each filled, under a caption.
+        const lines = [...document.querySelectorAll(".modal .setting-line input")].map(i => i.value);
+        const cityBefore = lines[0];
+        const travel = [...document.querySelectorAll(".modal .setting-line button")].find(b => b.textContent === "Travel");
+        let travelled = cityBefore;
+        for (let i = 0; i < 6 && travelled === cityBefore; i++) {
+          travel.click(); await new Promise(r => setTimeout(r, 40));
+          travelled = document.querySelector(".modal .setting-line input").value;
+        }
+        const settingSeen = {
+          filled: lines.length === 4 && lines.every(v => v.trim().length > 0),
+          caption: (document.querySelector(".modal .scene-caption") || {}).textContent || "",
+          travelled
+        };
+        document.querySelector(".modal input.scene-expect").value = "Meet the courier";
         [...document.querySelectorAll(".modal-foot .btn")].find(b => b.textContent === "Test the scene").click();
         await p;
 
@@ -597,8 +611,11 @@ export async function browserTests(t, { chromium, executablePath, baseURL }) {
         }
 
         const adv = Store.activeAdventure();
+        out.settingSeen = settingSeen;
+        out.sceneSetting = adv.sceneSetting;
+        out.city = adv.city;
         return { ...out, phase: adv.scenePhase, expected: adv.sceneExpected,
-          journalText: adv.journal.map(j => j.text).join(" | ") };
+          journalText: adv.journal.map(j => j.text + " " + (j.detail || "")).join(" | ") };
       });
       t.eq(started.phaseAfterTest, "setup",
         "the scene test alone does not put the adventure in play — the chain has to finish first");
@@ -609,6 +626,12 @@ export async function browserTests(t, { chromium, executablePath, baseURL }) {
         `the chain ends on the action that commits the scene (${started.steps.join(" → ")})`);
       t.ok(["expected", "altered", "interrupt"].includes(started.kind), "and records how the test resolved");
       t.ok(started.journalText.includes("Meet the courier"), "the journal records the scene and its outcome");
+      t.ok(started.settingSeen.filled, "Start scene opens with the setting already rolled: city, place, time and weather, a detail");
+      t.ok(started.settingSeen.caption.includes(started.settingSeen.travelled.toUpperCase()),
+        `and the location card names the city in capitals (${started.settingSeen.caption})`);
+      t.ok(started.sceneSetting && started.sceneSetting.city === started.settingSeen.travelled && started.city === started.settingSeen.travelled,
+        "Travel moves the scene to a new city, and the adventure goes with it");
+      t.ok(started.journalText.includes(started.settingSeen.travelled.toUpperCase()), "the journal carries the scene's location card");
       if (started.kind === "interrupt") {
         t.ok(started.expected !== "Meet the courier",
           "an interrupt relabels the scene card with the event that displaced the plan");
@@ -845,7 +868,7 @@ export async function browserTests(t, { chromium, executablePath, baseURL }) {
           })()
         };
       });
-      t.eq(briefed.filledBefore, 8, "Roll all fills every briefing row in one tap");
+      t.eq(briefed.filledBefore, 9, "Roll all fills every briefing row in one tap, the city included");
       t.ok(briefed.keptEdit, "and rolling again leaves a row you have written over alone");
       t.ok(briefed.rerolledOthers >= 5, "while every row still holding its words is rolled again");
       t.eq(briefed.seedCount, 3, "the three seeded lines are editable before they go on the lists");
@@ -869,7 +892,7 @@ export async function browserTests(t, { chromium, executablePath, baseURL }) {
 
       // An unedited row's text IS the words joined, so printing both says it twice.
       const bare = s => String(s).toLowerCase().replace(/[^a-z0-9]/g, "");
-      t.eq(briefed.pinnedRows.length, 8, "the pinned briefing lists every row");
+      t.eq(briefed.pinnedRows.length, 9, "the pinned briefing lists every row");
       t.ok(!briefed.pinnedRows.some(r => r.slice(1).length > 1 && bare(r[1]) === bare(r[2])),
         "no pinned row prints its own words back underneath itself");
       t.ok(briefed.pinnedRows.every(r => r.length === 2 || r[0] === "Objective"),

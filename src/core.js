@@ -2,7 +2,7 @@
 
 export const APP_NAME = "Classified Player";
 export const STORAGE_PREFIX = "classified.";
-export const SCHEMA_VERSION = 11;  // 9 clue odds, 10 clue lines and reveal tells, 11 the mission end (§6)
+export const SCHEMA_VERSION = 12;  // 9 clue odds, 10 clue lines and reveal tells, 11 the mission end, 12 the city and scene setting (§6)
 
 /* ---------------------------------------------------------------- DOM */
 

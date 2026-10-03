@@ -239,6 +239,13 @@ export function normalizeAdventure(a) {
     scenePhase: ["play", "briefing"].includes(src.scenePhase) ? src.scenePhase : "setup",
     sceneExpected: typeof src.sceneExpected === "string" ? src.sceneExpected : "",
     sceneKind: ["expected", "altered", "interrupt"].includes(src.sceneKind) ? src.sceneKind : null,
+    // Where the adventure is now, and the current scene's setting (ruling S25). Version 11 and
+    // earlier have neither: the next Start scene rolls a city, and no scene shows a caption.
+    city: typeof src.city === "string" ? src.city : "",
+    sceneSetting: src.sceneSetting && typeof src.sceneSetting === "object"
+      ? { city: String(src.sceneSetting.city || ""), place: String(src.sceneSetting.place || ""),
+          time: String(src.sceneSetting.time || ""), detail: String(src.sceneSetting.detail || "") }
+      : null,
     // The mission briefing, or null for an adventure that has none — which is every
     // version-5 record and any adventure whose player skipped it.
     briefing: normalizeBriefing(src.briefing),

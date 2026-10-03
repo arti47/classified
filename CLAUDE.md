@@ -556,6 +556,17 @@ sets `scenePhase` to `play`, so the screen never claims a scene is running befor
 behind it have happened. On an interrupt the event becomes the scene, the scene card is
 relabelled to name it, and the displaced plan is filed to Threads automatically (ruling S11).
 
+**Setting the scene** comes first in that chain (ruling S25). A spy story opens on a place, so
+Start scene arrives with the setting already rolled: the adventure's **city**, a **place** in it
+off the Location table, **time and weather** off Weather & Time, and a **detail** off Sensory
+Detail — each line editable and re-rollable — under a location card in capitals, the way a
+spy film puts the place on screen (*ISTANBUL — Bazaar · Dusk, Drizzle*). The city does not
+re-roll by itself: every scene opens where the last one was until the player taps **Travel**,
+which rolls the 100-city `CITY_TABLE` and journals the move. The mission's first city is the
+briefing's **Where** row. The card rides on the running scene, on the Solo header as a city tag,
+on Home's mission card, and in the journal's scene line. It is inspiration, not procedure:
+the scene test, the Chaos Factor and every Mythic roll are untouched.
+
 The **journal** is a record, not a log file: each row copies to the clipboard on its own
 (what happened, the dice behind it, and when) and deletes on its own behind a confirmation,
 with a **Copy all** that takes every entry oldest-first so a pasted session reads forwards.
@@ -679,6 +690,7 @@ layer carries the flag rather than the UI.
 | S22 | A briefing seeded its threads with the row text verbatim, so an Adventure List could open on *Deliver · Evaluate* — a word pair, not a goal anyone can act on | Two fixes, at both ends. The briefing dialog now carries the **seed lines themselves**: one field per list entry, tracking its row until you write in it, so the wording that goes on the list is settled before it is added rather than after. And every list entry's **text is the control that rewords it** — tap it and write it again, keeping its id and weight, so an entry a mystery or a briefing points at survives being reworded. Also **Roll all**, which fills the whole mission in one tap and leaves any row you have written over alone. |
 | S19 | Start an adventure opened a name prompt, and then a dossier chooser, before anything existed | **Both removed.** The name was the wrong question a tap too early: the briefing's codename row names the adventure a moment later, so the app was asking the player to invent the thing it was about to hand them. The dossier is whichever is already open. Adventure settings still holds rename and the dossier link. |
 | S18 | Every pinned briefing row printed twice — the line, then the words under it | The words go straight into the field, so an unedited row's text is the words joined and the two lines were the same sentence in two typefaces. The words are shown only when the player has written over them, which is the one case where they say something the line does not. Compared on letters alone, so the joiner and case never make an unedited row look edited. |
+| S25 | A scene opened on "what do you expect?" and nothing else, though a spy story always opens on a place — a city, then somewhere in it | **Set the scene**, pre-rolled at the head of Start scene: the adventure's city, then a place, a time and weather, and a detail off three existing authored Meaning Tables, every line editable. The city is carried from scene to scene and changes only on **Travel**, which rolls `CITY_TABLE` — one hundred real cities of the 1960s espionage circuit under their period names, authored for this app (T87). A list of real places carries no setting content, so the scope guard holds. Kept out of `MEANING_TABLES` because a city is a name to use rather than a word to interpret, and several are two words. The app's own aid on the S14 precedent: nothing in the scene test or the Fate machinery changes |
 | S13 | The Adventures button mixed switching adventures with configuring and deleting them | Split. Top level is the switcher plus *Start a new adventure*; a single **Adventure settings** row opens the Fate mechanic, the Chaos override, the dossier link, rename and delete. |
 | S12 | Whether re-rolling a Random Event's words should leave a trail | **No.** A re-roll supersedes: it deletes the journal row and roll-log row it replaces, so the record shows the reading that was kept. The Event Focus is held fixed across a re-roll — only the words change. |
 | S9 | Whether the in-scene tools should be locked while no scene is open | **No.** A solo player legitimately asks Fate a question between scenes — often to decide what the next scene even is. The tools stay live and the screen leans on emphasis instead: the primary action is the next boundary, and the in-play block is quietened until a scene is running. |
@@ -937,6 +949,8 @@ classified.soloAdventures: [ {
     writtenAt },
   sceneExpected: string,                        // what you said this scene would be
   sceneKind: "expected" | "altered" | "interrupt" | null,   // how the scene test resolved
+  city: string,                                 // where the adventure is now; "" until set (S25)
+  sceneSetting: null | { city, place, time, detail },      // the running scene's location card
   mysteries:  [ { id, subject, label, sourceId, clues, clueLog[ {id,ts,text,source} ], misses, lastScene,
                   revealedAt, reveal: { shapeKey, shapeName, shapeDesc, words[], rolls[],
                                         exceptional, implicated, tell } } ],
@@ -951,7 +965,8 @@ classified.soloUndo:   <one-step snapshot: { ts, label, adventures, active } >
 ```
 
 Every schema addition ships with a back-fill in `normalize()` and is documented here in the
-same change. `SCHEMA_VERSION` is 11. The pre-A11 single `bandIndex` field is migrated to `heightBand` and `weightBand` on load. Version 4 added the solo keys above, version 5 the three scene-phase fields, version 6 the briefing, version 7 its `seededIds` and version 8 the mysteries and version 9 their clue-driven odds — a version-8 clock's filled segments carry over as that many clues — a record from any earlier version simply has none. Version 5 records load with `briefing: null` and keep the phase they were in, so an adventure under way is never sent back to a briefing it never had; a version-6 briefing back-fills an empty `seededIds`, and deleting its mission falls back to matching the seeded rows by text. The one-step undo snapshot carries a `label` so the banner names what it would revert. Version 5 also added the three scene-phase
+same change. `SCHEMA_VERSION` is 12; version 12 added `city` and `sceneSetting`, and an older
+adventure loads with neither — its next Start scene rolls a city. The pre-A11 single `bandIndex` field is migrated to `heightBand` and `weightBand` on load. Version 4 added the solo keys above, version 5 the three scene-phase fields, version 6 the briefing, version 7 its `seededIds` and version 8 the mysteries and version 9 their clue-driven odds — a version-8 clock's filled segments carry over as that many clues — a record from any earlier version simply has none. Version 5 records load with `briefing: null` and keep the phase they were in, so an adventure under way is never sent back to a briefing it never had; a version-6 briefing back-fills an empty `seededIds`, and deleting its mission falls back to matching the seeded rows by text. The one-step undo snapshot carries a `label` so the banner names what it would revert. Version 5 also added the three scene-phase
 fields; characters are untouched by both, and `normalizeAdventure()` — in `store.js`, beside the rest of the
 persistence layer, so `derived.js` stays free of Mythic — back-fills every field, clamps the
 Chaos Factor, truncates a list past 25 slots and corrects a weight below 1. A version-3
@@ -1147,6 +1162,8 @@ carry `verify: true` in the data; authored tables are marked and carry `authored
 - [x] **T81** Authored world set — Weather & Time, Sensory Detail, Terrain & Environment, Organisation & Faction *(400 words, authored)*
 - [x] **T82** Authored story set — Mission Twist, Scene Framing, Motive & Secret, Leverage & Money, Consequence & Aftermath *(500 words, authored)*
 
+- [x] **T87** City table — 100 real cities of the 1960s espionage circuit, d100, and the scene-setting rows (place, time and weather, detail) that read existing Meaning Tables *(authored, S25)*
+
 - [x] **T83** Mysteries — the clue-to-odds ladder, subjects, clue sources, the authored Reveal table with its person-naming shapes, the false-lead and stale-case rules, the opponent's tell, and the briefing's Hidden truth table *(house aid, S20, S21, S23)*
 
 **Every box is ticked.** The supplied report is fully represented — 900 baseline words
@@ -1197,7 +1214,7 @@ are flagged rather than presented as extracted (S1).
       - [x] Roll-log integration through `Store.addRoll()`.
       - [x] Regression checks: chart monotonicity, derived thresholds, event trigger,
             chaos clamping, list weighting, and every table exactly 100 entries.
-- [x] **Hardening.** Committed regression harness (1353 checks); accessibility pass;
+- [x] **Hardening.** Committed regression harness (1375 checks); accessibility pass;
       rules-accuracy audit with every finding closed (§11).
 
 ---
@@ -1441,3 +1458,4 @@ tables are this app's own work and are marked as such (S6).
 | 2026-10-03 | Third UX series, round 5 of 6 — live steps: every tap line in the Tutorial and the play guide is a link to the screen it names, and Mythic rows in the roll log lead to Solo | Asked whether everything that should link does. The Tutorial told the player where to tap ten times over in grey text that could not be tapped, and a Fate answer in the log had no way back to the adventure it came from | 1353 checks green, including all ten tutorial tap lines rendered as links and the Create one landing on Create. axe clean bar `meta-viewport` | `classified-v50` |
 | 2026-10-03 | Third UX series, round 6 of 6 — final sweep: rules-fidelity audit and layout stress over the series, no code change needed | `git diff` across the six rounds shows no change to any `data*.js`, `rules.js`, `derived.js`, `store.js` or fixture; the only lines added to `roller.js` draw the dice faces for a roll already made and the range track from the manoeuvre's own list | 1353 checks green on two consecutive runs. axe clean on every route and the roll dialogs in both themes bar `meta-viewport`; zero overflow at 320, 360, 390, 768 and 1280px; zero console errors | `classified-v50` |
 | 2026-10-03 | One control per step on Solo (N13): the coach no longer repeats the primary action's briefing, Start-scene, End-scene or new-adventure control there; it appears only inside a scene, with its three choices | Reported with a screenshot of *Say what you are about to do · Go* directly above *Start scene 1*, both starting the scene. Root cause: the compact coach on Solo rendered every beat, and its boundary beats are the primary action's job on that screen | 1357 checks green, including one Start-scene control and no coach between scenes, and the coach's three choices with no boundary button of their own inside a scene | `classified-v51` |
+| 2026-10-03 | Set the scene (S25, T87, `SCHEMA_VERSION` 12): a 100-city `CITY_TABLE`, a **Where** row in the briefing, and a pre-rolled, editable setting at the head of Start scene — city, place, time and weather, detail — under a location card in capitals; **Travel** rolls a new city and journals the move; the card shows on the running scene, the Solo header and Home's mission card | Asked: spy stories always open on a city, then a place to set the scene, and a scene needs a table to roll for inspiration. The app had a generic Location table and Scene Framing, but no world city, and Start scene asked only what you expected. Decided with the user: real cities, pre-rolled and editable, the city held until Travel | 1375 checks green, including the City table's hundred unique entries and both ends of the d100, every setting line resolving to a real table, a version-11 adventure loading with no city, the setting pre-filled in the browser, the card naming the city in capitals, Travel moving both the scene and the adventure, and the journal carrying the card | `classified-v52` |

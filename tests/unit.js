@@ -1214,7 +1214,19 @@ function soloTests(t) {
   t.eq(fresh.chaos, 5, "a new adventure starts at Chaos Factor 5");
   t.eq(fresh.scene, 1, "a new adventure starts at scene 1");
   t.eq(fresh.fateMode, "chart", "the Fate Chart is the default mechanic");
-  t.eq(fresh.schema, 11, "an adventure records SCHEMA_VERSION 11");
+  t.eq(fresh.schema, 12, "an adventure records SCHEMA_VERSION 12");
+  // The city and the scene setting (ruling S25).
+  t.eq(SOLO.CITY_TABLE.entries.length, 100, "the City table has a hundred entries, one per d100");
+  t.eq(new Set(SOLO.CITY_TABLE.entries).size, 100, "and no city twice");
+  t.ok(SOLO.CITY_TABLE.authored === true && !SOLO.MEANING_BY_KEY.espCity, "it is marked authored and kept out of the one-word Meaning Tables");
+  t.eq(SOLO.cityAt(1), SOLO.CITY_TABLE.entries[0], "a 1 reads the first city");
+  t.eq(SOLO.cityAt(100), SOLO.CITY_TABLE.entries[99], "and a 100 the last");
+  t.ok(SOLO.SCENE_SETTING_ROWS.every(r => SOLO.MEANING_BY_KEY[r.table]), "every scene-setting line rolls on a Meaning Table that exists");
+  t.ok(SOLO.BRIEFING_ROWS.some(r => r.key === "city" && r.city), "the briefing carries a city row");
+  t.eq(fresh.city, "", "an adventure starts with no city until its briefing or first scene sets one");
+  t.eq(fresh.sceneSetting, null, "and no scene setting");
+  const v11 = normalizeAdventure({ schema: 11, name: "Old", scene: 3, scenePhase: "setup" });
+  t.ok(v11.city === "" && v11.sceneSetting === null && v11.scene === 3, "a version-11 adventure loads with no city and keeps its place in the loop");
   t.deep(fresh.threads, [], "the Threads list starts empty");
   t.eq(fresh.scenePhase, "setup", "a new adventure has no scene open yet");
   t.eq(fresh.sceneKind, null, "and no scene outcome recorded");

@@ -913,6 +913,51 @@ export const EVENT_MEANING_BY_FOCUS = {
   context: "espScene"
 };
 
+/* ================================================================ T87 cities and the scene setting
+ *
+ * AUTHORED FOR THIS APP, NOT EXTRACTED. Neither Mythic nor Classified prints a list of places;
+ * the spy story does — a mission opens on a city, and each scene on a place inside it. These are
+ * one hundred real cities of the 1960s espionage circuit, under their period names (Peking,
+ * Bombay, Saigon, Léopoldville), rolled on a d100. Real places carry no setting or adventure
+ * content of their own, so the scope guard holds (CLAUDE.md §10.8). Marked `authored` and kept
+ * out of MEANING_TABLES: a city is a name, not a word to interpret, and several are two words,
+ * which the Meaning Tables' one-word rule forbids.
+ */
+export const CITY_TABLE = {
+  key: "espCity", name: "City", authored: true,
+  subject: "Where in the world the mission, or the scene, is set",
+  entries: [
+    "Berlin (West)", "Berlin (East)", "Vienna", "Prague", "Budapest", "Warsaw", "Moscow", "Leningrad", "Helsinki", "Stockholm",
+    "Copenhagen", "Oslo", "Hamburg", "Bonn", "Munich", "Geneva", "Zurich", "Bern", "Lausanne", "St. Moritz",
+    "Paris", "Marseille", "Nice", "Monte Carlo", "Lisbon", "Madrid", "Barcelona", "Gibraltar", "Tangier", "Casablanca",
+    "Rome", "Venice", "Naples", "Milan", "Trieste", "Belgrade", "Sofia", "Bucharest", "Athens", "Istanbul",
+    "London", "Edinburgh", "Dublin", "Amsterdam", "Brussels", "Antwerp", "Luxembourg", "Valletta", "Nicosia", "Beirut",
+    "Damascus", "Cairo", "Alexandria", "Baghdad", "Tehran", "Aden", "Jeddah", "Khartoum", "Addis Ababa", "Nairobi",
+    "Léopoldville", "Lagos", "Dakar", "Algiers", "Tripoli", "Tunis", "Cape Town", "Johannesburg", "Bombay", "New Delhi",
+    "Karachi", "Kathmandu", "Rangoon", "Bangkok", "Saigon", "Vientiane", "Singapore", "Hong Kong", "Macau", "Shanghai",
+    "Peking", "Tokyo", "Osaka", "Manila", "Jakarta", "Sydney", "Havana", "Mexico City", "Acapulco", "Panama City",
+    "Caracas", "Rio de Janeiro", "Buenos Aires", "Montevideo", "Santiago", "Lima", "Washington", "New York", "Miami", "Montreal"
+  ]
+};
+
+/** The city at a d100 roll, 1–100. */
+export function cityAt(roll) {
+  const r = Math.max(1, Math.min(100, Number(roll) || 1));
+  return CITY_TABLE.entries[r - 1];
+}
+
+/**
+ * The scene setting, rolled at Start scene before the scene test (house aid, like the
+ * briefing — ruling S25). Each line names the Meaning Table it reads and how many words it
+ * takes. The city line is not here: it is the adventure's current city, carried from scene to
+ * scene until the player travels, and only re-rolled on CITY_TABLE when they do.
+ */
+export const SCENE_SETTING_ROWS = [
+  { key: "place", name: "Place", table: "espLocation", words: 1, join: "" },
+  { key: "time", name: "Time & weather", table: "espWeather", words: 2, join: ", " },
+  { key: "detail", name: "Detail", table: "espSensory", words: 2, join: ", " }
+];
+
 /* ================================================================ T83 mission briefing */
 
 /**
@@ -928,6 +973,9 @@ export const BRIEFING_ROWS = [
   { key: "codename", name: "Codename", table: "espCodename", pair: true, join: " ",
     placeholder: "Operation Nightjar",
     hint: "Two words joined. Names the adventure as well, if it is still untitled." },
+  { key: "city", name: "Where", city: true,
+    placeholder: "Istanbul",
+    hint: "The city the mission opens in, off the City table. Every scene starts here until you travel." },
   { key: "genre", name: "Genre and tone", table: "genre", pair: true, join: " / ",
     placeholder: "Espionage, grim",
     hint: "The register of the whole adventure. Espionage and grim plays very differently from espionage and cozy." },

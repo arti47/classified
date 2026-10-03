@@ -213,6 +213,7 @@ function appendHeader(host, adv) {
   card.appendChild(el("div", { class: "row tight", style: "margin-top:10px" },
     el("span", { class: "pill " + (adv.completedAt ? "q1" : "neutral"),
       text: adv.completedAt ? "Mission closed" : phaseOf(adv).label }),
+    adv.city ? el("span", { class: "city-tag", title: "Where the adventure is now" }, adv.city) : null,
     el("span", { class: "spacer" }),
     el("button", { class: "btn sm ghost", type: "button", onclick: () => openTopic("chaos") }, "What Chaos does")));
   host.appendChild(card);
@@ -453,6 +454,10 @@ function appendPrimary(host, adv) {
     if (kind) {
       card.appendChild(el("span", { class: "pill " +
         (adv.sceneKind === "expected" ? "q1" : adv.sceneKind === "altered" ? "q3" : "q5"), text: kind.name }));
+    }
+    if (adv.sceneSetting && settingCaption(adv.sceneSetting)) {
+      card.appendChild(el("div", { class: "scene-caption is-card" }, settingCaption(adv.sceneSetting),
+        adv.sceneSetting.detail ? el("span", { class: "scene-detail", text: adv.sceneSetting.detail }) : null));
     }
     if (adv.sceneExpected) {
       card.appendChild(el("p", { class: "small", style: "margin-top:6px" },
@@ -715,6 +720,18 @@ export async function openBriefing(adv) {
         syncSeeds();
         return;
       }
+      if (row.city) {
+        const r = await soloD100("City d100");
+        const city = S.cityAt(r);
+        state[row.key].words = [];
+        state[row.key].rolls = [r];
+        state[row.key].text = city;
+        field.value = city;
+        rolled.set(row.key, city);
+        wordsEl.textContent = `City · rolled ${r}`;
+        syncSeeds();
+        return;
+      }
       if (row.hidden) {
         // Whether the mission conceals anything, and what it hangs on. A hit opens a mystery
         // when the briefing is committed — with no clues yet, so nothing says when it breaks.
@@ -820,6 +837,8 @@ export async function openBriefing(adv) {
   save(a => {
     const seededIds = a.briefing && Array.isArray(a.briefing.seededIds) ? a.briefing.seededIds : [];
     a.briefing = { rows: state, npc, writtenAt: Date.now(), seededIds };
+    // The mission's city becomes the adventure's current one, unless play has already moved on.
+    if (state.city && state.city.text.trim() && (!a.city || a.scene <= 1)) a.city = state.city.text.trim();
 
     // Name the adventure from its codename if it never got one.
     if (state.codename.text && /^untitled/i.test(a.name || "")) a.name = state.codename.text;
@@ -904,6 +923,11 @@ export async function autoBriefing(adv) {
       state[row.key] = { text: npc.name, words: npc.identityWords || [], rolls: npc.identityRolls || [] };
       continue;
     }
+    if (row.city) {
+      const r = await soloD100("City d100");
+      state[row.key] = { text: S.cityAt(r), words: [], rolls: [r] };
+      continue;
+    }
     if (row.hidden) {
       const r = await soloD100("Hidden truth d100");
       const hit = S.hiddenTruth(r);
@@ -918,6 +942,7 @@ export async function autoBriefing(adv) {
 
   save(a => {
     a.briefing = { rows: state, npc, writtenAt: Date.now(), seededIds: [] };
+    if (state.city && state.city.text) a.city = state.city.text;
     if (state.codename.text && /^untitled/i.test(a.name || "")) a.name = state.codename.text;
 
     for (const row of S.BRIEFING_ROWS) {
@@ -1182,6 +1207,61 @@ export async function askFate(adv, oddsKey, question) {
 
 /* ---------------------------------------------------------------- scenes */
 
+/* ---------------------------------------------------------------- scene setting (house aid, S25) */
+
+async function rollCity() {
+  const r = await soloD100("City d100");
+  return { city: S.cityAt(r), roll: r };
+}
+
+async function rollSettingLine(row) {
+  const table = S.MEANING_BY_KEY[row.table];
+  const words = [];
+  for (let i = 0; i < row.words; i++) words.push(table.words[(await soloD100(`${table.name} d100`)) - 1]);
+  return [...new Set(words)].join(row.join || " ");
+}
+
+/** A whole setting: the adventure's current city (rolled only if it has none) and a fresh line per row. */
+export async function rollSceneSetting(adv) {
+  const out = { city: adv.city || "" };
+  if (!out.city) out.city = (await rollCity()).city;
+  for (const row of S.SCENE_SETTING_ROWS) out[row.key] = await rollSettingLine(row);
+  return out;
+}
+
+/** The scene's title card, the way a spy film puts the place on screen: "ISTANBUL — Bazaar · Dusk, Drizzle". */
+export function settingCaption(st) {
+  if (!st) return "";
+  const where = [st.place, st.time].filter(Boolean).join(" · ");
+  return [st.city ? st.city.toUpperCase() : "", where].filter(Boolean).join(" — ");
+}
+
+/** The editable setting block at the head of Start scene. Mutates `setting` as you edit or reroll. */
+function settingEditor(setting) {
+  const card = el("div", { class: "scene-setting" });
+  const caption = el("div", { class: "scene-caption", "aria-live": "polite" });
+  const redraw = () => { caption.textContent = settingCaption(setting); };
+  card.appendChild(el("div", { class: "field-label", text: "Set the scene" }));
+  card.appendChild(caption);
+
+  const line = (label, key, reroll, extra) => {
+    const input = el("input", { type: "text", value: setting[key] || "", "aria-label": label });
+    input.addEventListener("input", () => { setting[key] = input.value.trim(); redraw(); });
+    const again = el("button", { class: "btn sm ghost", type: "button", "aria-label": `Roll ${label} again` }, "Reroll");
+    again.addEventListener("click", async () => { setting[key] = await reroll(); input.value = setting[key]; redraw(); });
+    card.appendChild(el("div", { class: "setting-line" },
+      el("span", { class: "field-label", text: label }),
+      el("div", { class: "row tight" }, input, extra ? extra(input) : again)));
+  };
+
+  // The city does not reroll on its own: you stay where the mission is until you travel.
+  line("City", "city", null, input => el("button", { class: "btn sm", type: "button",
+    onclick: async () => { setting.city = (await rollCity()).city; input.value = setting.city; redraw(); } }, "Travel"));
+  for (const row of S.SCENE_SETTING_ROWS) line(row.name, row.key, () => rollSettingLine(row));
+  redraw();
+  return card;
+}
+
 /**
  * Start a scene, the whole boundary in one flow: say what you expect, test it against the
  * Chaos Factor, and chain straight into whatever the test says happens instead. The scene is
@@ -1191,11 +1271,17 @@ export async function askFate(adv, oddsKey, question) {
 export async function startScene(adv, opts = {}) {
   let expected = typeof opts.expected === "string" ? opts.expected.trim() : null;
 
+  // The setting arrives already rolled — the city you are in, a place in it, the time and
+  // weather, a detail — so a scene never opens on a blank page. Every line can be rolled again
+  // or written over, and Travel takes the scene to a new city (ruling S25).
+  const setting = await rollSceneSetting(adv);
+
   // The guided player has already asked what you are about to do, so it hands the answer in
   // rather than making the same question appear twice in a row.
   if (expected === null) {
-    const input = el("input", { type: "text", placeholder: "The safe house, to warn the courier" });
+    const input = el("input", { type: "text", class: "scene-expect", autofocus: true, placeholder: "The safe house, to warn the courier" });
     const body = el("div", {},
+      settingEditor(setting),
       el("label", { class: "field" },
         el("span", { text: `What do you expect scene ${adv.scene} to be?` }), input),
       el("p", { class: "small muted", text:
@@ -1205,6 +1291,14 @@ export async function startScene(adv, opts = {}) {
     if (!go) return;
     expected = input.value.trim();
   }
+  const caption = settingCaption(setting);
+  save(a => {
+    a.sceneSetting = { city: setting.city, place: setting.place, time: setting.time, detail: setting.detail };
+    if (setting.city && setting.city !== a.city) {
+      if (a.city) journal(a, "note", `Travel: ${a.city} → ${setting.city}`, `scene ${a.scene}`);
+      a.city = setting.city;
+    }
+  });
   const roll = await soloD10("scene test d10");
   const res = S.sceneTest(roll, adv.chaos);
 
@@ -1216,7 +1310,7 @@ export async function startScene(adv, opts = {}) {
     a.sceneKind = res.key;
     a.sceneExpected = expected;
     journal(a, "scene", `Scene ${a.scene} — ${res.name}` + (expected ? `: ${expected}` : ""),
-      `d10 ${roll} vs Chaos Factor ${res.chaos}`);
+      [caption, `d10 ${roll} vs Chaos Factor ${res.chaos}`].filter(Boolean).join(" · "));
   });
   logSolo(adv, `Scene ${adv.scene} test`, roll, res.name, `d10 against Chaos Factor ${res.chaos}`);
 
@@ -2297,6 +2391,7 @@ export async function endScene(adv) {
     a.scenePhase = "setup";
     a.sceneKind = null;
     a.sceneExpected = "";
+    a.sceneSetting = null;
   });
 
   changes.unshift(`Chaos Factor ${before} → ${updated.chaos}.` +
@@ -2375,6 +2470,7 @@ export async function endMission(adv) {
     a.scenePhase = "setup";
     a.sceneKind = null;
     a.sceneExpected = "";
+    a.sceneSetting = null;
     journal(a, "scene", `Mission ended — ${S.MISSION_OUTCOMES[outcome].name}`,
       `${a.scene - 1} scenes · Chaos Factor ${a.chaos}`);
   });
