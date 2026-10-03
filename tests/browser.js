@@ -2884,6 +2884,54 @@ export async function browserTests(t, { chromium, executablePath, baseURL }) {
       t.eq(linked.duplicated, 1, "a dossier can be duplicated from the dossier list");
       t.ok(linked.byLink && linked.byGoes === "#/sheet", "a roll's author in the log opens that dossier");
 
+      // Reported: the solo journal did not capture skill rolls. A real roll through the dialog,
+      // with solo on and the adventure linked to the dossier that rolled.
+      const journaled = await page.evaluate(async () => {
+        const wait = ms => new Promise(r => setTimeout(r, ms));
+        const Store = await import("./src/store.js");
+        const S = await import("./src/settings.js");
+        const Roller = await import("./src/roller.js");
+        (await import("./src/ui.js")).closeAllModals();
+        const soloWas = S.Settings.solo();
+        S.set("solo", true);
+        const c = Store.activeCharacter() || Store.allCharacters()[0];
+        Store.setActive(c.id);
+        const adv = Store.createAdventure({ characterId: c.id });
+        Store.setActiveAdventure(adv.id);
+        Store.updateAdventure(a => { a.scenePhase = "play"; a.scene = 2; });
+        const count = () => (Store.activeAdventure().journal || []).filter(j => j.kind === "check").length;
+        const before = count();
+        Roller.openRoll({ character: c, skillKey: "stealth" });
+        for (let i = 0; i < 40 && !document.querySelector(".modal"); i++) await wait(50);
+        [...document.querySelectorAll(".modal-foot .btn")].find(b => b.textContent === "Roll").click();
+        for (let i = 0; i < 60 && !document.querySelector(".roll-quality"); i++) await wait(50);
+        [...document.querySelectorAll(".modal-foot .btn")].find(b => b.textContent === "Done").click();
+        await wait(150);
+        const entry = (Store.activeAdventure().journal || []).find(j => j.kind === "check");
+        const out = { added: count() - before, text: entry && entry.text, detail: entry && entry.detail };
+        // Not when the adventure is someone else's, and not with solo off.
+        Store.updateAdventure(a => { a.characterId = "someone-else"; });
+        Store.addRoll({ by: "X", characterId: c.id, label: "Stray", roll: 5, quality: 2, modifiers: [] });
+        out.otherDossier = count();
+        Store.updateAdventure(a => { a.characterId = c.id; });
+        S.set("solo", false);
+        Store.addRoll({ by: "X", characterId: c.id, label: "Stray", roll: 5, quality: 2, modifiers: [] });
+        out.soloOff = count();
+        S.set("solo", true);
+        location.hash = "#/home"; await wait(120);
+        location.hash = "#/solo"; await wait(350);
+        out.tagShown = [...document.querySelectorAll('#screen .journal .log-entry[data-kind="check"] .kind-tag')].length;
+        Store.deleteAdventure ? Store.deleteAdventure(adv.id) : null;
+        S.set("solo", soloWas);
+        return out;
+      });
+      t.eq(journaled.added, 1, "a skill roll made during a solo mission is written into its journal");
+      t.ok(/Stealth/.test(journaled.text || "") && /rolled \d+/.test(journaled.detail || "") && /scene 2/.test(journaled.detail || ""),
+        "naming the skill, the Quality, the dice and the scene");
+      t.eq(journaled.otherDossier, 1, "a roll by a dossier the adventure is not linked to stays out of it");
+      t.eq(journaled.soloOff, 1, "and with solo play off nothing is journalled");
+      t.ok(journaled.tagShown >= 1, "the journal shows the row with its own CHECK tag");
+
       // Suggested names: gender is two chips, and a roll fills the Name field from its tables.
       const naming = await page.evaluate(async () => {
         const wait = ms => new Promise(r => setTimeout(r, ms));

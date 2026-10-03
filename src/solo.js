@@ -2613,7 +2613,7 @@ function upkeepBlock(adv, which, title, pending) {
 
 function appendJournal(host, adv) {
   const entries = adv.journal || [];
-  const sec = section("Journal", "Every Fate answer, event and scene boundary, newest first.", "solo.journal");
+  const sec = section("Journal", "Every Fate answer, event, scene boundary and check your agent rolled, newest first.", "solo.journal");
 
   sec.querySelector(".section-head").appendChild(el("button", {
     class: "btn sm", type: "button",

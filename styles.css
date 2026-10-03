@@ -1481,3 +1481,5 @@ button.chip:disabled { cursor: not-allowed; border-style: dashed; background: tr
 }
 .row:has(> .stepper) > .grow, .card-row:has(> .stepper) > .grow { min-width: 0; overflow-wrap: anywhere; }
 .stepper { flex: none; }
+/* A Classified check in the solo journal: the dossier's own ink, double-ruled like a form. */
+.log-entry[data-kind="check"] .kind-tag { color: var(--ink); border-style: double !important; border-width: 3px !important; }

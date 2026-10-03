@@ -3,6 +3,8 @@
 import { STORAGE_PREFIX, uid, deepClone, SCHEMA_VERSION } from "./core.js";
 import { normalize, blankCharacter } from "./derived.js";
 import * as Sync from "./sync.js";
+import { Settings } from "./settings.js";
+import { QUALITY_NAMES } from "../data.js";
 
 const K_CHARS = STORAGE_PREFIX + "characters";
 const K_ACTIVE = STORAGE_PREFIX + "activeCharacter";
@@ -165,7 +167,37 @@ export function addRoll(entry) {
   writeJSON(K_LOG, log);
   Sync.pushRoll(row);
   emit("log");
+  journalCheck(row);
   return row;
+}
+
+/**
+ * A Classified check made during a solo mission is part of that mission's story, so it is
+ * written into the adventure's journal as well as the roll log. Before this the journal held
+ * only the oracle's answers — the Fate question "is the guard asleep?" was there, the Stealth
+ * roll that got past him was not, and a pasted journal read as a conversation with half the
+ * lines missing. Done here, at the one door every roll passes through, so skill checks,
+ * attacks, opposed procedures and the Draw all arrive without each caller knowing about solo.
+ * Only when solo play is on, the active adventure is open, and it is linked to the dossier
+ * that rolled; Mythic rows (`solo: true`) are journalled by the Solo screen itself.
+ */
+function journalCheck(row) {
+  if (row.solo || !row.characterId || !Settings.solo()) return;
+  const adv = activeAdventure();
+  if (!adv || adv.completedAt || adv.characterId !== row.characterId) return;
+  const quality = QUALITY_NAMES[row.quality];
+  const detail = [
+    `rolled ${row.roll}`,
+    row.successChance != null ? `Base ${row.baseChance} × DF ${row.df === 0.5 ? "½" : row.df} = SC ${row.successChance}` : "",
+    row.heroSpent ? `${row.heroSpent} Hero Point${row.heroSpent === 1 ? "" : "s"} spent` : "",
+    row.note || "",
+    `scene ${adv.scene}`
+  ].filter(Boolean).join(" · ");
+  adv.journal = adv.journal || [];
+  adv.journal.unshift({ id: uid("j"), ts: row.ts, kind: "check",
+    text: `${row.by ? row.by + " — " : ""}${row.label}${quality ? ": " + quality : ""}`, detail });
+  if (adv.journal.length > 200) adv.journal.length = 200;
+  saveAdventure(adv);
 }
 
 export function clearLog() { writeJSON(K_LOG, []); emit("log"); }

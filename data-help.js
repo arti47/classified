@@ -279,7 +279,7 @@ export const HELP = {
 
   "solo.journal": {
     title: "How to use the Journal",
-    what: "The adventure as it happened: every Fate answer, event and boundary, newest first.",
+    what: "The adventure as it happened: every Fate answer, event and boundary, and every check the linked agent rolled while solo play is on, newest first.",
     steps: [
       "+ Note writes anything the rolls did not.",
       "⧉ copies one entry; Copy all copies the lot, for pasting into a write-up.",
