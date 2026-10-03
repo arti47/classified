@@ -35,13 +35,19 @@ export function renderResourceHeader() {
 
   // A chip with somewhere to go is a button; one without is not. The default used to be an
   // empty handler, which is how the DF chip came to look tappable and do nothing.
-  const chip = (label, value, opts = {}) => el(opts.onclick ? "button" : "div", {
-    class: "res-chip" + (opts.alert ? " is-alert" : "") + (opts.good ? " is-good" : "") +
-      (opts.onclick ? "" : " is-static"),
-    type: opts.onclick ? "button" : null,
-    title: opts.title || "",
-    onclick: opts.onclick || null
-  }, el("span", { class: "lab", text: label }), el("b", { text: String(value) }));
+  // The strip always fits the width, so each cell's share of it follows the length of what it
+  // has to show: a long wound name or a large sum widens its cell rather than being clipped.
+  const chip = (label, value, opts = {}) => {
+    const shown = String(value);
+    return el(opts.onclick ? "button" : "div", {
+      class: "res-chip" + (opts.alert ? " is-alert" : "") + (opts.good ? " is-good" : "") +
+        (opts.onclick ? "" : " is-static") + (shown.length > 4 ? " is-long" : ""),
+      type: opts.onclick ? "button" : null,
+      title: opts.title || "",
+      style: `flex-grow:${Math.max(1, shown.length / 4).toFixed(2)}`,
+      onclick: opts.onclick || null
+    }, el("span", { class: "lab", text: label }), el("b", { text: shown }));
+  };
 
   host.appendChild(chip("Hero", c.state.heroPoints ?? 0, {
     good: (c.state.heroPoints ?? 0) > 0,

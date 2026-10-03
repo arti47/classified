@@ -2313,9 +2313,10 @@ export async function browserTests(t, { chromium, executablePath, baseURL }) {
         const c = Store.activeCharacter() || Store.allCharacters()[0] || Store.createCharacter("agent");
         if (c) {
           Store.setActive(c.id);
-          Store.updateActive(x => { x.state.wound = "medium"; x.state.exhausted = true; });
+          Store.updateActive(x => { x.state.wound = "medium"; x.state.exhausted = true; x.inventory.money = 1250000; });
           Sheet.renderResourceHeader();
           await wait(120);
+          out.clipped = [...document.querySelectorAll(".res-chip b")].filter(b => b.scrollWidth > b.clientWidth + 1).map(b => b.textContent);
           out.chips = [...document.querySelectorAll(".res-chip")].map(n => ({
             label: n.querySelector(".lab").textContent,
             tag: n.tagName,
@@ -2335,7 +2336,7 @@ export async function browserTests(t, { chromium, executablePath, baseURL }) {
             out.dfPanel = m ? m.textContent.replace(/\s+/g, " ") : "";
           }
           wipe();
-          Store.updateActive(x => { x.state.wound = "none"; x.state.exhausted = false; });
+          Store.updateActive(x => { x.state.wound = "none"; x.state.exhausted = false; x.inventory.money = 0; });
           Sheet.renderResourceHeader();
         }
 
@@ -2388,6 +2389,8 @@ export async function browserTests(t, { chromium, executablePath, baseURL }) {
       t.ok(plumbing.chips.some(x => x.label === "DF"), "a standing condition shows its Difficulty Factor");
       t.ok(plumbing.strip && !plumbing.strip.scrolls && !plumbing.strip.outside,
         "the resource strip fits the width with no sideways scroll, a wound and a condition standing");
+      t.ok(plumbing.clipped && !plumbing.clipped.length, "no chip value is clipped, $1,250,000 and a Medium wound standing" +
+        (plumbing.clipped && plumbing.clipped.length ? ` (${plumbing.clipped.join(", ")})` : ""));
       t.ok(plumbing.navIcons, "every nav tab draws an SVG icon rather than a glyph that can fall back to emoji");
       t.ok(/Medium Wound/.test(plumbing.dfPanel || "") && /Exhausted/.test(plumbing.dfPanel || ""),
         "and the DF chip opens the breakdown rather than doing nothing");
