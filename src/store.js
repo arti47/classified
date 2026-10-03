@@ -314,7 +314,10 @@ function normalizeBriefing(b) {
     rows[key] = {
       text: typeof row.text === "string" ? row.text : "",
       words: Array.isArray(row.words) ? row.words.map(String) : [],
-      rolls: Array.isArray(row.rolls) ? row.rolls.map(Number) : []
+      rolls: Array.isArray(row.rolls) ? row.rolls.map(Number) : [],
+      // The Hidden truth row is a choice, not free text (version 13): which element the
+      // mission conceals, or null for nothing. An older row has none and is read off its roll.
+      ...(row.subject !== undefined ? { subject: row.subject ? String(row.subject) : null } : {})
     };
   }
   return {
@@ -323,6 +326,10 @@ function normalizeBriefing(b) {
     // Which Adventure List entries this briefing created, so deleting the mission can take
     // back exactly those. A version-6 record has none and falls back to matching row text.
     seededIds: Array.isArray(b.seededIds) ? b.seededIds.map(String) : [],
+    // Which row each seeded entry came from, so a mystery on the objective can point at the
+    // objective's own thread (version 13). Older briefings have none.
+    seededBy: b.seededBy && typeof b.seededBy === "object"
+      ? Object.fromEntries(Object.entries(b.seededBy).map(([k, v]) => [k, String(v)])) : {},
     writtenAt: Number(b.writtenAt) || Date.now()
   };
 }
@@ -376,6 +383,9 @@ function normalizeMystery(m) {
     lastScene: Math.max(0, Number(src.lastScene) || 0),
     createdAt: Number(src.createdAt) || Date.now(),
     revealedAt: Number(src.revealedAt) || null,
+    // "hidden" when the briefing's Hidden truth opened it, so revising or deleting the
+    // briefing can find it again (version 13). Older mysteries read as opened by hand.
+    origin: src.origin === "hidden" ? "hidden" : "",
     reveal
   };
 }

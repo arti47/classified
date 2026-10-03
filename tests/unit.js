@@ -1247,7 +1247,7 @@ function soloTests(t) {
   t.eq(fresh.chaos, 5, "a new adventure starts at Chaos Factor 5");
   t.eq(fresh.scene, 1, "a new adventure starts at scene 1");
   t.eq(fresh.fateMode, "chart", "the Fate Chart is the default mechanic");
-  t.eq(fresh.schema, 12, "an adventure records SCHEMA_VERSION 12");
+  t.eq(fresh.schema, 13, "an adventure records SCHEMA_VERSION 13");
   // The city and the scene setting (ruling S25).
   t.eq(SOLO.CITY_TABLE.entries.length, 100, "the City table has a hundred entries, one per d100");
   t.eq(new Set(SOLO.CITY_TABLE.entries).size, 100, "and no city twice");

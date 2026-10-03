@@ -863,7 +863,8 @@ export async function browserTests(t, { chromium, executablePath, baseURL }) {
           await new Promise(r => setTimeout(r, 50));
         }
         const fields = rowFields();
-        const filledBefore = fields.filter(f => f.value.trim()).length;
+        const filledBefore = fields.filter(f => f.value.trim()).length +
+          (modalEl.querySelector('[aria-label="Hidden truth"] .chip.on') ? 1 : 0);
         const rolledOnce = fields.map(f => f.value);
 
         // Write over the objective the way a player would.
@@ -1026,7 +1027,9 @@ export async function browserTests(t, { chromium, executablePath, baseURL }) {
         for (let i = 0; i < 4; i++) {
           genBtn.click();
           await new Promise(r => setTimeout(r, 60));
-          names.push([...modalEl.querySelectorAll('input[type="text"]')][idx].value);
+          // The Hidden truth row is chips, not a text field, so the inputs skip it.
+          const inputIdx = S.BRIEFING_ROWS.filter(r => !r.hidden).findIndex(r => r.key === "opponent");
+          names.push([...modalEl.querySelectorAll('input[type="text"]')][inputIdx].value);
         }
         const line = modalEl.textContent;
         [...modalEl.querySelectorAll(".modal-foot .btn")].find(b => /Commit|Save/.test(b.textContent)).click();
@@ -1982,21 +1985,107 @@ export async function browserTests(t, { chromium, executablePath, baseURL }) {
             sourceId: "t_mys", clues: 0, createdAt: Date.now(), revealedAt: null, reveal: null
           }];
         });
-        for (let i = 0; i < 40; i++) {
+        // Offered, not filed: the first Exceptional answer is closed without marking and must
+        // leave the mystery alone; the next one is marked.
+        let declinedLeft = null;
+        for (let i = 0; i < 80; i++) {
           await clearModals();
           const before = Store.activeAdventure().mysteries.find(m => m.id === "mys_lead");
           if (!before) break;
           await Solo.askFate(Store.activeAdventure(), "certain", "probe");
           const banner = /a lead on/i.test((document.querySelector(".modal") || {}).textContent || "");
+          if (banner && declinedLeft !== null) {
+            [...document.querySelectorAll(".modal-foot .btn")].find(b => b.textContent === "Mark a clue").click();
+          }
+          await clearModals();
+          await new Promise(r => setTimeout(r, 60));
           await clearModals();
           const after = Store.activeAdventure().mysteries.find(m => m.id === "mys_lead");
-          if (!after) return { marked: true, banner, tries: i + 1 };
-          if (after.clues > before.clues || after.revealedAt) return { marked: true, banner, tries: i + 1 };
+          if (banner && declinedLeft === null) { declinedLeft = after && after.clues === before.clues && !after.revealedAt; continue; }
+          if (!after) return { marked: true, banner, declinedLeft, tries: i + 1 };
+          if (after.clues > before.clues || after.revealedAt) return { marked: true, banner, declinedLeft, tries: i + 1 };
         }
-        return { marked: false };
+        return { marked: false, declinedLeft };
       });
       t.ok(lead.marked, `an Exceptional Fate answer marks a clue on the open mystery (after ${lead.tries} asks)`);
       t.ok(lead.banner, "and says so in the result");
+      t.ok(lead.declinedLeft === true, "an Exceptional answer only offers the clue — closed without marking, the mystery is untouched");
+
+      // Audit of the Hidden truth: the choice decides, the mystery points at the element's own
+      // list entry, a revision reconciles it, and deleting the mission takes it.
+      const ht = await page.evaluate(async () => {
+        const wait = ms => new Promise(r => setTimeout(r, ms));
+        const Store = await import("./src/store.js");
+        const Solo = await import("./src/solo.js");
+        (await import("./src/ui.js")).closeAllModals();
+        const out = {};
+        const adv = Store.createAdventure({ characterId: null });
+        Store.setActiveAdventure(adv.id);
+        const real = Math.random;
+        Math.random = () => 0.45;                     // d100 46: the objective
+        await Solo.autoBriefing(Store.activeAdventure());
+        Math.random = real;
+        let a = Store.activeAdventure();
+        const m = (a.mysteries || []).find(x => x.origin === "hidden");
+        const objThread = a.threads.find(t => t.id === a.briefing.seededBy.objective);
+        out.opened = !!m && m.subject === "objective";
+        out.linked = !!(m && objThread && m.sourceId === objThread.id && m.label === objThread.text);
+        out.storedSubject = a.briefing.rows.hidden.subject;
+        // The dialog shows the row as five choices, with the rolled one selected.
+        Solo.openBriefing(a); await wait(250);
+        const chips = [...document.querySelectorAll('.modal [aria-label="Hidden truth"] .chip')];
+        out.chips = chips.map(c => c.textContent);
+        out.selected = chips.filter(c => c.classList.contains("on")).map(c => c.textContent);
+        // Choose the opponent instead and save: the untouched objective mystery is withdrawn.
+        chips.find(c => c.textContent === "The primary opponent").click();
+        [...document.querySelectorAll(".modal-foot .btn")].find(b => b.textContent === "Save").click();
+        await wait(250);
+        a = Store.activeAdventure();
+        const hiddenNow = (a.mysteries || []).filter(x => x.origin === "hidden" && !x.revealedAt);
+        out.afterRevise = hiddenNow.map(x => x.subject);
+        out.oppLinked = hiddenNow[0] && hiddenNow[0].sourceId === a.briefing.seededBy.opponent;
+        out.objectiveGone = !(a.mysteries || []).some(x => x.subject === "objective");
+        // Delete the mission with what it seeded: the Hidden truth's mystery goes with it.
+        Solo.deleteBriefing(a); await wait(200);
+        [...document.querySelectorAll(".modal .choose-item, .modal button")].find(b => /Delete it and what it seeded/.test(b.textContent)).click();
+        await wait(250);
+        out.afterDelete = (Store.activeAdventure().mysteries || []).filter(x => x.origin === "hidden").length;
+        Store.deleteAdventure(adv.id);
+        return out;
+      });
+      t.ok(ht.opened && ht.storedSubject === "objective", "a Hidden truth on the objective opens a mystery on it and stores the choice");
+      t.ok(ht.linked, "pointing at the objective's own thread, under the thread's worded line");
+      t.deep(ht.chips, ["Nothing hidden", "The objective", "The complication", "The primary opponent", "The intel"],
+        "the dialog offers the Hidden truth as five choices, not a line of text");
+      t.deep(ht.selected, ["The objective"], "with the rolled one chosen");
+      t.ok(ht.objectiveGone && ht.afterRevise.length === 1 && ht.afterRevise[0] === "opponent",
+        "changing it on a revision withdraws the untouched mystery and opens the new one");
+      t.ok(ht.oppLinked, "the opponent's mystery points at the opponent's line on Characters");
+      t.eq(ht.afterDelete, 0, "deleting the mission with what it seeded takes the Hidden truth's mystery too");
+      const npcLead = await page.evaluate(async () => {
+        const wait = ms => new Promise(r => setTimeout(r, ms));
+        const Store = await import("./src/store.js");
+        const Solo = await import("./src/solo.js");
+        (await import("./src/ui.js")).closeAllModals();
+        const adv = Store.createAdventure({ characterId: null });
+        Store.setActiveAdventure(adv.id);
+        Store.updateAdventure(a => {
+          a.scenePhase = "play";
+          a.characters = [{ id: "c_opp", text: "Cormorant", weight: 1 }];
+          a.mysteries = [{ id: "m_opp", subject: "opponent", label: "Cormorant", sourceId: "c_opp", origin: "hidden",
+            clues: 0, createdAt: Date.now(), revealedAt: null, reveal: null }];
+        });
+        Solo.rollRandomEvent(Store.activeAdventure(), { focusRoll: 38 });   // NPC Action
+        await wait(250);
+        const text = (document.querySelector(".modal") || {}).textContent || "";
+        (await import("./src/ui.js")).closeAllModals();
+        await wait(150);
+        (await import("./src/ui.js")).closeAllModals();
+        Store.deleteAdventure(adv.id);
+        return /A lead on: Cormorant/.test(text);
+      });
+      t.ok(npcLead, "an event that draws the opponent off the Characters list is a lead on the opponent's mystery");
+
 
       // The solo roll log row renders without the Classified Quality columns.
       await page.evaluate(() => { location.hash = "#/log"; });

@@ -993,7 +993,7 @@ export const BRIEFING_ROWS = [
     hint: "What you were told before you went in, and how far it can be trusted." },
   { key: "hidden", name: "Hidden truth", hidden: true,
     placeholder: "Nothing hidden — the mission is what it says",
-    hint: "Whether this mission conceals something, and what it hangs on. A hit opens a mystery on that element, with no clues yet and no idea what it is." },
+    hint: "Whether this mission conceals something, and what it hangs on. Roll it, or pick: a hit opens a mystery on that element — tied to its own thread or character — with no clues yet and no idea what it is." },
   { key: "opponent", name: "Primary opponent", npc: true, seeds: "characters",
     placeholder: "Cormorant — ruthless spymaster",
     hint: "A codename, two words off the Adversary table, and a full Classified stat block behind them. Generate again for a different opponent." }
@@ -1076,8 +1076,8 @@ export const MYSTERY_SUBJECT_BY_KEY = Object.fromEntries(MYSTERY_SUBJECTS.map(s 
 export const MYSTERY_TICKS = [
   { key: "clue", name: "A clue you mark", desc: "One tap, when the fiction produced something that moved it." },
   { key: "scene", name: "A scene that bore on it", desc: "Ticked at End Scene, alongside the list upkeep." },
-  { key: "exceptional", name: "An Exceptional Fate answer", desc: "The oracle handing you more than you asked for reads as a lead." },
-  { key: "event", name: "An event that drew its thread", desc: "A Random Event pointing at the mystery's own thread." }
+  { key: "exceptional", name: "An Exceptional Fate answer", desc: "The oracle handing you more than you asked for can read as a lead — offered, and marked only if you say the question bore on it." },
+  { key: "event", name: "An event that drew its thread", desc: "A Random Event pointing at the mystery's own thread or character." }
 ];
 
 /**

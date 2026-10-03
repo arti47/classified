@@ -245,7 +245,7 @@ export const HELP = {
       "+ New starts one on the objective, the complication, the opponent, the intel or a thread — or let the briefing's Hidden truth row roll whether the mission has one.",
       "+ Clue asks what you found, writes it down, then asks the chart whether it breaks open now: one clue is a long shot, three even money, six nearly certain.",
       "Tap a mystery's own title to reword it — one opened on a rolled thread starts life as a word pair.",
-      "Clues also come from End Scene, an Exceptional Fate answer and an event that draws the mystery's own thread.",
+      "Clues also come from End Scene, an event that draws the mystery's own thread or character, and an Exceptional Fate answer — which offers the clue rather than filing it, since only you know whether the question bore on the mystery.",
       "It breaks open when Fate says so, which can be the second clue or the seventh. An Exceptional No is a lead going cold and costs you a clue; two plain refusals mean the trail was planted, and that gets rolled too.",
       "The reveal rolls the shape of the truth and a word pair, and shows it against the clues you wrote. A shape that names a person draws one off your Characters list; a reveal on the opponent adds a tell to their stat block; on the objective it offers to rewrite what the mission is for."
     ],

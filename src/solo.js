@@ -639,7 +639,7 @@ function briefingHeadline(adv) {
  * action offers to write a new one. One that is under way keeps its phase: the mission it was
  * briefed on is gone, but the scene it is in is not.
  */
-async function deleteBriefing(adv) {
+export async function deleteBriefing(adv) {
   if (!adv || !adv.briefing) return;
   const seeded = seededEntries(adv);
   const items = [
@@ -648,10 +648,11 @@ async function deleteBriefing(adv) {
         ? `Your lists keep the ${seeded.length} entr${seeded.length === 1 ? "y" : "ies"} it seeded.`
         : "Nothing it seeded is still on your lists, so they are untouched." }
   ];
-  if (seeded.length) {
+  const hiddenOpen = (adv.mysteries || []).find(m => m.origin === "hidden" && !m.revealedAt);
+  if (seeded.length || hiddenOpen) {
     items.push({
       key: "both", label: "Delete it and what it seeded",
-      desc: seeded.map(s => s.item.text).join("; ")
+      desc: [...seeded.map(s => s.item.text), hiddenOpen ? `the mystery: ${hiddenOpen.label}` : ""].filter(Boolean).join("; ")
     });
   }
   const pick = await chooseModal(`Delete “${briefingHeadline(adv)}”?`, items, {
@@ -667,6 +668,8 @@ async function deleteBriefing(adv) {
       for (const listKey of ["threads", "characters"]) {
         a[listKey] = (a[listKey] || []).filter(i => !ids.has(i.id));
       }
+      // The briefing's Hidden truth went with the briefing; one already broken open is play.
+      a.mysteries = (a.mysteries || []).filter(m => !(m.origin === "hidden" && !m.revealedAt));
     }
     a.briefing = null;
     if (a.scene <= 1 && a.scenePhase !== "play") a.scenePhase = "briefing";
@@ -747,6 +750,89 @@ function opponentName(alias, traits) {
   return `${alias} — ${tail}`;
 }
 
+/* ---------------------------------------------------------------- the Hidden truth */
+
+/**
+ * Which element the Hidden truth row names. It is a choice as of version 13; a briefing
+ * written before that carries only the roll, and is read off it.
+ */
+function hiddenSubjectOf(row) {
+  if (!row) return null;
+  if (row.subject !== undefined) return row.subject || null;
+  return row.rolls && row.rolls.length ? S.hiddenTruth(row.rolls[0]).subject : null;
+}
+
+/**
+ * The Hidden truth row in the briefing dialog: one chip per line of the table. The roll picks
+ * one; the player may pick another, and the chip chosen is what commit acts on.
+ */
+function hiddenChoice(rowState) {
+  const wrap = el("div", { class: "chip-wrap", role: "radiogroup", "aria-label": "Hidden truth" });
+  const paint = () => {
+    clear(wrap);
+    for (const c of S.BRIEFING_HIDDEN_TRUTH) {
+      const on = rowState.subject !== undefined && (rowState.subject || null) === c.subject;
+      wrap.appendChild(el("button", {
+        class: "chip" + (on ? " on" : ""), type: "button", role: "radio",
+        "aria-checked": on ? "true" : "false", title: c.text,
+        onclick: () => wrap.choose(c)
+      }, c.subject ? S.MYSTERY_SUBJECT_BY_KEY[c.subject].name : "Nothing hidden"));
+    }
+  };
+  wrap.choose = c => { rowState.subject = c.subject; rowState.text = c.text; paint(); };
+  paint();
+  return wrap;
+}
+
+/**
+ * Open the mystery a Hidden truth names. Runs inside a save. It points at the list entry the
+ * named element became — the objective's thread, the opponent's line on Characters — so a
+ * Random Event that draws that entry is a clue on it, and it carries that entry's worded line
+ * as its title rather than the briefing row's raw words. Marked `origin: "hidden"` so revising
+ * or deleting the briefing can find it again.
+ */
+function openHiddenMystery(a, subject, note) {
+  if (!subject || !S.MYSTERY_SUBJECT_BY_KEY[subject]) return null;
+  const b = a.briefing || {};
+  const entryId = (b.seededBy || {})[subject] || null;
+  const entry = entryId ? [...(a.threads || []), ...(a.characters || [])].find(i => i.id === entryId) : null;
+  const rows = b.rows || {};
+  const label = entry ? entry.text
+    : subject === "opponent" ? (b.npc ? (b.npc.alias || b.npc.name) : "The primary opponent")
+    : (rows[subject] && rows[subject].text) || S.MYSTERY_SUBJECT_BY_KEY[subject].name;
+  const m = {
+    id: uid("mys"), subject, label, sourceId: entry ? entry.id : null, origin: "hidden",
+    clues: 0, clueLog: [], misses: 0, lastScene: a.scene || 1,
+    createdAt: Date.now(), revealedAt: null, reveal: null
+  };
+  (a.mysteries = a.mysteries || []).push(m);
+  journal(a, "note", `Mystery opened: ${label}`, note || "");
+  return m;
+}
+
+/**
+ * Bring the Hidden truth's mystery in line with a revised briefing. Unchanged, nothing
+ * happens. Changed: the old one is withdrawn if nothing has been found on it, kept as an
+ * ordinary mystery if something has (that is play, and play is not undone by an edit), and the
+ * new one opens — unless the same truth has already been revealed.
+ */
+function reconcileHidden(a, subject, note) {
+  const mine = (a.mysteries || []).filter(m => m.origin === "hidden");
+  const open = mine.find(m => !m.revealedAt);
+  if ((open ? open.subject : null) === subject) return;
+  if (!open && mine.some(m => m.revealedAt && m.subject === subject)) return;
+  if (open) {
+    if (open.clues > 0) {
+      open.origin = "";
+      journal(a, "note", `Mystery kept: ${open.label}`, "The Hidden truth changed, but clues were already found on it.");
+    } else {
+      a.mysteries = a.mysteries.filter(m => m !== open);
+      journal(a, "note", `Mystery withdrawn: ${open.label}`, "The briefing's Hidden truth changed.");
+    }
+  }
+  openHiddenMystery(a, subject, note);
+}
+
 /**
  * Write or rewrite the briefing. Each row rolls its words straight into an editable field —
  * the words are the prompt, the field is the answer, and leaving the words as written is a
@@ -758,6 +844,7 @@ export async function openBriefing(adv) {
   for (const row of S.BRIEFING_ROWS) {
     const prev = existing[row.key];
     state[row.key] = { text: prev ? prev.text : "", words: prev ? prev.words : [], rolls: prev ? prev.rolls : [] };
+    if (row.hidden && prev && (prev.subject !== undefined || prev.rolls.length)) state[row.key].subject = hiddenSubjectOf(prev);
   }
   let npc = adv.briefing ? adv.briefing.npc : null;
 
@@ -776,8 +863,13 @@ export async function openBriefing(adv) {
     "Rolls every row you have not written over. Anything you have edited is left alone." }));
 
   for (const row of S.BRIEFING_ROWS) {
-    const field = el("input", { type: "text", value: state[row.key].text, placeholder: row.placeholder });
-    field.addEventListener("input", () => { state[row.key].text = field.value; });
+    // The Hidden truth is a choice of element, not a line of text: what it names is what opens
+    // a mystery, so a field you could write over — and that commit then ignored — said one
+    // thing and did another. The roll picks a chip; the player may pick another.
+    const field = row.hidden
+      ? hiddenChoice(state[row.key])
+      : el("input", { type: "text", value: state[row.key].text, placeholder: row.placeholder });
+    if (!row.hidden) field.addEventListener("input", () => { state[row.key].text = field.value; });
 
     const wordsEl = el("div", { class: "lm", text: state[row.key].words.join(" · ") });
 
@@ -815,8 +907,7 @@ export async function openBriefing(adv) {
         // its own line the way a word-pair row does.
         state[row.key].words = [];
         state[row.key].rolls = [r];
-        state[row.key].text = hit.text;
-        field.value = hit.text;
+        field.choose(hit);
         rolled.set(row.key, hit.text);
         wordsEl.textContent = `Hidden truth · rolled ${r}`;
         syncSeeds();
@@ -910,7 +1001,8 @@ export async function openBriefing(adv) {
 
   save(a => {
     const seededIds = a.briefing && Array.isArray(a.briefing.seededIds) ? a.briefing.seededIds : [];
-    a.briefing = { rows: state, npc, writtenAt: Date.now(), seededIds };
+    const seededBy = a.briefing && a.briefing.seededBy ? a.briefing.seededBy : {};
+    a.briefing = { rows: state, npc, writtenAt: Date.now(), seededIds, seededBy };
     // The mission's city becomes the adventure's current one, unless play has already moved on.
     if (state.city && state.city.text.trim() && (!a.city || a.scene <= 1)) a.city = state.city.text.trim();
 
@@ -926,13 +1018,16 @@ export async function openBriefing(adv) {
         const text = ((f && f.value.trim()) || seedDefault(row) || "").trim();
         if (!text) continue;
         const list = (a[row.seeds] = a[row.seeds] || []);
+        const same = list.find(i => i.text === text);
+        if (same) { a.briefing.seededBy[row.key] = same.id; continue; }
         if (list.length >= S.LIST_SLOTS) continue;
-        if (list.some(i => i.text === text)) continue;
         const entry = { id: uid("li"), text, weight: 1 };
         list.push(entry);
         // Remembered so deleting the mission can take back exactly what it put there, and
-        // nothing a player added by hand afterwards.
+        // nothing a player added by hand afterwards — and by row, so a mystery on the
+        // objective can point at the objective's own thread.
         a.briefing.seededIds.push(entry.id);
+        a.briefing.seededBy[row.key] = entry.id;
       }
       a.scenePhase = "setup";
       journal(a, "note", `Mission briefing: ${state.objective.text || state.codename.text || "written"}`,
@@ -940,22 +1035,12 @@ export async function openBriefing(adv) {
 
       // A Hidden truth hit opens a mystery on whatever it named, at zero clues. You start
       // knowing the mission conceals something, and nothing else about it.
-      const hiddenSubject = state.hidden.rolls.length
-        ? S.hiddenTruth(state.hidden.rolls[0]).subject
-        : null;
-      if (hiddenSubject && S.MYSTERY_SUBJECT_BY_KEY[hiddenSubject]) {
-        const source = hiddenSubject === "opponent"
-          ? (npc ? (npc.alias || npc.name) : "The primary opponent")
-          : (state[hiddenSubject] && state[hiddenSubject].text) || S.MYSTERY_SUBJECT_BY_KEY[hiddenSubject].name;
-        (a.mysteries = a.mysteries || []).push({
-          id: uid("mys"), subject: hiddenSubject, label: source, sourceId: null,
-          clues: 0, clueLog: [], misses: 0, lastScene: a.scene || 1,
-          createdAt: Date.now(), revealedAt: null, reveal: null
-        });
-        journal(a, "note", `Mystery opened: ${source}`, state.hidden.text);
-      }
+      openHiddenMystery(a, hiddenSubjectOf(state.hidden), state.hidden.text);
     } else {
       journal(a, "note", "Mission briefing revised.");
+      // A revised Hidden truth is a revised mission: the old mystery goes if nothing has been
+      // found on it yet, stays as an ordinary one if it has, and the new one opens.
+      reconcileHidden(a, hiddenSubjectOf(state.hidden), state.hidden.text);
     }
   });
 
@@ -1005,7 +1090,7 @@ export async function autoBriefing(adv) {
     if (row.hidden) {
       const r = await soloD100("Hidden truth d100");
       const hit = S.hiddenTruth(r);
-      state[row.key] = { text: hit.text, words: [], rolls: [r] };
+      state[row.key] = { text: hit.text, words: [], rolls: [r], subject: hit.subject };
       continue;
     }
     const pair = await rollPair(row.table);
@@ -1015,7 +1100,7 @@ export async function autoBriefing(adv) {
   }
 
   save(a => {
-    a.briefing = { rows: state, npc, writtenAt: Date.now(), seededIds: [] };
+    a.briefing = { rows: state, npc, writtenAt: Date.now(), seededIds: [], seededBy: {} };
     if (state.city && state.city.text) a.city = state.city.text;
     if (state.codename.text && /^untitled/i.test(a.name || "")) a.name = state.codename.text;
 
@@ -1024,28 +1109,20 @@ export async function autoBriefing(adv) {
       const text = row.npc ? (npc ? (npc.alias || npc.name) : "") : state[row.key].text;
       if (!text) continue;
       const list = (a[row.seeds] = a[row.seeds] || []);
-      if (list.length >= S.LIST_SLOTS || list.some(i => i.text === text)) continue;
+      const same = list.find(i => i.text === text);
+      if (same) { a.briefing.seededBy[row.key] = same.id; continue; }
+      if (list.length >= S.LIST_SLOTS) continue;
       const entry = { id: uid("li"), text, weight: 1 };
       list.push(entry);
       a.briefing.seededIds.push(entry.id);
+      a.briefing.seededBy[row.key] = entry.id;
     }
 
     a.scenePhase = "setup";
     journal(a, "note", `Mission briefing: ${state.objective.text}`,
       [state.genre.text, state.cover.text].filter(Boolean).join(" · "));
 
-    const hiddenSubject = state.hidden.rolls.length ? S.hiddenTruth(state.hidden.rolls[0]).subject : null;
-    if (hiddenSubject && S.MYSTERY_SUBJECT_BY_KEY[hiddenSubject]) {
-      const source = hiddenSubject === "opponent"
-        ? (npc ? (npc.alias || npc.name) : "The primary opponent")
-        : (state[hiddenSubject] && state[hiddenSubject].text) || S.MYSTERY_SUBJECT_BY_KEY[hiddenSubject].name;
-      (a.mysteries = a.mysteries || []).push({
-        id: uid("mys"), subject: hiddenSubject, label: source, sourceId: null,
-        clues: 0, clueLog: [], misses: 0, lastScene: a.scene || 1,
-        createdAt: Date.now(), revealedAt: null, reveal: null
-      });
-      journal(a, "note", `Mystery opened: ${source}`, state.hidden.text);
-    }
+    openHiddenMystery(a, hiddenSubjectOf(state.hidden), state.hidden.text);
   });
 
   return {
@@ -1224,15 +1301,19 @@ export async function askFate(adv, oddsKey, question) {
     body.appendChild(b);
   }
 
-  // An Exceptional answer is the oracle giving more than was asked for, which reads as a lead
-  // (S20). One open mystery takes it; several are offered as a choice below. The clue is
-  // marked when this dialog closes, so its own Fate question does not land on top of this one.
+  // An Exceptional answer is the oracle giving more than was asked for, which can read as a
+  // lead (S20) — but only if the question bore on the mystery. It is offered, never filed on
+  // its own: a mystery the briefing opened at the start of play would otherwise collect a clue
+  // from every Exceptional answer to every unrelated question, and could break open off a
+  // question about the weather. The clue is marked when this dialog closes, so its own Fate
+  // question does not land on top of this one.
   const openMys = openMysteries(adv);
   const leadOn = res.exceptional && openMys.length === 1 ? openMys[0] : null;
+  let markLead = false;
   if (leadOn) {
-    body.appendChild(el("div", { class: "banner ok" },
-      el("b", { text: `A lead on: ${leadOn.label}` }),
-      el("div", { class: "small", text: "Marked as a clue when you close this — then Fate says whether it breaks open." })));
+    body.appendChild(el("div", { class: "banner" },
+      el("b", { text: `A lead on: ${leadOn.label}?` }),
+      el("div", { class: "small", text: "If this answer bore on it, mark it as a clue — Fate then says whether it breaks open." })));
   }
 
   if (res.exceptional) {
@@ -1257,6 +1338,16 @@ export async function askFate(adv, oddsKey, question) {
     ? [{ label: "Roll the event", kind: "primary", close: false,
          onClick: api => { api.close(); rollRandomEvent(Store.activeAdventure()); } }]
     : [{ label: "Done", kind: "primary" }];
+  if (leadOn) {
+    actions.unshift({
+      label: "Mark a clue", kind: "ghost", close: false,
+      onClick: () => {
+        markLead = !markLead;
+        const b = [...document.querySelectorAll(".modal-foot .btn")].find(x => /clue/i.test(x.textContent));
+        if (b) b.textContent = markLead ? "Clue marked ✓" : "Mark a clue";
+      }
+    });
+  }
   if (res.exceptional && openMys.length > 1) {
     actions.unshift({
       label: "Mark a clue", kind: "ghost", close: false,
@@ -1274,7 +1365,7 @@ export async function askFate(adv, oddsKey, question) {
     `${odds.name} · Chaos Factor ${adv.chaos}` + (res.event ? " · Random Event" : ""));
 
   const m = modal({ title: "Fate", body, actions, locked: !!res.event,
-    onClose: () => { if (leadOn) tickMystery(leadOn.id, "exceptional"); } });
+    onClose: () => { if (leadOn && markLead) tickMystery(leadOn.id, "exceptional"); } });
   return m;
 }
 
@@ -1601,7 +1692,7 @@ export async function rollRandomEvent(adv, opts = {}) {
   }
   // An event pointing at the mystery's own thread is the kind of clue a mystery exists for,
   // so it ticks itself rather than waiting to be noticed.
-  if (drawn && drawn.item && focus.list === "threads") {
+  if (drawn && drawn.item && (focus.list === "threads" || focus.list === "characters")) {
     const mys = (adv.mysteries || []).find(m => !m.revealedAt && m.sourceId === drawn.item.id);
     if (mys) {
       body.appendChild(el("div", { class: "banner ok" },
@@ -1863,6 +1954,10 @@ async function newMystery(adv) {
       ? (adv.briefing.npc.alias || adv.briefing.npc.name)
       : adv.briefing.rows[subject].text;
     label = row;
+    // The element's own list entry, when it has one, so an event drawing it is a clue here.
+    const entryId = (adv.briefing.seededBy || {})[subject];
+    const entry = entryId ? [...(adv.threads || []), ...(adv.characters || [])].find(i => i.id === entryId) : null;
+    if (entry) { sourceId = entry.id; label = entry.text; }
   } else if (pick.startsWith("thread:")) {
     sourceId = pick.slice(7);
     const t = (adv.threads || []).find(x => x.id === sourceId);
