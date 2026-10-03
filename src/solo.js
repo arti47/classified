@@ -480,7 +480,7 @@ function appendBriefing(host, adv) {
     .filter(x => x.val && x.val.text);
   if (!rows.length) return;
 
-  const acc = el("details", { class: "acc" },
+  const acc = el("details", { class: "acc pinned-brief" },
     el("summary", {},
       el("span", { text: "Mission briefing" }),
       el("span", { class: "small muted", text: briefingHeadline(adv) })));

@@ -1267,3 +1267,46 @@ details.acc.help-acc { margin-bottom: 12px; }
   box-shadow: 0 3px 8px -3px rgba(0,0,0,.35); -webkit-mask-image: none; mask-image: none;
   background-image: linear-gradient(var(--line), var(--line)); background-size: 100% 1px; background-position: 0 calc(100% - 6px); background-repeat: no-repeat;
 }
+
+/* ---------------------------------------------------------------- dossier ephemera */
+
+/* Tape: a strip of translucent tape holding a card to the file. */
+.coach::before, .pinned-brief::before {
+  content: ""; position: absolute; top: -9px; left: 50%; width: 84px; height: 20px; margin-left: -42px;
+  background: color-mix(in srgb, #f3e7b8 70%, transparent); border-left: 1px dashed rgba(0,0,0,.08); border-right: 1px dashed rgba(0,0,0,.08);
+  transform: rotate(-2.5deg); box-shadow: 0 1px 2px rgba(0,0,0,.12); pointer-events: none; z-index: 2;
+}
+:root[data-theme="dark"] .coach::before, :root[data-theme="dark"] .pinned-brief::before { background: rgba(200,190,150,.18); }
+@media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) .coach::before, :root:not([data-theme="light"]) .pinned-brief::before { background: rgba(200,190,150,.18); } }
+.pinned-brief { position: relative; overflow: visible; margin-top: 14px; }
+.coach { margin-top: 12px; }
+
+/* A paper clip on the agent's card, over its top edge. */
+.agent-card { position: relative; }
+.agent-card::after {
+  content: ""; position: absolute; top: -10px; right: 34px; width: 12px; height: 30px; pointer-events: none;
+  border: 2px solid var(--ink-3); border-radius: 7px; border-bottom-color: transparent; transform: rotate(8deg);
+  box-shadow: inset 3px 0 0 -1px transparent;
+}
+
+/* A coffee ring on the cover, as the file has been on someone's desk. */
+.cover-card { background-image:
+  radial-gradient(circle at 18% 118%, transparent 46px, rgba(120,72,30,.13) 47px, rgba(120,72,30,.05) 52px, transparent 54px),
+  linear-gradient(160deg, var(--paper-2), var(--paper-3)); }
+
+/* Punched holes down the left of the paper on a desk, and a perforated tear above dialog actions. */
+@media (min-width: 900px) {
+  .screen::before {
+    content: ""; position: absolute; left: 10px; top: 60px; bottom: 60px; width: 12px; pointer-events: none;
+    background: radial-gradient(circle, var(--desk) 0 5px, var(--rule-2) 5px 6px, transparent 6.5px) center top / 12px 120px repeat-y;
+    opacity: .9;
+  }
+}
+.modal-foot { position: relative; border-top: none; }
+.modal-foot::before {
+  content: ""; position: absolute; left: 10px; right: 10px; top: 0; height: 2px;
+  background: radial-gradient(circle, var(--rule-2) 1px, transparent 1.5px) 0 0 / 7px 2px repeat-x; pointer-events: none;
+}
+
+/* Index-card ruling: the first row of a flush card list has a faint red margin line beside it. */
+.card.flush { background-image: linear-gradient(to right, transparent 8px, var(--line) 8px, var(--line) 9px, transparent 9px); }
