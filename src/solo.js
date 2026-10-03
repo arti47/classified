@@ -94,17 +94,26 @@ export function renderSolo(host) {
     return;
   }
 
-  appendHeader(host, adv);
-  appendCoach(host);
-  appendHelp(host, "solo", {
+  // Two columns on a wide screen: the loop on the left (where you are, what is next, the
+  // in-scene tools), the record on the right (lists, journal, reference). On a phone they
+  // stack in the same order as before.
+  host.classList.add("two-col");
+  const play = el("div", { class: "col-a" });
+  const record = el("div", { class: "col-b" });
+
+  appendHeader(play, adv);
+  appendCoach(play);
+  appendHelp(play, "solo", {
     actions: [{ label: "Open the tutorial", onClick: () => import("./router.js").then(m => m.navigate("tutorial")) }]
   });
-  appendPrimary(host, adv);
-  appendBriefing(host, adv);
-  appendInPlay(host, adv);
-  appendLists(host, adv);
-  appendJournal(host, adv);
-  appendTopics(host);
+  appendPrimary(play, adv);
+  appendBriefing(play, adv);
+  appendInPlay(play, adv);
+  appendLists(record, adv);
+  appendJournal(record, adv);
+  appendTopics(record);
+  host.appendChild(play);
+  host.appendChild(record);
 }
 
 /* The sequence of play, and the whole reason the screen is ordered the way it is:
@@ -155,7 +164,7 @@ function appendCoach(host) {
 }
 
 function appendHeader(host, adv) {
-  const card = el("div", { class: "card" });
+  const card = el("div", { class: "card solo-header" });
   const linked = adv.characterId ? Store.getCharacter(adv.characterId) : null;
   card.appendChild(el("div", { class: "row" },
     el("div", { class: "grow" },
@@ -174,6 +183,9 @@ function appendHeader(host, adv) {
   const chaosBox = el("div", { class: "stat-box" },
     el("div", { class: "k", text: "Chaos Factor" }),
     el("div", { class: "v", text: String(adv.chaos) }),
+    // The 1–9 range drawn as a gauge: the number above is the record, this is where it sits.
+    el("div", { class: "chaos-gauge", "aria-hidden": "true" },
+      Array.from({ length: 9 }, (_, i) => el("span", { class: i < adv.chaos ? "on" + (i >= 6 ? " hot" : "") : "" }))),
     el("div", { class: "s", text: adv.chaos >= 7 ? "running away from you" : adv.chaos <= 3 ? "firmly in hand" : "even footing" }));
   grid.appendChild(chaosBox);
 
@@ -2449,17 +2461,17 @@ function appendJournal(host, adv) {
     onclick: () => copyText(journalText(entries), `${entries.length} entries copied`)
   }, "Copy all"));
 
-  const card = el("div", { class: "card flush" });
+  const card = el("div", { class: "card flush journal" });
   for (const e of entries.slice(0, 40)) {
-    card.appendChild(el("div", { class: "log-entry" },
-      el("span", { class: "lr", style: "font-size:11px", text: e.kind }),
+    card.appendChild(el("div", { class: "log-entry", dataset: { kind: e.kind } },
+      el("span", { class: "lr kind-tag", text: e.kind }),
       el("div", { class: "ld" },
         el("div", { class: "lt" }, el("b", { text: e.text })),
         e.detail ? el("div", { class: "lm", text: e.detail }) : null,
         el("div", { class: "lm", text: fmtDate(e.ts) })),
       el("div", { class: "row tight", style: "flex:none" },
         el("button", {
-          class: "btn sm ghost", type: "button",
+          class: "btn-x btn-copy btn sm ghost", type: "button",
           "aria-label": `Copy: ${e.text}`, title: "Copy this entry",
           onclick: () => copyText(entryText(e), "Entry copied")
         }, "⧉"),

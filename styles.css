@@ -1037,3 +1037,30 @@ details.acc.help-acc { margin-bottom: 12px; }
   box-shadow: none; letter-spacing: .1em;
 }
 .section-head .btn.primary:hover:not(:disabled) { background: color-mix(in srgb, var(--stamp) 10%, transparent); }
+
+/* ---------------------------------------------------------------- solo */
+
+.solo-header h1 { font-size: 26px; overflow-wrap: anywhere; }
+.chaos-gauge { display: flex; gap: 3px; justify-content: center; margin: 2px 8px 6px; }
+.chaos-gauge span { flex: 1 1 0; max-width: 12px; height: 6px; border-radius: 2px; background: var(--rule); }
+.chaos-gauge span.on { background: var(--ink-2); }
+.chaos-gauge span.on.hot { background: var(--stamp); }
+.solo-primary { min-height: 52px; font-size: 14px; }
+@media (min-width: 900px) {
+  .screen.two-col > .col-b { position: sticky; top: calc(var(--chromeH, var(--headerH)) + 22px); max-height: calc(100vh - var(--chromeH, var(--headerH)) - 44px); overflow-y: auto; padding-right: 4px; scrollbar-width: thin; }
+  .screen.two-col:has(.dossier-head) > .col-b { position: static; max-height: none; overflow: visible; }
+}
+
+/* The journal: a typed field log. Each kind gets a small stamped tag of its own colour. */
+.journal .log-entry { align-items: center; }
+.journal .lt b { font-weight: 500; }
+.kind-tag {
+  font: 700 9.5px/1 var(--mono) !important; letter-spacing: .12em; text-transform: uppercase;
+  min-width: 58px !important; padding: 6px 4px !important; color: var(--ink-2);
+  border: 1.5px solid currentColor !important; background: transparent !important; transform: rotate(-2deg);
+}
+.log-entry[data-kind="scene"] .kind-tag { color: var(--stamp); }
+.log-entry[data-kind="fate"] .kind-tag { color: var(--ok); }
+.log-entry[data-kind="event"] .kind-tag { color: var(--warn); }
+.log-entry[data-kind="note"] .kind-tag { color: var(--ink-3); border-style: dashed !important; }
+.btn.btn-copy:hover:not(:disabled) { color: var(--ink); border-color: var(--ink-3); background: var(--paper-3); }

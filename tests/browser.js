@@ -291,9 +291,20 @@ export async function browserTests(t, { chromium, executablePath, baseURL }) {
           name: adv && adv.name,
           phase: adv && adv.scenePhase,
           linked: !!(adv && adv.characterId),
-          primary: [...document.querySelectorAll("#screen .solo-primary")].map(b => b.textContent)
+          primary: [...document.querySelectorAll("#screen .solo-primary")].map(b => b.textContent),
+          gauge: [...document.querySelectorAll("#screen .chaos-gauge span")].map(x => x.classList.contains("on")),
+          chaos: adv && adv.chaos,
+          // The two columns stack in loop order on a phone: header and tools, then the record.
+          order: (() => {
+            const a = document.querySelector("#screen > .col-a"), b = document.querySelector("#screen > .col-b");
+            return !!(a && b && a.compareDocumentPosition(b) & Node.DOCUMENT_POSITION_FOLLOWING &&
+              a.querySelector(".solo-primary") && b.textContent.includes("Threads"));
+          })()
         };
       });
+      t.ok(startFlow.gauge.length === 9 && startFlow.gauge.filter(Boolean).length === startFlow.chaos,
+        "the Chaos gauge has nine cells and lights exactly the Chaos Factor");
+      t.ok(startFlow.order, "the solo loop sits before the lists and journal, so a phone reads it in play order");
       t.ok(startFlow.empty, "with nothing open the Solo screen offers to start an adventure");
       t.ok(!startFlow.prompted, "tapping it asks no questions — no name prompt, no dossier chooser");
       t.ok(startFlow.created, "the adventure exists straight away");
