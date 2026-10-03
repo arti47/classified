@@ -777,8 +777,10 @@ layer carries the flag rather than the UI.
   bands with the standing one lit; and the wound track on the dossier head.
 - **Line art.** Empty states and two header cards carry single-stroke spy props from
   `art()` in `core.js` — folder, ID card, briefcase, ladder, map, stopwatch, reel-to-reel,
-  typewriter, index cards, car, keyhole, cipher wheel — in muted ink with one stroke in the
-  stamp red. The Home cover and the Solo header carry one as a faint watermark. No emoji is
+  typewriter, index cards, car, keyhole, target, rotary phone, book, cipher wheel — in muted ink with one stroke in the
+  stamp red. The Home cover and the Solo header carry one as a faint watermark, and every
+  screen's name in the header sits on a file label beside its own prop (`HEADER_ART` in
+  `router.js`); the prop drops out at 360px and below, where the label needs the room. No emoji is
   drawn anywhere as a picture.
 - **Cross-links.** A name or number that has a screen of its own leads there: the Solo
   header's linked dossier name opens that sheet; a combatant who is a dossier on this device
@@ -855,7 +857,7 @@ No `data-<expansion>.js` — no expansions were supplied.
 | `solo.js` | The Mythic engine and the Solo screen: Fate, Chaos, scene test, Random Events, Adventure Lists, Meaning-table roller, journal, guided End Scene |
 | `coach.js` | **The guided player** — the app running the game for you, one instruction and one button at a time. A conductor, not an engine: it owns no rule and reaches both engines by dynamic import |
 | `screens.js` | Home, rules library, roll log, advancement, settings |
-| `router.js` | Bottom-nav routing, conditional tab gating, and the folder divider strips (`FOLDERS`, `folderOf()`) |
+| `router.js` | Bottom-nav routing, conditional tab gating, the folder divider strips (`FOLDERS`, `folderOf()`) and each screen's header prop (`HEADER_ART`) |
 | `main.js` | Entry point, boot, and service-worker update discovery (`checkForUpdate()`, `showUpdateToast()`) |
 
 No `power-automation.js` (§3.14).
@@ -1429,3 +1431,4 @@ tables are this app's own work and are marked as such (S6).
 | 2026-10-03 | Third UX series, round 1 of 6 — dice and result art: percentile dice faces with a short tumble on every Classified roll and Fate Chart answer, two d10 faces on a Fate Check, one on a scene test, and Meaning word pairs on a typed slip | Asked for more relevant graphics. A roll was a bare number with no dice behind it, and Meaning words were drawn as the same red stamp as a verdict, though they are a prompt to interpret | 1345 checks green, including every d100 from 1 to 100 drawing as tens + units dice that read back as itself, and the landed faces in the browser matching the printed roll. axe clean bar `meta-viewport` | `classified-v46` |
 | 2026-10-03 | Third UX series, round 2 of 6 — dossier ephemera: tape on the coach card and the pinned briefing, a paper clip on the agent card, a coffee ring on the cover, punched holes down the paper on a desk, a perforated tear above dialog actions, and an index-card margin rule on flush lists | Asked for more graphics and elements in the dossier idiom. The surfaces read as paper but not as a file anyone had handled | 1345 checks green; every ornament is a pseudo-element with `pointer-events: none`. axe clean bar `meta-viewport`; zero overflow in both themes at 390 and 1280px | `classified-v47` |
 | 2026-10-03 | Third UX series, round 3 of 6 — diagrams: an initiative rail on the encounter (Speed lanes 0–3, a token per combatant, an arrow that flips with the phase) and a five-station range track in the chase dialog lighting where the manoeuvre is legal | Asked for combat and chase diagrams. The two-phase, opposite-direction order of §3.17 was told in a sentence and a list, and a manoeuvre's legal ranges were a comma list to be read against the range you were at | 1349 checks green, including each combatant landing on its own lane, the acted token struck through, the arrow running the declaration way, and the lit ranges matching the manoeuvre's own list. axe clean bar `meta-viewport` | `classified-v48` |
+| 2026-10-03 | Third UX series, round 4 of 6 — screen headers: the header's screen name typed on a file label, with a line-art prop per screen beside it (ID card, briefcase, ladder, reel, target, map, rotary phone, book, cipher wheel and others); three props added to the set | Asked for character and screen headers. Every screen shared one undifferentiated title line, so which file you had open was told only by the word | 1351 checks green, including every one of thirteen routes carrying its prop beside a non-empty name. axe clean bar `meta-viewport`; zero overflow | `classified-v49` |

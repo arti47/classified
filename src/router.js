@@ -1,6 +1,6 @@
 /* router.js — bottom-nav routing and conditional tab gating. */
 
-import { el, clear, $, icon, hasIcon } from "./core.js";
+import { el, clear, $, icon, hasIcon, art } from "./core.js";
 import { Settings } from "./settings.js";
 import * as Store from "./store.js";
 
@@ -18,6 +18,14 @@ const ROUTES = {
   settings: { label: "Settings", icon: "⚑", title: "Settings", render: h => imp("./screens.js", m => m.renderSettings(h)) },
   tutorial: { label: "Tutorial", icon: "◎", title: "Tutorial", render: h => imp("./help.js", m => m.renderTutorial(h)) },
   play: { label: "How to play", icon: "▶", title: "How to play", render: h => imp("./help.js", m => m.renderPlayGuide(h)) }
+};
+
+/* Each screen's prop on the header's folder label, from the same line-art set as the empty
+ * states. Decoration only: the title beside it is the screen's name. */
+const HEADER_ART = {
+  home: "folder", create: "typewriter", sheet: "idcard", gear: "briefcase", combat: "target",
+  advance: "ladder", rules: "book", log: "reel", gm: "phone", solo: "map", settings: "cipher",
+  tutorial: "cards", play: "keyhole"
 };
 
 /* Primary tabs shown in the bottom navigation. The rest are reachable from Home
@@ -101,6 +109,8 @@ export function navigate(route, { replace = false } = {}) {
   // A screen may widen itself (the sheet's two columns); a new route starts plain.
   host.className = "screen";
   document.getElementById("headerTitle").textContent = ROUTES[route].title;
+  const ha = document.getElementById("headerArt");
+  if (ha) { clear(ha); ha.appendChild(art(HEADER_ART[route] || "folder")); }
   renderSubNav(route);
   ROUTES[route].render(host);
   window.scrollTo(0, 0);

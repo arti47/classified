@@ -1348,3 +1348,15 @@ details.acc.help-acc { margin-bottom: 12px; }
 .rt-step.on .rt-dot { background: var(--stamp-fill); border-color: var(--stamp-fill); box-shadow: 0 0 0 3px color-mix(in srgb, var(--stamp) 18%, transparent); }
 .rt-l { font: 600 9.5px/1 var(--mono); letter-spacing: .06em; text-transform: uppercase; color: var(--ink-3); }
 .rt-step.on .rt-l { color: var(--ink); }
+
+/* ---------------------------------------------------------------- header folder label */
+
+/* The screen's name typed on a file label, with its prop beside it. */
+.header-art { flex: none; width: 34px; height: 34px; display: grid; place-items: center; }
+.header-art .art { width: 34px; height: 34px; color: var(--ink-2); stroke-width: 3; }
+.header-art .art * { stroke-width: 3.4; }
+.header-title {
+  padding: 4px 10px 3px; border: 1px solid var(--rule-2); border-radius: 3px; background: var(--paper-hi);
+  box-shadow: 0 1px 0 rgba(255,255,255,.5) inset, 0 1px 2px rgba(0,0,0,.12); min-width: 0;
+}
+@media (max-width: 360px) { .header-art { display: none; } }

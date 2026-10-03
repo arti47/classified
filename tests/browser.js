@@ -50,6 +50,16 @@ export async function browserTests(t, { chromium, executablePath, baseURL }) {
       }
       t.pass("every route renders content");
 
+      // Every screen puts its prop on the header's folder label, and the label still says its name.
+      const headerArt = [];
+      for (const r of ["home", "sheet", "gear", "advance", "log", "combat", "rules", "settings", "gm", "solo", "play", "tutorial", "create"]) {
+        await page.evaluate(x => { location.hash = "#/" + x; }, r);
+        await page.waitForTimeout(100);
+        if (!(await page.evaluate(() => !!document.querySelector("#headerArt svg.art") &&
+          document.getElementById("headerTitle").textContent.trim().length > 0))) headerArt.push(r);
+      }
+      t.ok(!headerArt.length, "every screen's header label carries its line-art prop beside its name" + (headerArt.length ? ` (missing: ${headerArt.join(", ")})` : ""));
+
       // Folders: the dossier's four screens and the library's three share a divider strip,
       // and the bottom tab that owns the folder stays lit on each of them.
       const folders = {};
