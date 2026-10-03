@@ -58,15 +58,15 @@ export function renderCombat(host) {
   }
 
   // Header
-  host.appendChild(el("div", { class: "card" },
+  host.appendChild(el("div", { class: "card round-card" },
     el("div", { class: "row" },
       el("div", { class: "grow" },
         el("div", { class: "field-label", text: "Round" }),
         el("div", { class: "mono", style: "font-size:26px", text: String(state.round) })),
       el("div", { class: "grow" },
         el("div", { class: "field-label", text: "Phase" }),
-        el("div", { style: "font-weight:600", text: state.phase === "declaration" ? "Declaration" : "Action" })),
-      el("button", { class: "btn sm", type: "button", onclick: () => advancePhase(host) },
+        el("div", { class: "phase-name", text: state.phase === "declaration" ? "Declaration" : "Action" })),
+      el("button", { class: "btn sm primary", type: "button", onclick: () => advancePhase(host) },
         state.phase === "declaration" ? "To Action" : "Next round")
     ),
     el("p", { class: "small muted", style: "margin-top:8px", text:
@@ -161,7 +161,7 @@ function combatantCard(cb, state, host) {
   }, cb.acted ? "Un-act" : "Acted"));
 
   row.appendChild(el("button", {
-    class: "btn sm ghost", type: "button",
+    class: "btn-x btn sm ghost", "aria-label": "Remove", type: "button",
     onclick: () => mutate(host, s => { s.combatants = s.combatants.filter(y => y.id !== cb.id); })
   }, "✕"));
 
@@ -475,7 +475,7 @@ export function renderTasks(host) {
       el("div", { class: "grow" },
         el("div", { style: "font-weight:600", text: t.name }),
         el("div", { class: "small muted", text: `${t.progress} / ${t.requirement}${t.unit ? " " + t.unit : ""}` })),
-      el("button", { class: "btn sm ghost", type: "button", onclick: () => { Store.deleteTask(t.id); renderHostAgain(host); } }, "✕")
+      el("button", { class: "btn-x btn sm ghost", "aria-label": "Remove", type: "button", onclick: () => { Store.deleteTask(t.id); renderHostAgain(host); } }, "✕")
     ));
 
     const track = el("div", { class: "progress-track" });

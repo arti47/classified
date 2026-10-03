@@ -49,6 +49,11 @@ export function renderWizard(host) {
     }, `${i + 1}. ${STEPS[i].name}`));
   }
   host.appendChild(steps);
+  // The strip scrolls sideways on a phone: bring the current step into view, not step 1.
+  requestAnimationFrame(() => {
+    const on = steps.querySelector(".wstep.on");
+    if (on) steps.scrollLeft = Math.max(0, on.offsetLeft - (steps.clientWidth - on.offsetWidth) / 2);
+  });
 
   // Budget
   const spend = creationSpend(draft);
@@ -665,7 +670,7 @@ export function renderCreate(host) {
           el("div", { class: "small muted", text:
             `${R.RANK_BY_KEY[c.identity.rank]?.name || ""} · Reputation ${c.reputation} · ${Object.keys(c.skills).length} skills` })),
         el("button", {
-          class: "btn sm ghost", type: "button",
+          class: "btn-x btn sm ghost", "aria-label": "Remove", type: "button",
           onclick: async () => {
             if (await confirmModal(`Delete ${c.identity.name || "this dossier"}? This cannot be undone.`, { danger: true, okLabel: "Delete" })) {
               Store.deleteCharacter(c.id);

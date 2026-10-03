@@ -118,6 +118,26 @@ export async function browserTests(t, { chromium, executablePath, baseURL }) {
       const showsResult = await page.evaluate(() => !!document.querySelector(".roll-d100"));
       t.ok(showsResult, "the roll resolves and shows a d100 result with quality bands");
 
+      // The d100 track is a picture of the bands, so it has to agree with them: the pin sits at
+      // the roll, and the segment under the pin is the quality the result names.
+      const track = await page.evaluate(() => {
+        const tr = document.querySelector(".modal .d100-track");
+        const pin = tr && tr.querySelector(".pin");
+        if (!tr || !pin) return null;
+        const roll = Number(document.querySelector(".roll-d100").textContent);
+        const q = (document.querySelector(".roll-quality").className.match(/q(\d)/) || [])[1];
+        const box = tr.getBoundingClientRect();
+        const x = pin.getBoundingClientRect().left + pin.getBoundingClientRect().width / 2;
+        const under = [...tr.querySelectorAll(".seg")].find(sg => {
+          const r = sg.getBoundingClientRect(); return x >= r.left - 1 && x <= r.right + 1;
+        });
+        return { roll, q, pct: (x - box.left) / box.width * 100, under: under && (under.className.match(/q(\d)/) || [])[1] };
+      });
+      t.ok(track && Math.abs(track.pct - track.roll) <= 2, "the result's d100 track pins the roll at its place on 1–100" +
+        (track ? ` (roll ${track.roll}, pin ${track.pct.toFixed(1)}%)` : ""));
+      t.ok(track && (track.under === track.q || Math.abs(track.pct - track.roll) <= 2 && track.roll >= 100),
+        "and the band under the pin is the Success Quality the result names");
+
       await page.evaluate(() => {
         const done = [...document.querySelectorAll(".modal-foot .btn")].find(b => b.textContent.trim() === "Done");
         if (done) done.click();

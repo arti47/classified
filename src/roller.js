@@ -96,6 +96,24 @@ function bandsRow(res) {
   return wrap;
 }
 
+/* The same bands drawn to scale on the d100 line, with a pin where the die landed. A picture
+ * of the numbers already printed beside it, never a second source for them. */
+function d100Track(b, roll) {
+  const track = el("div", { class: "d100-track", "aria-hidden": "true" });
+  const span = range => range ? Math.max(0, Math.min(100, range[1]) - Math.min(100, range[0]) + 1) : 0;
+  const parts = [["q1", b.superb], ["q2", b.great], ["q3", b.good], ["q4", b.fair]];
+  let used = 0;
+  for (const [q, range] of parts) {
+    const w = span(range);
+    if (!w) continue;
+    used += w;
+    track.appendChild(el("span", { class: "seg " + q, style: `flex-grow:${w}` }));
+  }
+  if (used < 100) track.appendChild(el("span", { class: "seg q5", style: `flex-grow:${100 - used}` }));
+  if (roll) track.appendChild(el("span", { class: "pin", style: `left:${Math.min(100, Math.max(1, roll)) - 0.5}%` }));
+  return track;
+}
+
 /**
  * Show a result, offer Hero Point spends, log it, then run onDone(result).
  */
@@ -108,6 +126,7 @@ export function presentResult(res, { character, onDone, extra, title } = {}) {
   body.appendChild(el("div", { class: "roll-result" }, rollEl, qEl, formula));
   const bandsEl = bandsRow(res);
   body.appendChild(bandsEl);
+  body.appendChild(d100Track(res.bands, res.roll));
 
   if (res.roll >= 100) {
     body.appendChild(el("div", { class: "banner warn", text: "A d100 of 100 is always a failure, whatever the Success Chance." }));
@@ -265,7 +284,7 @@ export function openRoll(opts = {}) {
   let df = opts.df ?? D.BASE_DIFFICULTY_FACTOR;
 
   const body = el("div", {});
-  const preview = el("div", { class: "card", style: "margin-bottom:12px" });
+  const preview = el("div", { class: "card roll-preview", style: "margin-bottom:12px" });
   body.appendChild(preview);
 
   body.appendChild(el("div", { class: "field-label", text: "Difficulty Factor" }));
@@ -297,9 +316,10 @@ export function openRoll(opts = {}) {
         el("div", { class: "k", text: "Base Chance" }), el("div", { class: "v", text: String(base) })),
       el("div", { class: "stat-box", style: "flex:1" },
         el("div", { class: "k", text: "Difficulty" }), el("div", { class: "v", text: dfLabel(effective) })),
-      el("div", { class: "stat-box", style: "flex:1" },
+      el("div", { class: "stat-box is-key", style: "flex:1" },
         el("div", { class: "k", text: "Success Chance" }), el("div", { class: "v", text: String(sc) }))
     ));
+    preview.appendChild(d100Track(b, null));
     preview.appendChild(el("div", { class: "roll-formula", style: "text-align:center",
       text: `Superb 1-${b.superb[1]} · Great ${b.great[0]}-${b.great[1]}` +
         (b.good ? ` · Good ${b.good[0]}-${b.good[1]}` : "") +
@@ -322,7 +342,7 @@ export function openRoll(opts = {}) {
         el("span", { class: "mono", text: signed(m.value) }),
         m.locked
           ? el("span", { class: "small muted", text: "auto" })
-          : el("button", { class: "btn sm ghost", type: "button", onclick: () => { mods.splice(i, 1); render(); } }, "✕")
+          : el("button", { class: "btn-x btn sm ghost", "aria-label": "Remove", type: "button", onclick: () => { mods.splice(i, 1); render(); } }, "✕")
       ));
     }
   }

@@ -1625,7 +1625,7 @@ function clueList(m) {
         el("div", { class: "small", text: c.text || "A clue, unwritten" }),
         el("div", { class: "lm", text: (S.MYSTERY_TICKS.find(x => x.key === c.source) || {}).name || "A clue you mark" })),
       m.revealedAt ? null : el("button", {
-        class: "btn sm ghost", type: "button", "aria-label": `Remove the clue ${c.text}`,
+        class: "btn-x btn sm ghost", type: "button", "aria-label": `Remove the clue ${c.text}`,
         onclick: () => save(a => {
           const x = a.mysteries.find(y => y.id === m.id);
           if (!x) return;
@@ -2114,7 +2114,7 @@ function listSection(adv, which, title, sub) {
           onclick: () => save(a => { const x = a[which].find(y => y.id === item.id); if (x) x.weight = Math.min(9, x.weight + 1); })
         }, "+"),
         el("button", {
-          class: "btn sm ghost", type: "button", "aria-label": `Remove ${item.text}`,
+          class: "btn-x btn sm ghost", type: "button", "aria-label": `Remove ${item.text}`,
           onclick: async () => {
             if (await confirmModal(`Remove “${item.text}”?`, { okLabel: "Remove", danger: true })) {
               save(a => { a[which] = a[which].filter(y => y.id !== item.id); });
@@ -2464,7 +2464,7 @@ function appendJournal(host, adv) {
           onclick: () => copyText(entryText(e), "Entry copied")
         }, "⧉"),
         el("button", {
-          class: "btn sm ghost", type: "button",
+          class: "btn-x btn sm ghost", type: "button",
           "aria-label": `Delete: ${e.text}`, title: "Delete this entry",
           onclick: async () => {
             if (await confirmModal(e.text, {

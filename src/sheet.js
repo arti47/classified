@@ -775,7 +775,7 @@ export function renderGear(host) {
         row.appendChild(el("button", { class: "btn sm", type: "button", onclick: () => openAttack(c, w) }, "Use"));
       }
       row.appendChild(el("button", {
-        class: "btn sm ghost", type: "button",
+        class: "btn-x btn sm ghost", "aria-label": "Remove", type: "button",
         onclick: async () => {
           if (await confirmModal(`Remove ${item.name}?`, { danger: true, okLabel: "Remove" })) {
             Store.updateActive(x => { x.inventory.items = x.inventory.items.filter(i => i.id !== item.id); });
@@ -1056,7 +1056,7 @@ function garageSection(c, host) {
             el("div", { class: "small", text: mod.name }),
             el("div", { class: "lm", text: mod.desc })),
           el("span", { class: "mono small", text: mod.mp ? `${mod.mp} MP` : "—" }),
-          el("button", { class: "btn sm ghost", type: "button", "aria-label": `Remove ${mod.name}`,
+          el("button", { class: "btn-x btn sm ghost", type: "button", "aria-label": `Remove ${mod.name}`,
             onclick: () => {
               Store.updateActive(x => {
                 const y = x.vehicles.find(z => z.id === v.id);
@@ -1079,7 +1079,7 @@ function garageSection(c, host) {
       el("button", { class: "btn sm", type: "button", onclick: () => fitModification(c, v, host) }, "Fit a modification"),
       el("button", { class: "btn sm", type: "button", onclick: () => vehicleDamage(c, v, host) }, "Damage"),
       stock ? el("button", { class: "btn sm ghost", type: "button", onclick: () => showVehicle(stock) }, "Stats") : null,
-      el("button", { class: "btn sm ghost", type: "button", onclick: async () => {
+      el("button", { class: "btn-x btn sm ghost", "aria-label": "Remove", type: "button", onclick: async () => {
         if (await confirmModal(`Give up the ${v.name}?`, { okLabel: "Remove", danger: true })) {
           Store.updateActive(x => { x.vehicles = x.vehicles.filter(z => z.id !== v.id); });
           renderGear(host);

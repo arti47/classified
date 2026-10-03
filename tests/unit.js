@@ -529,6 +529,16 @@ export function unitTests(t) {
   t.ok(readdirSync(new URL("../fonts/", import.meta.url)).some(f => f.startsWith("LICENSE")),
     "the bundled fonts ship with their licences");
 
+  // An icon-only remove control says what it removes to a screen reader.
+  const unlabelled = [];
+  for (const f of srcJs) {
+    const text = readFileSync(new URL("../src/" + f, import.meta.url), "utf8");
+    for (const m of text.matchAll(/el\("button",\s*\{([\s\S]{0,400}?)\}[^{}]{0,40}?,\s*"✕"\)/g)) {
+      if (!/aria-label/.test(m[1])) unlabelled.push(f);
+    }
+  }
+  t.ok(!unlabelled.length, "every ✕ button carries an aria-label" + (unlabelled.length ? ` (${unlabelled.join(", ")})` : ""));
+
   // One cache version, in one place. It used to be declared in main.js as well, where nothing
   // read it and it had already drifted a version behind the worker that does.
   const versions = [];
