@@ -763,6 +763,12 @@ layer carries the flag rather than the UI.
   stamped tag per kind. Home tiles carry an icon from the same set as the nav. A dialog whose
   only action closes it uses an ink button, not the red stamp, which is kept for actions that
   commit something. Wide tables pin their row label while the columns scroll. Styling never changes a rule, a number or a word on screen.
+- **Folders.** Screens that belong together share a divider strip under the header
+  (`#subNav`): the **Dossier** folder is Sheet · Gear · Advance · Log, the **Library** folder is
+  Rules · How to play · Tutorial plus a Glossary action. The bottom tab that owns a folder is
+  marked `aria-current="location"` on every screen in it, so it stays lit without claiming to
+  be the page. Gear, Advancement and the log had no tab and were reachable only by the $ and
+  XP chips and a Home tile; How to play and the Tutorial only from Home.
 - **Accordions start closed.** Every `details.acc` on the sheet, the wizard, the Solo screen
   and the gear catalogue opens on a tap, not on render, so a screen opens as a list of
   headings rather than a wall. The one exception is the gear catalogue under a live search,
@@ -774,7 +780,7 @@ layer carries the flag rather than the UI.
 
 | File | Purpose |
 |---|---|
-| `index.html` | App shell: header, resource header, screen mount, bottom nav, module entry |
+| `index.html` | App shell: header, resource header, folder divider strip, screen mount, bottom nav, module entry |
 | `styles.css` | Dossier theme (light + dark) and every component style |
 | `data.js` | **Core rules library** — every §3 list, table and formula from the core book |
 | `data-monsters.js` | The book's five animals (there is no monster bestiary — see §3.18) |
@@ -812,7 +818,7 @@ No `data-<expansion>.js` — no expansions were supplied.
 | `solo.js` | The Mythic engine and the Solo screen: Fate, Chaos, scene test, Random Events, Adventure Lists, Meaning-table roller, journal, guided End Scene |
 | `coach.js` | **The guided player** — the app running the game for you, one instruction and one button at a time. A conductor, not an engine: it owns no rule and reaches both engines by dynamic import |
 | `screens.js` | Home, rules library, roll log, advancement, settings |
-| `router.js` | Bottom-nav routing and conditional tab gating |
+| `router.js` | Bottom-nav routing, conditional tab gating, and the folder divider strips (`FOLDERS`, `folderOf()`) |
 | `main.js` | Entry point, boot, and service-worker update discovery (`checkForUpdate()`, `showUpdateToast()`) |
 
 No `power-automation.js` (§3.14).
@@ -1377,3 +1383,4 @@ tables are this app's own work and are marked as such (S6).
 | 2026-10-03 | UX/UI round 4 of 6 — accessibility: muted ink darkened in light and lifted in dark, the dark stamp red brightened, the header stamp unmasked, the hit band's label solid white, and every opacity-based de-emphasis (done guide steps, acted combatants, the quiet solo block) replaced with dashed or outlined shapes that keep text contrast | An axe-core WCAG 2.1 AA sweep of all thirteen routes in both themes, with an encounter running, a solo mission rolled and the roll dialogs open. It found muted text at 4.0:1 on the nav tabs and 4.4:1 on pressed card stock, the dark header stamp at 3.7:1, and faded elements as low as 2.8:1 | 1307 checks green, including a new token-level guard that muted ink, body ink and the stamp red hold 4.5:1 on every paper tone, and white on the red fill, in both themes. The axe sweep is clean except the documented `meta-viewport` | `classified-v37` |
 | 2026-10-03 | UX/UI round 5 of 6 — scanning and reference: the icon set moved to `core.js` and shared by the nav and every Home tile; one-action dialogs (rules topics, tables, info cards) close on an ink button rather than a red stamp; wide tables pin their first column and fade at the scroll edge; dialog prose capped at a reading measure | Fifth pass, on how quickly a screen can be read. The eight Home tiles were text-only cards that had to be read to be told apart; every reference dialog ended on a large red CLOSE that looked like a commitment; the Wound Rank Table lost its Quality column the moment it was scrolled sideways | 1309 checks green, including every Home tile drawing an icon without adding text to its name. Zero console errors, zero overflow | `classified-v38` |
 | 2026-10-03 | UX/UI round 6 of 6 — final sweep: resource-strip cells sized by the length of what they show, narrow-phone tracking for the tab labels and header, and a rules-fidelity audit of the six rounds | Stress-run at 320 and 360px with a wound, a standing condition, Reputation 345, 12,500 experience and $1,250,000: the strip held its width but clipped the two large values, and SETTINGS and the screen title truncated at 320px. Fidelity: `git diff` from before round 1 shows no change to any `data*.js`, `rules.js`, `derived.js`, `store.js` or fixture, and the only logic added to `roller.js` draws bands it is handed | 1311 checks green, including no chip value clipped with $1,250,000 standing. axe-core clean on every route and the roll dialogs in both themes bar the documented `meta-viewport`; zero overflow at 320, 360, 390, 768 and 1280px; zero console errors | `classified-v39` |
+| 2026-10-03 | Second UX series, round 1 of 6 — folders: a divider strip under the header joins Sheet, Gear, Advancement and the Roll log as the Dossier, and Rules, How to play and the Tutorial (plus a Glossary action) as the Library; the owning bottom tab stays lit across its folder; Gear and Advance icons added to the set | Asked whether every part that should be linked is. Three screens with no tab — Gear, Advancement, the log — were reachable only through the $ and XP chips and a Home tile, and How to play and the Tutorial only from Home, so moving between neighbours meant going back to Home | 1319 checks green, including both strips' tabs and current marks on every screen in them, the owning tab lit as the location, the Glossary action present, and no strip outside a folder | `classified-v40` |

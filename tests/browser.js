@@ -50,6 +50,30 @@ export async function browserTests(t, { chromium, executablePath, baseURL }) {
       }
       t.pass("every route renders content");
 
+      // Folders: the dossier's four screens and the library's three share a divider strip,
+      // and the bottom tab that owns the folder stays lit on each of them.
+      const folders = {};
+      for (const r of ["sheet", "gear", "advance", "log", "rules", "play", "tutorial", "home", "combat"]) {
+        await page.evaluate(x => { location.hash = "#/" + x; }, r);
+        await page.waitForTimeout(140);
+        folders[r] = await page.evaluate(() => {
+          const bar = document.getElementById("subNav");
+          return {
+            shown: !bar.hidden,
+            tabs: [...bar.querySelectorAll(".sub-tab[data-route]")].map(b => b.dataset.route),
+            current: (bar.querySelector('.sub-tab[aria-current="page"]') || {}).dataset?.route || null,
+            lit: (document.querySelector('.nav-btn[aria-current="location"]') || {}).dataset?.route || null,
+            glossary: [...bar.querySelectorAll(".sub-tab.is-action")].some(b => /Glossary/.test(b.textContent))
+          };
+        });
+      }
+      t.ok(["sheet", "gear", "advance", "log"].every(r => folders[r].shown && folders[r].current === r &&
+        folders[r].tabs.join() === "sheet,gear,advance,log"), "Sheet, Gear, Advancement and the log share one divider strip, each marked current in turn");
+      t.ok(["gear", "advance", "log"].every(r => folders[r].lit === "sheet"), "and the Sheet tab stays lit on the three that have no tab of their own");
+      t.ok(["rules", "play", "tutorial"].every(r => folders[r].shown && folders[r].tabs.join() === "rules,play,tutorial" && folders[r].glossary),
+        "Rules, How to play and the Tutorial share a Library strip that also opens the Glossary");
+      t.ok(!folders.home.shown && !folders.combat.shown, "screens outside a folder carry no strip");
+
       // Every Home tile carries an icon, and the icon adds no text to the tile's name.
       await page.evaluate(() => { location.hash = "#/home"; });
       await page.waitForTimeout(200);

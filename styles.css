@@ -521,17 +521,17 @@ button.chip:active { transform: translateY(1px); }
 .nav-btn .lbl { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; max-width: 100%; }
 .nav-btn:hover { color: var(--ink); }
 /* The open folder: page-coloured, joined to the screen above it, with a red tab edge. */
-.nav-btn[aria-current="page"] {
+.nav-btn:is([aria-current="page"],[aria-current="location"]) {
   color: var(--stamp); background: var(--paper);
   border-color: var(--rule-2); height: var(--navH); margin-top: -1px;
   box-shadow: 0 6px 12px -8px rgba(0,0,0,.35);
 }
-.nav-btn[aria-current="page"]::before {
+.nav-btn:is([aria-current="page"],[aria-current="location"])::before {
   content: ""; position: absolute; left: 22%; right: 22%; bottom: 6px; height: 3px;
   border-radius: 2px; background: var(--stamp);
 }
-.nav-btn[aria-current="page"] .lbl { color: var(--ink); }
-.nav-btn[aria-current="page"] .ico svg { transform: translateY(-1px); }
+.nav-btn:is([aria-current="page"],[aria-current="location"]) .lbl { color: var(--ink); }
+.nav-btn:is([aria-current="page"],[aria-current="location"]) .ico svg { transform: translateY(-1px); }
 
 /* ---------------------------------------------------------------- modal */
 
@@ -928,8 +928,8 @@ details.acc > .acc-body > .card.flush:last-child { margin-bottom: 0; }
   .nav-btn {
     flex: none; height: 70px; border-radius: 10px 0 0 10px; border: 1px solid transparent; border-right: none;
   }
-  .nav-btn[aria-current="page"] { height: 70px; margin: 0 -1px 0 0; box-shadow: -6px 0 12px -8px rgba(0,0,0,.3); }
-  .nav-btn[aria-current="page"]::before { left: 8px; right: auto; top: 18%; bottom: 18%; width: 3px; height: auto; }
+  .nav-btn:is([aria-current="page"],[aria-current="location"]) { height: 70px; margin: 0 -1px 0 0; box-shadow: -6px 0 12px -8px rgba(0,0,0,.3); }
+  .nav-btn:is([aria-current="page"],[aria-current="location"])::before { left: 8px; right: auto; top: 18%; bottom: 18%; width: 3px; height: auto; }
   .toast-root { left: calc(50% + 54px); }
   .budget { top: calc(var(--headerH) + 52px); }
 
@@ -941,7 +941,7 @@ details.acc > .acc-body > .card.flush:last-child { margin-bottom: 0; }
   .tile-grid { grid-template-columns: repeat(4, minmax(0, 1fr)); }
 }
 @media (min-width: 900px) and (max-height: 560px) {
-  .nav-btn, .nav-btn[aria-current="page"] { height: 56px; }
+  .nav-btn, .nav-btn:is([aria-current="page"],[aria-current="location"]) { height: 56px; }
 }
 
 /* ---------------------------------------------------------------- docks and sticky bars */
@@ -1104,4 +1104,38 @@ details.acc.help-acc { margin-bottom: 12px; }
   .header-brand { gap: 8px; }
   .stamp { font-size: 10px; padding: 3px 4px 2px; letter-spacing: .1em; }
   .header-title { font-size: 17px; }
+}
+
+/* ---------------------------------------------------------------- folder divider strip */
+
+/* Index dividers under the header: the screens of one folder, each a tab with a typed label.
+   The current one is cut from the same stock as the page and joins it. */
+.sub-nav {
+  position: relative; z-index: 2; max-width: 900px; margin: 12px auto -6px; padding: 0 var(--pad);
+}
+.sub-nav-strip {
+  display: flex; gap: 4px; overflow-x: auto; scrollbar-width: none;
+  border-bottom: 2px solid var(--rule-2); padding-top: 4px;
+}
+.sub-nav-strip::-webkit-scrollbar { display: none; }
+.sub-tab {
+  flex: none; display: inline-flex; align-items: center; gap: 6px; min-height: 40px;
+  padding: 8px 13px 7px; margin-bottom: -2px; cursor: pointer;
+  border: 1px solid var(--rule-2); border-bottom: 2px solid var(--rule-2); border-radius: 8px 8px 0 0;
+  background: var(--tab); color: var(--ink-2);
+  font: 600 11px/1 var(--mono); letter-spacing: .1em; text-transform: uppercase;
+  transition: background .15s, color .15s, transform .15s;
+}
+.sub-tab svg { width: 16px; height: 16px; }
+.sub-tab:hover { color: var(--ink); background: var(--paper-3); }
+.sub-tab[aria-current="page"] {
+  background: var(--paper); color: var(--stamp); border-bottom-color: var(--paper);
+  transform: translateY(-3px); padding-bottom: 10px; box-shadow: 0 -3px 0 var(--stamp) inset;
+}
+.sub-tab[aria-current="page"] span { color: var(--ink); }
+.sub-tab.is-action { background: transparent; border-style: dashed; border-bottom: 2px solid var(--rule-2); }
+@media (min-width: 900px) {
+  .sub-nav { max-width: 1080px; margin: 22px auto -23px; padding: 0 22px; }
+  .sub-nav-strip { border-bottom: none; }
+  .sub-nav + .screen { margin-top: 0; border-top-left-radius: 0; }
 }

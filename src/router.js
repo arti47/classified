@@ -29,6 +29,44 @@ function primaryTabs() {
   return base.map(k => (k === "rules" ? "solo" : k));
 }
 
+/* Folders: screens that belong together share a divider strip under the header, so a screen
+ * with no tab of its own is still one tap from its neighbours, and the bottom tab that owns
+ * the folder stays lit on every screen in it. Glossary is a dialog rather than a route, so it
+ * rides in the Library strip as an action. */
+const FOLDERS = {
+  dossier: { tab: "sheet", routes: ["sheet", "gear", "advance", "log"] },
+  library: { tab: "rules", routes: ["rules", "play", "tutorial"],
+    actions: [{ key: "glossary", label: "Glossary", run: () => import("./help.js").then(m => m.openGlossary()) }] }
+};
+
+export function folderOf(route) {
+  return Object.values(FOLDERS).find(f => f.routes.includes(route)) || null;
+}
+
+function renderSubNav(route) {
+  const bar = document.getElementById("subNav");
+  if (!bar) return;
+  clear(bar);
+  const folder = folderOf(route);
+  bar.hidden = !folder;
+  if (!folder) return;
+  const strip = el("div", { class: "sub-nav-strip" });
+  for (const key of folder.routes) {
+    strip.appendChild(el("button", {
+      class: "sub-tab", type: "button", dataset: { route: key },
+      "aria-current": key === route ? "page" : null,
+      onclick: () => { if (key !== current) navigate(key); }
+    }, hasIcon(key) ? icon(key) : null, el("span", { text: ROUTES[key].label })));
+  }
+  for (const a of folder.actions || []) {
+    strip.appendChild(el("button", { class: "sub-tab is-action", type: "button", onclick: a.run },
+      hasIcon(a.key) ? icon(a.key) : null, el("span", { text: a.label })));
+  }
+  bar.appendChild(strip);
+  const on = strip.querySelector('[aria-current="page"]');
+  if (on) requestAnimationFrame(() => { strip.scrollLeft = Math.max(0, on.offsetLeft - 16); });
+}
+
 let current = "home";
 
 function imp(path, fn) {
@@ -59,6 +97,7 @@ export function navigate(route, { replace = false } = {}) {
   // A screen may widen itself (the sheet's two columns); a new route starts plain.
   host.className = "screen";
   document.getElementById("headerTitle").textContent = ROUTES[route].title;
+  renderSubNav(route);
   ROUTES[route].render(host);
   window.scrollTo(0, 0);
   host.focus({ preventScroll: true });
@@ -83,8 +122,12 @@ export function rebuildNav() {
 }
 
 function updateNavState() {
+  // The exact screen is the page; a folder's owning tab is marked as the location you are
+  // inside of, so it stays lit on Gear, Advancement and the log without claiming to be them.
+  const folder = folderOf(current);
   for (const btn of document.querySelectorAll(".nav-btn")) {
     if (btn.dataset.route === current) btn.setAttribute("aria-current", "page");
+    else if (folder && folder.tab === btn.dataset.route) btn.setAttribute("aria-current", "location");
     else btn.removeAttribute("aria-current");
   }
 }
