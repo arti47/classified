@@ -2,7 +2,7 @@
  * mission lifecycle engine (End Scene / End Session / End Mission) with a
  * confirmation summary and one-step undo. */
 
-import { el, clear, uid, signed, d100, d10, clamp, fmtDate } from "./core.js";
+import { el, clear, uid, signed, d100, d10, clamp, fmtDate, art } from "./core.js";
 import { modal, showToast, confirmModal, promptModal, chooseModal } from "./ui.js";
 import * as D from "../data.js";
 import * as R from "./rules.js";
@@ -466,7 +466,7 @@ export function renderTasks(host) {
     "One tracker for every multi-roll effort in the game: healing over weeks, a long interrogation, data scrubbing, an extended chase, or a mission timetable." }));
 
   if (!list.length) {
-    sec.appendChild(el("div", { class: "empty" }, el("p", { class: "muted", text: "No tasks running." })));
+    sec.appendChild(el("div", { class: "empty is-small" }, art("stopwatch"), el("p", { class: "muted", text: "No tasks running." })));
   }
 
   for (const t of list) {

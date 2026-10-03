@@ -775,6 +775,11 @@ layer carries the flag rather than the UI.
   `MAX_BASE_CHANCE`; carried weight against Carrying Capacity on Gear, red past the limit;
   unspent experience against each raise's cost on Advancement; the Reputation Table's four
   bands with the standing one lit; and the wound track on the dossier head.
+- **Line art.** Empty states and two header cards carry single-stroke spy props from
+  `art()` in `core.js` — folder, ID card, briefcase, ladder, map, stopwatch, reel-to-reel,
+  typewriter, index cards, car, keyhole, cipher wheel — in muted ink with one stroke in the
+  stamp red. The Home cover and the Solo header carry one as a faint watermark. No emoji is
+  drawn anywhere as a picture.
 - **Folders.** Screens that belong together share a divider strip under the header
   (`#subNav`): the **Dossier** folder is Sheet · Gear · Advance · Log, the **Library** folder is
   Rules · How to play · Tutorial plus a Glossary action. The bottom tab that owns a folder is
@@ -814,7 +819,7 @@ No `data-<expansion>.js` — no expansions were supplied.
 
 | Module | Responsibility |
 |---|---|
-| `core.js` | Constants, DOM helpers, raw dice, formatting, the stroke-icon set (`icon()`) and the decorative `meter()`. **No imports.** |
+| `core.js` | Constants, DOM helpers, raw dice, formatting, the stroke-icon set (`icon()`), the line-art props (`art()`) and the decorative `meter()`. **No imports.** |
 | `ui.js` | Themed modal, toast, confirm, prompt, chooser |
 | `rules.js` | Pure rules lookups over the data libraries. No DOM, no state. |
 | `derived.js` | Character-derived calculation, normalization, migration, validation |
@@ -1398,3 +1403,4 @@ tables are this app's own work and are marked as such (S6).
 | 2026-10-03 | Second UX series, round 1 of 6 — folders: a divider strip under the header joins Sheet, Gear, Advancement and the Roll log as the Dossier, and Rules, How to play and the Tutorial (plus a Glossary action) as the Library; the owning bottom tab stays lit across its folder; Gear and Advance icons added to the set | Asked whether every part that should be linked is. Three screens with no tab — Gear, Advancement, the log — were reachable only through the $ and XP chips and a Home tile, and How to play and the Tutorial only from Home, so moving between neighbours meant going back to Home | 1319 checks green, including both strips' tabs and current marks on every screen in them, the owning tab lit as the location, the Glossary action present, and no strip outside a folder | `classified-v40` |
 | 2026-10-03 | Second UX series, round 2 of 6 — Home as a briefing desk: an agent ID card with photograph and wound track, a live mission card with the Chaos gauge when solo is on, a live encounter card with round, phase and combatants, each opening its screen | Home showed the agent as one line and said nothing about a mission or a fight in progress, so returning to the app meant opening each tab to find where you were | 1325 checks green, including the agent card's wound track and Open button landing on the sheet, and the combat card present exactly when an encounter is running. axe clean on every route bar `meta-viewport` | `classified-v41` |
 | 2026-10-03 | Second UX series, round 3 of 6 — numbers drawn to scale: characteristic bars, Base Chance boxes filled to their share of 30, the wound track on the dossier head, a carry gauge on Gear, affordability bars on every Advancement raise, and the Reputation Table's bands as a strip | Asked for graphics that make the screens read faster. Every value on the sheet was a bare digit, so whether 12 was high, or whether a raise was nearly affordable, took arithmetic the screen could have done | 1331 checks green, including every characteristic bar matching its value over 15 and every Base Chance box its value over 30, read back from the rendered DOM. axe clean bar `meta-viewport` | `classified-v42` |
+| 2026-10-03 | Second UX series, round 4 of 6 — line art: twelve single-stroke spy props in `core.js` drawn into every empty state (no dossier, no gear, no vehicle, nothing carried, no advancement, an empty log, no adventure, empty Threads and Characters, no mysteries, an empty journal, no tasks) and as watermarks on the Home cover and the Solo header | Asked for relevant graphics. The five large empty states were colour emoji that rendered differently on every platform and fought the dossier palette, and the small ones were a bare line of grey text in a dashed box | 1332 checks green, including a source sweep that no empty state draws an emoji glyph. axe clean bar `meta-viewport`; zero overflow, zero console errors in both themes | `classified-v43` |

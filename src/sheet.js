@@ -1,7 +1,7 @@
 /* sheet.js — the live character sheet, in-play tracking, and the persistent
  * resource header shown on every in-play screen. */
 
-import { el, clear, $, money, signed, dfLabel, uid, percent, d100, meter } from "./core.js";
+import { el, clear, $, money, signed, dfLabel, uid, percent, d100, meter, art } from "./core.js";
 import { modal, showToast, confirmModal, promptModal, chooseModal } from "./ui.js";
 import * as D from "../data.js";
 import * as R from "./rules.js";
@@ -447,7 +447,7 @@ export function renderSheet(host) {
     // exactly the one who needs to know what this screen does (N4).
     appendHelp(host, "sheet");
     host.appendChild(el("div", { class: "empty" },
-      el("div", { class: "big", text: "🗂" }),
+      el("div", { class: "big" }, art("idcard")),
       el("h2", { text: "No dossier open" }),
       el("p", { class: "muted", text: "The sheet is the operative you play: characteristics, skills, wounds, gear and every roll they can make." }),
       el("button", { class: "btn primary", type: "button", onclick: () => navigate("create") }, "Create a character")
@@ -714,7 +714,7 @@ export function renderGear(host) {
     // "No character." was the entire screen — no explanation and nothing to tap (N2).
     appendHelp(host, "gear");
     host.appendChild(el("div", { class: "empty" },
-      el("div", { class: "big", text: "⚙" }),
+      el("div", { class: "big" }, art("briefcase")),
       el("h2", { text: "No dossier open" }),
       el("p", { class: "muted", text: "Equipment belongs to an operative: what they carry, what it weighs, the cash, the garage and the bug bench." }),
       el("button", { class: "btn primary", type: "button", onclick: () => navigate("create") }, "Create a character")));
@@ -763,7 +763,7 @@ export function renderGear(host) {
 
   const items = c.inventory.items || [];
   if (!items.length) {
-    invSection.appendChild(el("div", { class: "empty" }, el("p", { class: "muted", text: "Nothing carried." })));
+    invSection.appendChild(el("div", { class: "empty is-small" }, art("briefcase"), el("p", { class: "muted", text: "Nothing carried." })));
   } else {
     const card = el("div", { class: "card flush" });
     for (const item of items) {
@@ -1041,7 +1041,7 @@ function garageSection(c, host) {
 
   const owned = c.vehicles || [];
   if (!owned.length) {
-    sec.appendChild(el("div", { class: "empty" },
+    sec.appendChild(el("div", { class: "empty is-small" }, art("car"),
       el("p", { class: "muted", text: "No vehicle on the dossier. Agency characters are usually issued one." })));
     return sec;
   }

@@ -1,6 +1,6 @@
 /* screens.js — home, rules library, roll log, advancement, settings and about. */
 
-import { el, clear, money, signed, dfLabel, fmtDate, clamp, icon, meter } from "./core.js";
+import { el, clear, money, signed, dfLabel, fmtDate, clamp, icon, meter, art } from "./core.js";
 import { modal, showToast, confirmModal, promptModal, chooseModal } from "./ui.js";
 import * as D from "../data.js";
 import * as R from "./rules.js";
@@ -46,6 +46,7 @@ export function renderHome(host) {
   const c = Store.activeCharacter();
 
   host.appendChild(el("div", { class: "card cover-card" },
+    el("span", { class: "watermark" }, art("cipher")),
     el("h1", { text: "Classified" }),
     el("p", { class: "small muted", text: "The role-playing game of covert operations. Player companion." })
   ));
@@ -57,7 +58,7 @@ export function renderHome(host) {
 
   if (!c) {
     if (!started) host.appendChild(el("div", { class: "empty" },
-      el("div", { class: "big", text: "🗄" }),
+      el("div", { class: "big" }, art("folder")),
       el("h2", { text: "No dossier open" }),
       el("p", { class: "muted", text: "Create an operative and the sheet, roller and trackers come alive." }),
       el("button", { class: "btn primary", type: "button", onclick: () => navigate("create") }, "Create a character")
@@ -251,6 +252,7 @@ export function renderLog(host) {
   if (!log.length) {
     // An empty state with nothing to tap is a dead end: say where rolls come from (N6).
     const empty = el("div", { class: "empty" },
+      el("div", { class: "big" }, art("reel")),
       el("p", { class: "muted", text: "Nothing rolled yet." }),
       el("p", { class: "small muted", text: "Rolls land here from the sheet, the roller, combat and the Solo screen." }));
     const c = Store.activeCharacter();
@@ -722,7 +724,7 @@ export function renderAdvance(host) {
     // "No character." was the whole screen, with nothing to tap and nothing explained (N3).
     appendHelp(host, "advance");
     host.appendChild(el("div", { class: "empty" },
-      el("div", { class: "big", text: "▲" }),
+      el("div", { class: "big" }, art("ladder")),
       el("h2", { text: "No dossier open" }),
       el("p", { class: "muted", text: "Advancement spends the experience a dossier has earned, so it needs one open. Experience is paid at the end of a mission." }),
       el("button", { class: "btn primary", type: "button", onclick: () => navigate("create") }, "Create a character")));

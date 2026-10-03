@@ -1207,3 +1207,21 @@ details.acc.help-acc { margin-bottom: 12px; }
 .rep-bands .rb.on .rb-bar { background: var(--warn); }
 .rep-bands .rb-l { font: 600 9px/1.1 var(--mono); letter-spacing: .04em; color: var(--ink-3); text-align: center; }
 .rep-bands .rb.on .rb-l { color: var(--ink); }
+
+/* ---------------------------------------------------------------- line art */
+
+.art { display: block; color: var(--ink-3); }
+.art .accent { stroke: var(--stamp); }
+.empty .big { opacity: 1; filter: none; margin: 0 auto 10px; width: 96px; height: 96px; }
+.empty .big .art { width: 96px; height: 96px; }
+.empty.is-small { padding: 22px 16px; display: flex; flex-direction: column; align-items: center; }
+.empty.is-small > .art { width: 56px; height: 56px; margin-bottom: 8px; }
+.empty .art { animation: art-in .5s var(--ease) both; }
+@keyframes art-in { from { opacity: 0; transform: translateY(6px) rotate(-2deg); } to { opacity: 1; transform: none; } }
+/* A faint prop behind a header card: printed into the stock, never over the text. */
+.watermark { position: absolute; right: 8px; bottom: -14px; width: 128px; height: 128px; pointer-events: none; opacity: .09; transform: rotate(-12deg); }
+.watermark .art { width: 100%; height: 100%; color: var(--ink); }
+.watermark .art .accent { stroke: var(--ink); }
+.solo-header { overflow: hidden; }
+.solo-header > :not(.watermark), .cover-card > :not(.watermark) { position: relative; }
+.cover-card .watermark { right: -10px; bottom: -40px; width: 150px; height: 150px; }

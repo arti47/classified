@@ -10,7 +10,7 @@
  * engine and importing it would breach the rule.
  */
 
-import { el, clear, uid, d100, d10, die, announce, clamp, fmtDate, signed } from "./core.js";
+import { el, clear, uid, d100, d10, die, announce, clamp, fmtDate, signed, art } from "./core.js";
 import { modal, showToast, confirmModal, promptModal, chooseModal } from "./ui.js";
 import * as S from "../data-solo.js";
 import * as Store from "./store.js";
@@ -83,7 +83,7 @@ export function renderSolo(host) {
       el("p", { class: "small muted", text:
         "The Mythic Game Master Emulator, standing in for a game master. Ask Fate a question, test each scene against the Chaos Factor, and read the answers off the Meaning Tables." })));
     host.appendChild(el("div", { class: "empty" },
-      el("div", { class: "big", text: "🎲" }),
+      el("div", { class: "big" }, art("map")),
       el("h2", { text: "No adventure open" }),
       el("p", { class: "muted", text: "An adventure holds the Chaos Factor, the scene count, your threads and characters, and the journal. It opens on the mission briefing, which names it." }),
       el("button", { class: "btn primary", type: "button", onclick: () => newAdventure(host) }, "Start an adventure")));
@@ -164,7 +164,7 @@ function appendCoach(host) {
 }
 
 function appendHeader(host, adv) {
-  const card = el("div", { class: "card solo-header" });
+  const card = el("div", { class: "card solo-header" }, el("span", { class: "watermark" }, art("map")));
   const linked = adv.characterId ? Store.getCharacter(adv.characterId) : null;
   card.appendChild(el("div", { class: "row" },
     el("div", { class: "grow" },
@@ -1535,7 +1535,7 @@ function appendMysteries(host, adv) {
   }, "+ New"));
 
   if (!list.length) {
-    sec.appendChild(el("div", { class: "empty" },
+    sec.appendChild(el("div", { class: "empty is-small" }, art("keyhole"),
       el("p", { class: "muted", text: "Nothing open. Start one on the objective, the complication, the opponent or a thread." })));
     sec.appendChild(el("p", { class: "small muted", text: S.MYSTERY_NOTE }));
     host.appendChild(sec);
@@ -2098,7 +2098,7 @@ function listSection(adv, which, title, sub) {
   }, "+ Add"));
 
   if (!list.length) {
-    sec.appendChild(el("div", { class: "empty" }, el("p", { class: "muted", text: "Nothing listed. An event that points here will tell you to invent one." })));
+    sec.appendChild(el("div", { class: "empty is-small" }, art("cards"), el("p", { class: "muted", text: "Nothing listed. An event that points here will tell you to invent one." })));
   } else {
     const card = el("div", { class: "card flush" });
     for (const item of list) {
@@ -2451,7 +2451,7 @@ function appendJournal(host, adv) {
   }, "+ Note"));
 
   if (!entries.length) {
-    sec.appendChild(el("div", { class: "empty" }, el("p", { class: "muted", text: "Nothing recorded yet." })));
+    sec.appendChild(el("div", { class: "empty is-small" }, art("typewriter"), el("p", { class: "muted", text: "Nothing recorded yet." })));
     host.appendChild(sec);
     return;
   }

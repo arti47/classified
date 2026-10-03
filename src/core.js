@@ -72,6 +72,55 @@ export function icon(key) {
   return svg;
 }
 
+/* ---------------------------------------------------------------- line art */
+
+/* Single-stroke spy props for empty states, drawn on a 96px grid in currentColor. Each has
+ * one accent stroke (class "accent") that the stylesheet inks in the stamp red. Decoration
+ * only: every one sits above a heading that says what the empty state is. */
+const ART = {
+  folder: [["p", "M12 28h24l6 6h42v44H12z"], ["p", "M22 36V18h44v18"], ["p", "M28 24h24M28 30h30"],
+    ["p", "M8 42h80l-6 36H14z"], ["p", "M52 56h22v10H52z", "accent"]],
+  idcard: [["p", "M10 26h76v50H10z"], ["p", "M18 36h22v30H18z"], ["c", 29, 47, 5],
+    ["p", "M21 64c1-7 15-7 16 0"], ["p", "M48 40h28M48 48h22M48 56h26"], ["p", "M44 18v14M52 18v14", "accent"]],
+  briefcase: [["p", "M12 34h72v44H12z"], ["p", "M36 34v-8a4 4 0 0 1 4-4h16a4 4 0 0 1 4 4v8"],
+    ["p", "M12 50h72"], ["p", "M30 46v8M66 46v8", "accent"]],
+  ladder: [["p", "M12 80h72"], ["p", "M18 80V66h16V54h16V40h16V28h12v52"], ["p", "M64 14l12-2-2 12M76 12 58 30", "accent"]],
+  map: [["p", "M12 26l22-8 28 8 22-8v56l-22 8-28-8-22 8z"], ["p", "M34 18v56M62 26v56"],
+    ["p", "M48 30c-6 0-10 4-10 10 0 8 10 16 10 16s10-8 10-16c0-6-4-10-10-10z", "accent"], ["c", 48, 40, 3]],
+  stopwatch: [["c", 48, 54, 26], ["p", "M42 20h12M48 20v8M70 30l5-5"], ["p", "M48 54 60 42", "accent"],
+    ["p", "M48 32v4M48 72v4M26 54h4M66 54h4"]],
+  reel: [["p", "M10 22h76v54H10z"], ["c", 30, 44, 13], ["c", 66, 44, 13], ["c", 30, 44, 3], ["c", 66, 44, 3],
+    ["p", "M30 57h36", "accent"], ["p", "M22 70h52"]],
+  typewriter: [["p", "M30 16h36v26H30z"], ["p", "M36 24h24M36 31h18", "accent"], ["p", "M18 42h60v8H18z"],
+    ["p", "M14 50h68l6 26H8z"], ["c", 24, 63, 3], ["c", 36, 63, 3], ["c", 48, 63, 3], ["c", 60, 63, 3], ["c", 72, 63, 3]],
+  cards: [["p", "M26 30v-8h56v40h-6"], ["p", "M18 30h58v42H18z"], ["p", "M18 40h58", "accent"],
+    ["p", "M26 50h36M26 58h28M26 66h32"]],
+  car: [["p", "M10 58h76v12H10z"], ["p", "M24 58l8-14h30l10 14"], ["c", 28, 72, 7], ["c", 68, 72, 7],
+    ["p", "M38 52h22", "accent"]],
+  keyhole: [["p", "M26 12h44a4 4 0 0 1 4 4v64a4 4 0 0 1-4 4H26a4 4 0 0 1-4-4V16a4 4 0 0 1 4-4z"], ["c", 48, 38, 10],
+    ["p", "M43 46l-5 24h20l-5-24", "accent"]],
+  cipher: [["c", 48, 48, 32], ["c", 48, 48, 20], ["c", 48, 48, 4, "accent"],
+    ["p", "M48 16v8M48 72v8M16 48h8M72 48h8M25 25l6 6M65 65l6 6M71 25l-6 6M31 65l-6 6"]]
+};
+
+export function art(key) {
+  const NS = "http://www.w3.org/2000/svg";
+  const svg = document.createElementNS(NS, "svg");
+  for (const [k, v] of Object.entries({ viewBox: "0 0 96 96", fill: "none", stroke: "currentColor",
+    "stroke-width": "2.2", "stroke-linecap": "round", "stroke-linejoin": "round", "aria-hidden": "true",
+    class: "art" })) svg.setAttribute(k, v);
+  for (const part of ART[key] || ART.folder) {
+    const isCircle = part[0] === "c";
+    const node = document.createElementNS(NS, isCircle ? "circle" : "path");
+    if (isCircle) { node.setAttribute("cx", part[1]); node.setAttribute("cy", part[2]); node.setAttribute("r", part[3]); }
+    else node.setAttribute("d", part[1]);
+    const cls = isCircle ? part[4] : part[2];
+    if (cls) node.setAttribute("class", cls);
+    svg.appendChild(node);
+  }
+  return svg;
+}
+
 /* ---------------------------------------------------------------- meters */
 
 /* A number already printed beside it, drawn to scale: `fraction` of 0–1. Decoration only

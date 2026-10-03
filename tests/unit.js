@@ -563,6 +563,10 @@ export function unitTests(t) {
     t.ok(!low.length, `${name} theme tokens hold AA contrast for text` + (low.length ? ` (${low.join(", ")})` : ""));
   }
 
+  // Empty states draw line art from core.js, never an emoji that renders differently per device.
+  const emojiEmpty = srcJs.filter(f => /class: "big", text:/.test(readFileSync(new URL("../src/" + f, import.meta.url), "utf8")));
+  t.ok(!emojiEmpty.length, "no empty state draws an emoji glyph" + (emojiEmpty.length ? ` (${emojiEmpty.join(", ")})` : ""));
+
   // One cache version, in one place. It used to be declared in main.js as well, where nothing
   // read it and it had already drifted a version behind the worker that does.
   const versions = [];
