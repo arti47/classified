@@ -1,6 +1,6 @@
 /* router.js — bottom-nav routing and conditional tab gating. */
 
-import { el, clear, $ } from "./core.js";
+import { el, clear, $, icon, hasIcon } from "./core.js";
 import { Settings } from "./settings.js";
 import * as Store from "./store.js";
 
@@ -27,33 +27,6 @@ function primaryTabs() {
   const base = ["home", "sheet", "combat", "rules", "gm", "settings"];
   if (!Settings.solo()) return base;
   return base.map(k => (k === "rules" ? "solo" : k));
-}
-
-/* The nav icon set: one stroke family, drawn on a 24px grid in currentColor, so it matches
- * the type and never falls back to a colour emoji the way a Unicode glyph does. */
-const SVG_NS = "http://www.w3.org/2000/svg";
-const ICON_PATHS = {
-  home: "M3 10.5 12 4l9 6.5M5.5 9v10.5h13V9M10 19.5v-5h4v5",
-  sheet: "M3.5 6.5h6l2 2h9v11h-17zM3.5 6.5v-2h5l1.5 2M8 13h8M8 16h5",
-  combat: "M12 3v4M12 17v4M3 12h4M17 12h4M12 7a5 5 0 1 0 0 10 5 5 0 0 0 0-10zM12 11.2v1.6",
-  rules: "M4 5.5c3-1 5.5-.8 8 1 2.5-1.8 5-2 8-1v13c-3-1-5.5-.8-8 1-2.5-1.8-5-2-8-1zM12 6.5v13",
-  gm: "M12 3.5l2.4 5 5.4.6-4 3.7 1.1 5.4L12 15.5l-4.9 2.7 1.1-5.4-4-3.7 5.4-.6z",
-  solo: "M12 3.5a8.5 8.5 0 1 0 0 17 8.5 8.5 0 0 0 0-17zM15.5 8.5l-2 5-5 2 2-5zM12 3.5v2M12 18.5v2M3.5 12h2M18.5 12h2",
-  settings: "M12 9a3 3 0 1 0 0 6 3 3 0 0 0 0-6zM12 2.8v2.4M12 18.8v2.4M2.8 12h2.4M18.8 12h2.4M5.5 5.5l1.7 1.7M16.8 16.8l1.7 1.7M5.5 18.5l1.7-1.7M16.8 7.2l1.7-1.7"
-};
-
-function navIcon(key) {
-  const svg = document.createElementNS(SVG_NS, "svg");
-  svg.setAttribute("viewBox", "0 0 24 24");
-  svg.setAttribute("fill", "none");
-  svg.setAttribute("stroke", "currentColor");
-  svg.setAttribute("stroke-width", "1.7");
-  svg.setAttribute("stroke-linecap", "round");
-  svg.setAttribute("stroke-linejoin", "round");
-  const path = document.createElementNS(SVG_NS, "path");
-  path.setAttribute("d", ICON_PATHS[key] || ICON_PATHS.home);
-  svg.appendChild(path);
-  return svg;
 }
 
 let current = "home";
@@ -102,7 +75,7 @@ export function rebuildNav() {
       class: "nav-btn", type: "button", dataset: { route: key },
       onclick: () => navigate(key)
     },
-      el("span", { class: "ico", "aria-hidden": "true" }, ICON_PATHS[key] ? navIcon(key) : r.icon),
+      el("span", { class: "ico", "aria-hidden": "true" }, hasIcon(key) ? icon(key) : r.icon),
       el("span", { class: "lbl", text: r.label })
     ));
   }

@@ -50,6 +50,14 @@ export async function browserTests(t, { chromium, executablePath, baseURL }) {
       }
       t.pass("every route renders content");
 
+      // Every Home tile carries an icon, and the icon adds no text to the tile's name.
+      await page.evaluate(() => { location.hash = "#/home"; });
+      await page.waitForTimeout(200);
+      const tiles = await page.evaluate(() => [...document.querySelectorAll(".tile-grid .opt-btn")].map(b => ({
+        svg: !!b.querySelector(".tile-ico svg"), name: b.querySelector(".on-name").textContent
+      })));
+      t.ok(tiles.length >= 8 && tiles.every(x => x.svg && x.name.trim().length), "every Home tile draws an icon beside its name");
+
       // No horizontal overflow anywhere.
       for (const tab of TABS) {
         await page.evaluate(r => { location.hash = "#/" + r; }, tab);

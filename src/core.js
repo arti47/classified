@@ -37,6 +37,39 @@ export function announce(text) {
   window.setTimeout(() => { region.textContent = text; }, 30);
 }
 
+/* ---------------------------------------------------------------- icons */
+
+/* One stroke-icon family on a 24px grid in currentColor, so icons match the type and never
+ * fall back to a colour emoji the way a Unicode glyph does. Decoration only: every icon sits
+ * beside a text label or carries an aria-label on its button. */
+const ICON_PATHS = {
+  home: "M3 10.5 12 4l9 6.5M5.5 9v10.5h13V9M10 19.5v-5h4v5",
+  sheet: "M3.5 6.5h6l2 2h9v11h-17zM3.5 6.5v-2h5l1.5 2M8 13h8M8 16h5",
+  combat: "M12 3v4M12 17v4M3 12h4M17 12h4M12 7a5 5 0 1 0 0 10 5 5 0 0 0 0-10zM12 11.2v1.6",
+  rules: "M4 5.5c3-1 5.5-.8 8 1 2.5-1.8 5-2 8-1v13c-3-1-5.5-.8-8 1-2.5-1.8-5-2-8-1zM12 6.5v13",
+  gm: "M12 3.5l2.4 5 5.4.6-4 3.7 1.1 5.4L12 15.5l-4.9 2.7 1.1-5.4-4-3.7 5.4-.6z",
+  solo: "M12 3.5a8.5 8.5 0 1 0 0 17 8.5 8.5 0 0 0 0-17zM15.5 8.5l-2 5-5 2 2-5zM12 3.5v2M12 18.5v2M3.5 12h2M18.5 12h2",
+  settings: "M12 9a3 3 0 1 0 0 6 3 3 0 0 0 0-6zM12 2.8v2.4M12 18.8v2.4M2.8 12h2.4M18.8 12h2.4M5.5 5.5l1.7 1.7M16.8 16.8l1.7 1.7M5.5 18.5l1.7-1.7M16.8 7.2l1.7-1.7",
+  dice: "M5.5 4h13a1.5 1.5 0 0 1 1.5 1.5v13a1.5 1.5 0 0 1-1.5 1.5h-13A1.5 1.5 0 0 1 4 18.5v-13A1.5 1.5 0 0 1 5.5 4zM8.5 8.5h.01M15.5 8.5h.01M12 12h.01M8.5 15.5h.01M15.5 15.5h.01",
+  log: "M8 6h12M8 12h12M8 18h12M4 6h.01M4 12h.01M4 18h.01",
+  play: "M12 3.5a8.5 8.5 0 1 0 0 17 8.5 8.5 0 0 0 0-17zM10 8.5v7l5.5-3.5z",
+  tutorial: "M2.5 9 12 4.5 21.5 9 12 13.5zM6.5 11v5c3 2.3 8 2.3 11 0v-5M21.5 9v5",
+  glossary: "M4 19.5 8.5 5h1l4.5 14.5M5.6 14.5h6.8M15 13.5c.5-1.3 1.6-2 3-2 1.8 0 2.5 1 2.5 2.6v5.4M20.5 16c-3.5 0-5.5.6-5.5 2s1 1.8 2.2 1.8c1.6 0 3.3-1.1 3.3-3.8"
+};
+
+export function hasIcon(key) { return Object.prototype.hasOwnProperty.call(ICON_PATHS, key); }
+
+export function icon(key) {
+  const NS = "http://www.w3.org/2000/svg";
+  const svg = document.createElementNS(NS, "svg");
+  for (const [k, v] of Object.entries({ viewBox: "0 0 24 24", fill: "none", stroke: "currentColor",
+    "stroke-width": "1.7", "stroke-linecap": "round", "stroke-linejoin": "round", "aria-hidden": "true" })) svg.setAttribute(k, v);
+  const path = document.createElementNS(NS, "path");
+  path.setAttribute("d", ICON_PATHS[key] || ICON_PATHS.home);
+  svg.appendChild(path);
+  return svg;
+}
+
 /* ---------------------------------------------------------------- dice */
 
 export function d100() { return 1 + Math.floor(Math.random() * 100); }

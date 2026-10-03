@@ -1066,3 +1066,33 @@ details.acc.help-acc { margin-bottom: 12px; }
 .log-entry[data-kind="event"] .kind-tag { color: var(--warn); }
 .log-entry[data-kind="note"] .kind-tag { color: var(--ink-3); border-style: dashed !important; }
 .btn.btn-copy:hover:not(:disabled) { color: var(--ink); border-color: var(--ink-3); background: var(--paper-3); }
+
+/* Home tiles carry an icon in a pressed roundel above the typed title. */
+.tile-grid .opt-btn .tile-ico {
+  display: inline-grid; place-items: center; width: 36px; height: 36px; margin-bottom: 10px;
+  border-radius: 50%; background: var(--paper-3); color: var(--stamp); border: 1px solid var(--rule);
+}
+.tile-grid .opt-btn .tile-ico svg { width: 20px; height: 20px; }
+.tile-grid .opt-btn:hover .tile-ico { background: var(--stamp-fill); color: #fff; border-color: var(--stamp-fill); }
+
+/* A dialog whose only action is to close it: ink, not stamp. Red is kept for actions that
+   commit something, so a reference card never looks like a decision. */
+.modal-foot .btn.primary:only-child {
+  background: var(--ink); border-color: var(--ink); color: var(--paper-2);
+  box-shadow: 0 2px 0 color-mix(in srgb, var(--ink) 60%, #000);
+}
+.modal-foot .btn.primary:only-child:hover:not(:disabled) { background: var(--ink-2); }
+
+/* Wide reference tables: the row label stays pinned while the columns scroll under it, and
+   a fade on the right edge says there is more. */
+.table-wrap { position: relative; }
+.table-wrap table.data tr > :first-child {
+  position: sticky; left: 0; z-index: 1; background: var(--paper-3);
+  box-shadow: 1px 0 0 var(--rule-2);
+}
+.table-wrap table.data thead tr > :first-child { z-index: 2; }
+.table-wrap { background:
+  linear-gradient(to left, var(--paper-2) 30%, transparent) right / 24px 100% no-repeat local,
+  linear-gradient(to left, rgba(0,0,0,.14), transparent) right / 10px 100% no-repeat scroll,
+  var(--paper-2); }
+.modal-body p { max-width: 62ch; }

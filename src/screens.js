@@ -1,6 +1,6 @@
 /* screens.js — home, rules library, roll log, advancement, settings and about. */
 
-import { el, clear, money, signed, dfLabel, fmtDate, clamp } from "./core.js";
+import { el, clear, money, signed, dfLabel, fmtDate, clamp, icon } from "./core.js";
 import { modal, showToast, confirmModal, promptModal, chooseModal } from "./ui.js";
 import * as D from "../data.js";
 import * as R from "./rules.js";
@@ -58,26 +58,27 @@ export function renderHome(host) {
   }
 
   const quick = el("div", { class: "grid grid-2 tile-grid", style: "margin-top:6px" });
-  const tile = (label, sub, go) => el("button", {
+  const tile = (label, sub, go, ico) => el("button", {
     class: "opt-btn", type: "button", onclick: go
-  }, el("span", { class: "on-name" }, el("span", { text: label })), el("span", { class: "on-desc", text: sub }));
+  }, ico ? el("span", { class: "tile-ico" }, icon(ico)) : null,
+    el("span", { class: "on-name" }, el("span", { text: label })), el("span", { class: "on-desc", text: sub }));
 
   quick.appendChild(tile("Roll", "Every check the book defines", () => {
     const ch = Store.activeCharacter();
     if (!ch) { showToast("Create a character first", "err"); return; }
     import("./roller.js").then(m => m.openQuickRoll(ch));
-  }));
-  quick.appendChild(tile("Combat", "Declaration and action order", () => navigate("combat")));
-  quick.appendChild(tile("Rules", "Searchable reference", () => navigate("rules")));
-  quick.appendChild(tile("Roll log", "Re-derive any roll", () => navigate("log")));
-  quick.appendChild(tile("Play", "The app walks you through it, one step at a time", () => navigate("play")));
-  quick.appendChild(tile("Tutorial", "One mission played, start to finish", () => navigate("tutorial")));
+  }, "dice"));
+  quick.appendChild(tile("Combat", "Declaration and action order", () => navigate("combat"), "combat"));
+  quick.appendChild(tile("Rules", "Searchable reference", () => navigate("rules"), "rules"));
+  quick.appendChild(tile("Roll log", "Re-derive any roll", () => navigate("log"), "log"));
+  quick.appendChild(tile("Play", "The app walks you through it, one step at a time", () => navigate("play"), "play"));
+  quick.appendChild(tile("Tutorial", "One mission played, start to finish", () => navigate("tutorial"), "tutorial"));
   // The Solo tile is here whether or not the toggle is on: a screen you have to know about
   // before you can find it is a screen a new player never finds (N1).
   quick.appendChild(Settings.solo()
-    ? tile("Solo", "Mythic: Fate, chaos, scenes, tables", () => navigate("solo"))
-    : tile("Play solo", "No group? Mythic runs the game", () => offerSolo()));
-  quick.appendChild(tile("Glossary", "What the words on screen mean", () => openGlossary()));
+    ? tile("Solo", "Mythic: Fate, chaos, scenes, tables", () => navigate("solo"), "solo")
+    : tile("Play solo", "No group? Mythic runs the game", () => offerSolo(), "solo"));
+  quick.appendChild(tile("Glossary", "What the words on screen mean", () => openGlossary(), "glossary"));
   host.appendChild(quick);
 
   const log = Store.rollLog().slice(0, 5);
