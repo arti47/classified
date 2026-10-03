@@ -2913,6 +2913,24 @@ export async function browserTests(t, { chromium, executablePath, baseURL }) {
       t.ok(naming.firstOk && naming.lastOk, "a roll fills the Name with a given name for that gender and a surname");
       t.ok(naming.column, "and the Traits step reads that gender's column");
 
+      // Reported with a screenshot: the stepper sat beside a short description and under a long
+      // one, and on iOS the beside case ran the text under the buttons.
+      const steppers = await page.evaluate(async () => {
+        const wait = ms => new Promise(r => setTimeout(r, ms));
+        const host = document.getElementById("screen");
+        [...host.querySelectorAll(".wstep")].find(b => b.textContent.includes("Characteristics")).click();
+        await wait(250);
+        return [...host.querySelectorAll(".card > .row")].filter(r => r.querySelector(":scope > .stepper")).map(r => {
+          const g = r.querySelector(":scope > .grow").getBoundingClientRect();
+          const st = r.querySelector(":scope > .stepper").getBoundingClientRect();
+          return { clear: g.right <= st.left + 0.5, beside: st.top < g.bottom, left: Math.round(st.left) };
+        });
+      });
+      t.eq(steppers.length, 5, "the five characteristics each carry a stepper");
+      t.ok(steppers.every(x => x.clear), "no characteristic's text runs under its stepper");
+      t.ok(steppers.every(x => x.beside) && new Set(steppers.map(x => x.left)).size === 1,
+        "and every stepper sits in the same place, beside its text, whatever the description's length");
+
       // Reported: Fields of Experience read 2/0, and raising a skill shut its group and jumped
       // the page to the top.
       const wiz = await page.evaluate(async () => {

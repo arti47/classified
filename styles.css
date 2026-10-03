@@ -1471,3 +1471,13 @@ button.chip:disabled { cursor: not-allowed; border-style: dashed; background: tr
 /* The name and its roll on one line; the button keeps its label whole. */
 .name-row { flex-wrap: nowrap; align-items: stretch; }
 .name-row > .btn { flex: none; white-space: nowrap; min-height: 44px; }
+
+/* A label beside a stepper: always two columns, never a wrap. As a wrapping flex row the
+   stepper sat beside a short description and dropped under a long one, so Strength and
+   Dexterity looked different from the other three, and on iOS the beside case could run the
+   text under the buttons. A grid gives the text its own column to wrap in, every time. */
+.row:has(> .stepper), .card-row:has(> .stepper) {
+  display: grid; grid-template-columns: minmax(0, 1fr) auto; align-items: center; column-gap: 12px;
+}
+.row:has(> .stepper) > .grow, .card-row:has(> .stepper) > .grow { min-width: 0; overflow-wrap: anywhere; }
+.stepper { flex: none; }
