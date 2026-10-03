@@ -1465,3 +1465,5 @@ button.solo-cell:hover { border-color: var(--ink-3); }
 .section-head .help-q { margin-right: auto; margin-left: calc(6px - var(--gap)); }
 .solo-reading { margin: 6px 0 0; }
 .guide-step.is-next { border-color: var(--stamp); border-style: dashed; }
+/* A choice the rules do not allow right now: dashed and plain, never faded (contrast holds). */
+button.chip:disabled { cursor: not-allowed; border-style: dashed; background: transparent; color: var(--ink-2); }

@@ -1,7 +1,7 @@
 /* wizard.js — character creation. Legality is validated at every step and the
  * Creation Point budget is always on screen. */
 
-import { el, clear, signed, uid, percent, d100, clamp, statBox } from "./core.js";
+import { el, clear, signed, uid, percent, d100, clamp, statBox, preserveView } from "./core.js";
 import { modal, showToast, confirmModal, promptModal, chooseModal } from "./ui.js";
 import * as D from "../data.js";
 import * as R from "./rules.js";
@@ -89,7 +89,7 @@ export function renderWizard(host) {
 function update(host, mutator) {
   mutator(draft);
   draft = normalize(draft);
-  renderWizard(host);
+  preserveView(host, () => renderWizard(host));
 }
 
 function sectionTitle(text, sub) {
@@ -265,7 +265,7 @@ const STEP_RENDERERS = {
               onclick: () => update(host, d => {
                 d.identity.professionYears = years - 1;
                 d.identity.age = D.PROFESSION_RULES.startAge + years - 1;
-                d.foe = d.foe.slice(0, years - 1);
+                while (R.foeSlotsUsed(d.foe, d.identity.profession) > years - 1) d.foe.pop();
               }) }, "−"),
             el("span", { class: "val", text: String(years) }),
             el("button", { type: "button", disabled: years >= D.PROFESSION_RULES.maxYears,
@@ -278,10 +278,15 @@ const STEP_RENDERERS = {
 
       const prof = R.PROFESSION_BY_KEY[draft.identity.profession];
       const allowed = years;
+      // Slots, not a head count: a General Field is half a slot (two replace one profession
+      // Field), and a Field that would overspend the years is not offered.
+      const used = R.foeSlotsUsed(draft.foe, draft.identity.profession);
+      const fits = key => used + R.foeSlotsUsed([key], draft.identity.profession) <= allowed;
       body.appendChild(el("div", { class: "field-label", style: "margin-top:14px",
-        text: `Fields of Experience (${draft.foe.length}/${allowed})` }));
-      body.appendChild(el("p", { class: "small muted", text:
-        "Two General Fields may be taken in place of one profession Field." }));
+        text: `Fields of Experience (${R.foeSlotsLabel(used)}/${allowed})` }));
+      body.appendChild(el("p", { class: "small muted", text: allowed
+        ? "One per year in the profession. Two General Fields may be taken in place of one profession Field."
+        : "Each year in the profession buys one Field. Add a year above to choose one." }));
 
       const profWrap = el("div", { class: "chip-wrap" });
       for (const key of prof.foe) {
@@ -289,7 +294,7 @@ const STEP_RENDERERS = {
         if (!f) continue;
         const on = draft.foe.includes(key);
         profWrap.appendChild(el("button", {
-          class: "chip" + (on ? " on" : ""), type: "button", title: f.desc,
+          class: "chip" + (on ? " on" : ""), type: "button", title: f.desc, disabled: !on && !fits(key),
           onclick: () => update(host, d => {
             if (on) d.foe = d.foe.filter(x => x !== key);
             else d.foe.push(key);
@@ -305,7 +310,7 @@ const STEP_RENDERERS = {
         if (!f) continue;
         const on = draft.foe.includes(key);
         genWrap.appendChild(el("button", {
-          class: "chip" + (on ? " on" : ""), type: "button", title: f.desc,
+          class: "chip" + (on ? " on" : ""), type: "button", title: f.desc, disabled: !on && !fits(key),
           onclick: () => update(host, d => {
             if (on) d.foe = d.foe.filter(x => x !== key);
             else d.foe.push(key);

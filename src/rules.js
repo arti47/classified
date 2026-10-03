@@ -293,3 +293,26 @@ export function earnsHeroPoint(quality, styleKey, isCombatRoll, usedHeroPoints) 
   if (isCombatRoll && !style.combatEarns) return false;
   return quality <= style.threshold;
 }
+
+/* ---------------------------------------------------------------- fields of experience */
+
+/**
+ * Field slots a set of Fields of Experience uses. Each profession year buys one slot; a
+ * profession Field takes a whole one and a General Field 1 / GENERAL_FOE_EXCHANGE of one, since
+ * the book lets two General Fields stand in for one profession Field. A Field on the
+ * profession's own list counts as a profession Field even where it is also a General one
+ * (Computers, Economics, Linguistics) — the published samples take them that way, one per year.
+ * Counting every Field as one, General or not, is what printed "2/0".
+ */
+export function foeSlotsUsed(foe, professionKey) {
+  const own = (PROFESSION_BY_KEY[professionKey] || { foe: [] }).foe;
+  return (foe || []).reduce((n, k) =>
+    n + (!own.includes(k) && D.GENERAL_FOE.includes(k) ? 1 / D.GENERAL_FOE_EXCHANGE : 1), 0);
+}
+
+/** Slots as the screen prints them: 1½ rather than 1.5. */
+export function foeSlotsLabel(n) {
+  const whole = Math.floor(n);
+  const half = n - whole >= 0.5;
+  return half ? (whole ? whole + "½" : "½") : String(whole);
+}

@@ -323,6 +323,14 @@ export function unitTests(t) {
   t.group("Published sample characters");
 
   t.eq(PREGENS.length, 5, "all five published sample characters are present");
+  // Fields of Experience are counted in slots: one per profession year, a General Field half
+  // of one unless the profession lists it. All five samples spend exactly their years.
+  t.ok(PREGENS.every(p => R.foeSlotsUsed(p.foe, p.profession) === p.professionYears),
+    "every published sample's Fields of Experience fill exactly its profession years");
+  t.eq(R.foeSlotsUsed(["golf", "polo"], "military"), 1, "two General Fields count as one slot");
+  t.eq(R.foeSlotsUsed(["computers"], "freelancer"), 1, "a General Field on the profession's own list counts as a whole one");
+  t.eq(R.foeSlotsLabel(1.5), "1½", "half a slot prints as ½");
+
 
   // Every Base Chance printed on the five sheets, keyed by skill. Sourced from the
   // sheets themselves; each must fall out of the characteristics and ranks we store.

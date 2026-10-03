@@ -260,3 +260,23 @@ export function statBox(k, v) {
     el("div", { class: "k", text: k }),
     el("div", { class: "v", style: String(v).length > 6 ? "font-size:15px" : "", text: String(v) }));
 }
+
+/**
+ * Redraw a screen without losing the reader's place. A redraw rebuilds every accordion closed
+ * (they start closed by design) and the router scrolled to the top, so raising one skill shut
+ * the group it was in and threw the player back to the head of the page. The open accordions
+ * are recorded by their heading and reopened, and the scroll position is put back.
+ */
+export function preserveView(host, render) {
+  const key = d => {
+    const s = d.querySelector(":scope > summary");
+    if (!s) return "";
+    const first = s.firstElementChild;
+    return (first ? first.textContent : s.textContent).trim();
+  };
+  const open = new Set([...host.querySelectorAll("details[open]")].map(key).filter(Boolean));
+  const y = window.scrollY;
+  render();
+  if (open.size) host.querySelectorAll("details").forEach(d => { if (open.has(key(d))) d.open = true; });
+  window.scrollTo(0, y);
+}

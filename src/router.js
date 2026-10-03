@@ -1,6 +1,6 @@
 /* router.js — bottom-nav routing and conditional tab gating. */
 
-import { el, clear, $, icon, hasIcon, art } from "./core.js";
+import { el, clear, $, icon, hasIcon, art, preserveView } from "./core.js";
 import { Settings } from "./settings.js";
 import * as Store from "./store.js";
 
@@ -94,7 +94,7 @@ function imp(path, fn) {
 
 export function currentRoute() { return current; }
 
-export function navigate(route, { replace = false } = {}) {
+export function navigate(route, { replace = false, keepFocus = false } = {}) {
   if (!ROUTES[route]) route = "home";
   current = route;
 
@@ -114,7 +114,7 @@ export function navigate(route, { replace = false } = {}) {
   renderSubNav(route);
   ROUTES[route].render(host);
   window.scrollTo(0, 0);
-  host.focus({ preventScroll: true });
+  if (!keepFocus) host.focus({ preventScroll: true });
   updateNavState();
 }
 
@@ -152,7 +152,11 @@ export function initRouter() {
     const route = (location.hash || "#/home").replace("#/", "");
     if (route !== current) navigate(route, { replace: true });
   });
-  document.addEventListener("app:rerender", () => navigate(current, { replace: true }));
+  // A redraw of the screen already open keeps its place; only a real navigation starts at the top.
+  document.addEventListener("app:rerender", () => {
+    const host = document.getElementById("screen");
+    preserveView(host, () => navigate(current, { replace: true, keepFocus: true }));
+  });
   const initial = (location.hash || "#/home").replace("#/", "");
   navigate(ROUTES[initial] ? initial : "home", { replace: true });
 }

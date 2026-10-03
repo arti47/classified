@@ -307,8 +307,9 @@ export function validate(c) {
   if (years > 0 && !c.identity.profession) errors.push("Choose a profession for those years of experience.");
 
   const foeAllowance = years;
-  if (c.foe.length > foeAllowance) {
-    warnings.push(`You have ${c.foe.length} Fields of Experience but only ${foeAllowance} year${foeAllowance === 1 ? "" : "s"} of profession. Two General Fields may replace one profession Field.`);
+  const foeUsed = R.foeSlotsUsed(c.foe, c.identity.profession);
+  if (foeUsed > foeAllowance) {
+    warnings.push(`Your Fields of Experience use ${R.foeSlotsLabel(foeUsed)} of ${foeAllowance} slot${foeAllowance === 1 ? "" : "s"} — one per year of profession, with two General Fields counting as one.`);
   }
 
   if ((c.weaknesses || []).length > D.WEAKNESS_MAX_DEFAULT) {

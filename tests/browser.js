@@ -2884,6 +2884,51 @@ export async function browserTests(t, { chromium, executablePath, baseURL }) {
       t.eq(linked.duplicated, 1, "a dossier can be duplicated from the dossier list");
       t.ok(linked.byLink && linked.byGoes === "#/sheet", "a roll's author in the log opens that dossier");
 
+      // Reported: Fields of Experience read 2/0, and raising a skill shut its group and jumped
+      // the page to the top.
+      const wiz = await page.evaluate(async () => {
+        const wait = ms => new Promise(r => setTimeout(r, ms));
+        const W = await import("./src/wizard.js");
+        W.startWizard("agent");
+        location.hash = "#/home"; await wait(120);
+        location.hash = "#/create"; await wait(300);
+        const out = {};
+        const host = document.getElementById("screen");
+        const go = name => [...host.querySelectorAll(".wstep")].find(b => b.textContent.includes(name)).click();
+        // Pick a wizard draft rather than the rank menu if one is offered.
+        if (!host.querySelector(".wstep")) {
+          [...host.querySelectorAll(".opt-btn")].find(b => /Agent/.test(b.textContent))?.click(); await wait(200);
+        }
+        go("Profession"); await wait(200);
+        [...host.querySelectorAll(".opt-btn")].find(b => /Military/.test(b.textContent))?.click(); await wait(200);
+        const label = () => [...host.querySelectorAll(".field-label")].find(l => /Fields of Experience \(/.test(l.textContent))?.textContent;
+        out.zeroLabel = label();
+        out.zeroChips = [...host.querySelectorAll(".chip-wrap .chip")].filter(c => !c.disabled).length;
+        const plus = [...host.querySelectorAll(".stepper button")].find(b => b.textContent === "+");
+        plus.click(); await wait(200);
+        const chip = name => [...host.querySelectorAll(".chip-wrap .chip")].find(c => c.textContent === name);
+        chip("Golf").click(); await wait(150);
+        chip("Polo").click(); await wait(150);
+        out.halfLabel = label();
+        out.fullAfterTwo = chip("Military Science")?.disabled;
+        go("Skills"); await wait(250);
+        const acc = host.querySelector("details.acc:not(.help-acc)");
+        acc.open = true;
+        const groupName = acc.querySelector("summary").textContent;
+        window.scrollTo(0, 400); const y = window.scrollY;
+        acc.querySelectorAll(".stepper button")[1].click(); await wait(250);
+        const again = [...host.querySelectorAll("details.acc:not(.help-acc)")].find(d => d.querySelector("summary").textContent === groupName);
+        out.stillOpen = !!(again && again.open);
+        out.scrollKept = Math.abs(window.scrollY - y) < 5;
+        return out;
+      });
+      t.eq(wiz.zeroLabel, "Fields of Experience (0/0)", "with no profession years the Fields counter reads 0/0");
+      t.eq(wiz.zeroChips, 0, "and no Field can be chosen until a year is added");
+      t.eq(wiz.halfLabel, "Fields of Experience (1/1)", "two General Fields fill one year's slot");
+      t.ok(wiz.fullAfterTwo === true, "after which a profession Field is not offered");
+      t.ok(wiz.stillOpen, "raising a skill leaves its group open");
+      t.ok(wiz.scrollKept, "and keeps the page where it was");
+
       t.eq(errors.length, 0, "zero JavaScript errors during the whole run" +
         (errors.length ? `: ${errors.slice(0, 3).join(" | ")}` : ""));
 

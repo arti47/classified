@@ -229,7 +229,10 @@ appearance, characteristics, skills, Weaknesses (+Creation Points), profession a
   profession's listed skills, one Field of Experience, 6 Reputation, and a year of age from
   a base of 25.
 - **Fields of Experience** are binary knowledge, never rolled. Two General Fields may
-  replace one profession Field.
+  replace one profession Field. Counted in **slots** (`foeSlotsUsed()`): one per profession
+  year; a profession Field takes a whole slot and a General Field half of one, unless the
+  profession lists it (Computers, Economics, Linguistics), when it counts whole. All five
+  published samples spend exactly their years under this count.
 - **Scar check** at creation: Agent 50%, Special Agent 75%. Each visible scar is +20
   Reputation.
 
@@ -843,6 +846,10 @@ layer carries the flag rather than the UI.
   and the gear catalogue opens on a tap, not on render, so a screen opens as a list of
   headings rather than a wall. The one exception is the gear catalogue under a live search,
   where matched groups open because that is a result rather than a default.
+- **A redraw keeps your place.** Start closed applies to arriving on a screen, not to a redraw
+  of the one you are on: `preserveView()` in `core.js` reopens every accordion that was open,
+  by its heading, and puts the scroll back. The router's `app:rerender` and the wizard's
+  `update()` both go through it, so raising a skill leaves its group open where it was.
 
 ---
 
@@ -872,7 +879,7 @@ No `data-<expansion>.js` — no expansions were supplied.
 
 | Module | Responsibility |
 |---|---|
-| `core.js` | Constants, DOM helpers, raw dice, formatting, the stroke-icon set (`icon()`), the line-art props (`art()`), the dice faces (`diceFaces()`, `d100Faces()`), the decorative `meter()`, and the shared screen pieces every module builds with — `section()`, `statBox()`, `rerender()` (L1). **No imports.** |
+| `core.js` | Constants, DOM helpers, raw dice, formatting, the stroke-icon set (`icon()`), the line-art props (`art()`), the dice faces (`diceFaces()`, `d100Faces()`), the decorative `meter()`, and the shared screen pieces every module builds with — `section()`, `statBox()`, `rerender()` (L1) and `preserveView()`. **No imports.** |
 | `ui.js` | Themed modal, toast, confirm, prompt, chooser, and the one clipboard path (`copyText()`, with its textarea and dialog fallbacks) |
 | `rules.js` | Pure rules lookups over the data libraries. No DOM, no state. |
 | `derived.js` | Character-derived calculation, normalization, migration, validation |
@@ -1231,7 +1238,7 @@ are flagged rather than presented as extracted (S1).
       - [x] Roll-log integration through `Store.addRoll()`.
       - [x] Regression checks: chart monotonicity, derived thresholds, event trigger,
             chaos clamping, list weighting, and every table exactly 100 entries.
-- [x] **Hardening.** Committed regression harness (1427 checks); accessibility pass;
+- [x] **Hardening.** Committed regression harness (1443 checks); accessibility pass;
       rules-accuracy audit with every finding closed (§11).
 
 ---
@@ -1374,6 +1381,8 @@ and a check of every tap line, rules topic and roll-log row against where it lea
 | L6 | **The table track's tap lines offered solo play.** `tapRoute()` knew Create, Settings and the Sheet and sent everything else to Solo, so *Combat → Start an encounter*, *Combat → End Mission* and *the Hero chip* opened the solo offer for a player at a table | A route map that names every screen a tap line can start on — Combat, Advancement, Home, Gear, Rules, the log — with the Hero chip going to the sheet | A Combat tap line on the table track opens Combat and offers nothing |
 | L7 | **Two controls per step on the play guide.** Every step carried its tap line as a link *and* a button to the same place, and the next step appeared twice — pinned at the top and again in its act, both with live controls | One control per destination: a step with a tap link has no button; the pinned card keeps its button and prints the path as text; the step's row below is marked **Next — above** | The pinned card carries one control, its row none, and no row both a link and a button |
 | L8 | The rules library explained a procedure and stopped there — reading about chases left the player to find the chase roller | Each topic carries the control that runs it, after Close: a roll needs a dossier and offers Create without one | The Chases topic offers the chase roller; The Combat Round opens Combat |
+| L10 | Reported: **Fields of Experience read 2/0.** The wizard counted Fields by head, so two General Fields read as two of an allowance they jointly use one slot of, and every chip stayed live at zero profession years — the counter could go anywhere | `foeSlotsUsed()` in `rules.js` counts slots: profession Field 1, General Field ½ unless the profession lists it. The wizard prints 1½, disables any Field that would overspend, says a year is needed when there is none, and trims by slots when a year is taken away; validation uses the same count | Every published sample fills exactly its years; at 0 years the counter reads 0/0 and nothing is offered; two General Fields read 1/1 and shut the profession Fields |
+| L11 | Reported: **raising a skill collapsed its group.** Every redraw rebuilt the screen with accordions closed — correct on arrival, wrong mid-edit — and the router scrolled to the top, so each + threw the player back to the head of the page with the group shut | `preserveView()`: the redraw reopens what was open, by heading, and keeps the scroll. The router's rerender and the wizard's update both use it; a real navigation still starts at the top | Raising a skill leaves its group open and the page where it was |
 | L9 | A Mythic row in the roll log led to Solo; a Classified row's author led nowhere | The author's name opens that dossier when it is on this device | The name in the log opens the sheet |
 
 The crawler's remaining same-label pairs are per-item controls — an **Open** per Home card, a
@@ -1503,3 +1512,4 @@ tables are this app's own work and are marked as such (S6).
 | 2026-10-03 | Solo in four pages (S26): a Scene · Oracle · Lists · Journal strip on a phone, a sticky bar with the Chaos Factor and gauge, scene, city and the one primary action, and a **?** on each panel heading in place of the eight how-to bars. `helpButton()` in `help.js` renders the same `data-help.js` entry in a dialog | Reported: the Solo tab was a very long scroll. Root cause: ten panels and eight help bars in one column, with the primary action in the middle of it. Decided with the user: four pages. Every page stays in the DOM, so nothing lost a route, and the desk keeps its two columns | 1399 checks green, including the four pages, one shown at a time on a phone, a tab opening its page, the page surviving a trip to another screen, the bar sticky with the only primary action, no help bars and a ? per heading, and all four pages with no tabs at 1280px. axe clean bar `meta-viewport`; zero overflow at 360, 390 and 1280px; zero console errors | `classified-v53` |
 | 2026-10-03 | Settled the two leftovers from S26: the Solo bar is one row at every phone width — the city moved under the scene number and the primary action's label may wrap inside its button — and the Mysteries subtitle and the new-mystery dialog no longer describe a clock | The bar wrapped its button onto a second row at 360px, costing about 150px of every page. The mystery copy still read "fill the clock… when the last segment falls", drift left over from S21, which removed the clock; the panel's own how-to already said there is none. Copy corrected to what the engine does — clues raise the odds and Fate decides the moment — with the user's go-ahead | 1403 checks green, including the bar's readings and button sharing one row and no clock wording left on the Solo screen. axe clean bar `meta-viewport`; zero overflow at 360, 390 and 1280px; zero console errors | `classified-v54` |
 | 2026-10-03 | Redundancy and link audit (L1–L9): one copy of every shared helper (`section`, `statBox`, `rerender` in core, `copyText` in ui), six dead helpers removed, the GM broadcast given a receiver, the campaign's seats on the GM screen, Duplicate on the dossier list, the play guide's tap lines routed to the screen they name with one control per destination, rules topics leading to their tools, and a roll's author linked to the dossier | Asked to double-check for redundant functions and for anything that should be linked and is not. Root causes: helpers copied into each new module instead of moved to core when the second one needed them; two sync functions and a store function written for surfaces that were never built; and `tapRoute()` defaulting to Solo, which was right for the solo track and wrong for every Combat line on the table track | 1427 checks green, including a source sweep that each shared helper is defined once and the dead ones stay gone, and browser checks for every new link. A duplicate-label crawl of all thirteen routes at 390 and 1280px leaves only per-item controls. axe clean bar `meta-viewport`; zero console errors | `classified-v55` |
+| 2026-10-03 | Fields of Experience counted in slots, and a redraw keeps its place (L10, L11) | Reported: Fields of Experience showing 2/0, and the skills accordion collapsing on every raise. Root causes: the wizard counted Fields by head and never gated the chips, so General Fields (half a slot each) overstated the count and any Field could be taken at zero years; and every redraw — the router's and the wizard's — rebuilt accordions closed and scrolled to the top. The slot count is profession-aware because the published samples take Computers, Economics and Linguistics as profession Fields; under it all five fill exactly their years | 1443 checks green, including all five samples' slots against their years, 0/0 with nothing offered at zero years, two General Fields reading 1/1 and shutting the rest, and a skill raise leaving its group open with the scroll kept | `classified-v56` |
