@@ -476,6 +476,33 @@ export async function browserTests(t, { chromium, executablePath, baseURL }) {
         await new Promise(r => setTimeout(r, 300));
         return out;
       });
+      // One control per step: on Solo the coach never repeats the primary action's boundary.
+      const dup = await page.evaluate(async () => {
+        const S = await import("./src/settings.js");
+        const Store = await import("./src/store.js");
+        S.set("showHelp", true);
+        const before = JSON.parse(JSON.stringify(Store.activeAdventure()));
+        const out = {};
+        for (const phase of ["setup", "play"]) {
+          Store.updateAdventure(a => { a.scenePhase = phase; if (!a.briefing) a.briefing = { rows: {}, seededIds: [], writtenAt: Date.now() }; });
+          location.hash = "#/home"; await new Promise(r => setTimeout(r, 100));
+          location.hash = "#/solo"; await new Promise(r => setTimeout(r, 450));
+          const coach = document.querySelector("#screen .coach");
+          out[phase] = {
+            coach: !!coach,
+            coachBoundary: coach ? [...coach.querySelectorAll("button")].some(b => /start scene|end scene|go$|write|roll my mission/i.test(b.textContent.trim())) : false,
+            primaries: document.querySelectorAll("#screen .solo-primary").length
+          };
+        }
+        Store.updateAdventure(a => { a.scenePhase = before.scenePhase; a.briefing = before.briefing; });
+        location.hash = "#/home"; await new Promise(r => setTimeout(r, 100));
+        location.hash = "#/solo"; await new Promise(r => setTimeout(r, 300));
+        return out;
+      });
+      t.ok(!dup.setup.coach && dup.setup.primaries === 1, "between scenes Solo carries one Start-scene control, not the coach's copy of it");
+      t.ok(dup.play.coach && !dup.play.coachBoundary && dup.play.primaries === 1,
+        "in a scene the coach offers its three choices and leaves End scene to the primary action");
+
       t.ok(soloLinks.name && soloLinks.toSheet, "the Solo header's linked dossier name opens that dossier's sheet");
       t.ok(soloLinks.rules, "the Solo reference carries the Rules library, whose tab Solo has taken");
       t.ok(soloLinks.speedPanel && soloLinks.toGear, "the sheet's derived Speed opens its panel and Carry opens Gear");

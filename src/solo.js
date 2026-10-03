@@ -158,9 +158,16 @@ function section(title, sub) {
  */
 function appendCoach(host) {
   if (!Settings.showHelp()) return;
+  // On this screen the primary action owns every boundary — briefing, start scene, end scene,
+  // a new adventure — so the coach here only ever carries what the screen does not: the three
+  // plain choices inside a running scene. Rendering its boundary beats too put two controls for
+  // one step a few lines apart. The whole coach, boundaries included, stays on the Play screen.
   const slot = el("div", { class: "coach-slot" });
   host.appendChild(slot);
-  import("./coach.js").then(m => m.renderCoach(slot, { compact: true }));
+  import("./coach.js").then(m => {
+    if (m.currentBeat() === "play") m.renderCoach(slot, { compact: true });
+    else slot.remove();
+  });
 }
 
 function appendHeader(host, adv) {

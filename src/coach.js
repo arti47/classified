@@ -140,7 +140,8 @@ function drawBeat(body, beat, host, opts) {
         el("span", { class: "on-name" }, el("span", { text: o.label })),
         el("span", { class: "on-desc", text: o.sub })));
     }
-    body.appendChild(primary(copy.finish, () => finishScene(host, opts)));
+    // Compact is the Solo screen's copy, where End scene is already the primary action.
+    if (!opts.compact) body.appendChild(primary(copy.finish, () => finishScene(host, opts)));
     return;
   }
 
