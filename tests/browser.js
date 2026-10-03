@@ -445,11 +445,13 @@ export async function browserTests(t, { chromium, executablePath, baseURL }) {
           primary: [...document.querySelectorAll("#screen .solo-primary")].map(b => b.textContent),
           gauge: [...document.querySelectorAll("#screen .chaos-gauge span")].map(x => x.classList.contains("on")),
           chaos: adv && adv.chaos,
-          // The two columns stack in loop order on a phone: header and tools, then the record.
+          // The bar first, then the loop column, then the record: a desk reads in play order.
           order: (() => {
+            const bar = document.querySelector("#screen > .solo-bar");
             const a = document.querySelector("#screen > .col-a"), b = document.querySelector("#screen > .col-b");
-            return !!(a && b && a.compareDocumentPosition(b) & Node.DOCUMENT_POSITION_FOLLOWING &&
-              a.querySelector(".solo-primary") && b.textContent.includes("Threads"));
+            return !!(bar && a && b && bar.compareDocumentPosition(a) & Node.DOCUMENT_POSITION_FOLLOWING &&
+              a.compareDocumentPosition(b) & Node.DOCUMENT_POSITION_FOLLOWING &&
+              bar.querySelector(".solo-primary") && b.textContent.includes("Threads"));
           })()
         };
       });
@@ -502,6 +504,53 @@ export async function browserTests(t, { chromium, executablePath, baseURL }) {
       t.ok(!dup.setup.coach && dup.setup.primaries === 1, "between scenes Solo carries one Start-scene control, not the coach's copy of it");
       t.ok(dup.play.coach && !dup.play.coachBoundary && dup.play.primaries === 1,
         "in a scene the coach offers its three choices and leaves End scene to the primary action");
+
+      // Four pages on a phone under one sticky bar; every page at once on a desk (S26).
+      const pagesProbe = async () => page.evaluate(async () => {
+        location.hash = "#/home"; await new Promise(r => setTimeout(r, 100));
+        location.hash = "#/solo"; await new Promise(r => setTimeout(r, 350));
+        const shown = () => [...document.querySelectorAll("#screen .solo-page")]
+          .filter(p => getComputedStyle(p).display !== "none").map(p => p.dataset.page);
+        const out = {
+          pages: [...document.querySelectorAll("#screen .solo-page")].map(p => p.dataset.page),
+          tabs: [...document.querySelectorAll("#screen .solo-tab")].filter(t => getComputedStyle(t).display !== "none").map(t => t.textContent.trim()),
+          tabsShown: getComputedStyle(document.querySelector("#screen .solo-tabs")).display !== "none",
+          sticky: getComputedStyle(document.querySelector("#screen .solo-bar")).position,
+          primaryInBar: document.querySelectorAll("#screen .solo-bar .solo-primary").length,
+          primaries: document.querySelectorAll("#screen .solo-primary").length,
+          before: shown(), helpBars: document.querySelectorAll("#screen details.help-acc").length,
+          marks: document.querySelectorAll("#screen .section-head .help-q").length
+        };
+        document.querySelector('#screen .solo-tab[data-page="oracle"]').click();
+        await new Promise(r => setTimeout(r, 80));
+        out.afterOracle = shown();
+        out.selected = document.querySelector('#screen .solo-tab[aria-selected="true"]')?.dataset.page;
+        out.fateOnOracle = !!document.querySelector('#screen .solo-page[data-page="oracle"]').textContent.match(/Ask Fate/);
+        location.hash = "#/home"; await new Promise(r => setTimeout(r, 100));
+        location.hash = "#/solo"; await new Promise(r => setTimeout(r, 350));
+        out.remembered = shown();
+        document.querySelector('#screen .solo-tab[data-page="scene"]').click();
+        await new Promise(r => setTimeout(r, 60));
+        return out;
+      });
+      const phone = await pagesProbe();
+      t.deep(phone.pages, ["scene", "oracle", "lists", "journal"], "Solo is four pages: Scene, Oracle, Lists, Journal");
+      if (vp.width < 900) {
+        t.deep(phone.tabs, ["Scene", "Oracle", "Lists", "Journal"], "with a tab for each on a phone");
+        t.deep(phone.before, ["scene"], "and only the current page showing");
+        t.deep(phone.afterOracle, ["oracle"], "a tab opens its page and hides the rest");
+        t.eq(phone.selected, "oracle", "and is marked selected");
+        t.deep(phone.remembered, ["oracle"], "the page survives a trip to another screen");
+      }
+      t.ok(phone.fateOnOracle, "Ask Fate lives on the Oracle page");
+      t.eq(phone.sticky, "sticky", "the status bar is sticky over every page");
+      t.ok(phone.primaryInBar === 1 && phone.primaries === 1, "and carries the one primary action");
+      t.eq(phone.helpBars, 0, "no how-to bars on Solo");
+      t.ok(phone.marks >= 6, `the how-to copy is a ? on each heading instead (${phone.marks})`);
+      await page.setViewportSize({ width: 1280, height: 900 });
+      const wide = await pagesProbe();
+      t.ok(!wide.tabsShown && wide.before.length === 4, "on a desk the tabs go and all four pages show");
+      await page.setViewportSize({ width: vp.width, height: vp.height });
 
       t.ok(soloLinks.name && soloLinks.toSheet, "the Solo header's linked dossier name opens that dossier's sheet");
       t.ok(soloLinks.rules, "the Solo reference carries the Rules library, whose tab Solo has taken");
@@ -2093,9 +2142,10 @@ export async function browserTests(t, { chromium, executablePath, baseURL }) {
           location.hash = "#/" + route;
           await new Promise(r => setTimeout(r, 200));
           const accs = [...document.querySelectorAll("details.help-acc")];
-          out.screens[route] = accs.length;
+          // Solo carries its how-to copy as "?" marks on the headings rather than bars (S26).
+          out.screens[route] = accs.length + (route === "solo" ? document.querySelectorAll("#screen .help-q").length : 0);
           out.openByDefault += accs.filter(a => a.open).length;
-          if (route === "solo") out.soloPanels = accs.length;
+          if (route === "solo") out.soloPanels = document.querySelectorAll("#screen .help-q").length;
         }
         return out;
       });
@@ -2109,10 +2159,14 @@ export async function browserTests(t, { chromium, executablePath, baseURL }) {
       const helpContent = await page.evaluate(async () => {
         location.hash = "#/solo";
         await new Promise(r => setTimeout(r, 220));
-        const acc = [...document.querySelectorAll("details.help-acc")]
-          .find(a => /How to use Ask Fate/.test(a.querySelector("summary").textContent));
-        acc.open = true;
-        return { steps: acc.querySelectorAll(".help-steps li").length, text: acc.textContent };
+        document.querySelector('#screen .help-q[data-help="solo.fate"]').click();
+        await new Promise(r => setTimeout(r, 120));
+        const m = document.querySelector(".modal");
+        const out = { steps: m.querySelectorAll(".help-steps li").length, text: m.textContent };
+        m.querySelector(".modal-foot .btn")?.click();
+        document.dispatchEvent(new KeyboardEvent("keydown", { key: "Escape" }));
+        await new Promise(r => setTimeout(r, 120));
+        return out;
       });
       t.ok(helpContent.steps >= 3, "opening one shows numbered steps");
       t.ok(/Exceptional/.test(helpContent.text), "and the note explaining the rule behind the panel");
@@ -2124,7 +2178,7 @@ export async function browserTests(t, { chromium, executablePath, baseURL }) {
         for (const route of ["home", "sheet", "solo"]) {
           location.hash = "#/" + route;
           await new Promise(r => setTimeout(r, 200));
-          counts[route] = document.querySelectorAll("details.help-acc").length;
+          counts[route] = document.querySelectorAll("details.help-acc, #screen .help-q").length;
         }
         S.set("showHelp", true);
         return counts;

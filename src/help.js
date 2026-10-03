@@ -29,7 +29,12 @@ export function helpAccordion(key, opts = {}) {
     el("summary", {},
       el("span", { text: entry.title }),
       el("span", { class: "small muted", text: "how to use" })));
+  acc.appendChild(helpBody(entry, opts));
+  return acc;
+}
 
+/** The how-to copy itself: what the panel is for, the numbered taps, the note, any actions. */
+function helpBody(entry, opts = {}, onAction) {
   const body = el("div", { class: "acc-body" });
   body.appendChild(el("p", { class: "small", text: entry.what }));
 
@@ -42,13 +47,34 @@ export function helpAccordion(key, opts = {}) {
   if (opts.actions && opts.actions.length) {
     const row = el("div", { class: "btn-row", style: "margin-top:10px" });
     for (const a of opts.actions) {
-      row.appendChild(el("button", { class: "btn sm", type: "button", onclick: a.onClick }, a.label));
+      row.appendChild(el("button", { class: "btn sm", type: "button",
+        onclick: () => { if (onAction) onAction(); a.onClick(); } }, a.label));
     }
     body.appendChild(row);
   }
+  return body;
+}
 
-  acc.appendChild(body);
-  return acc;
+/**
+ * The same how-to copy behind a small "?" beside a heading, for a screen too dense to carry a
+ * bar per panel (the Solo pages). Same entry, same flag: null when help is off.
+ */
+export function helpButton(key, opts = {}) {
+  if (!Settings.showHelp()) return null;
+  const entry = helpFor(key);
+  if (!entry) return null;
+  return el("button", {
+    class: "help-q", type: "button", title: entry.title, "aria-label": entry.title,
+    dataset: { help: key },
+    onclick: () => {
+      let api = null;
+      api = modal({
+        title: entry.title,
+        body: helpBody(entry, opts, () => api && api.close()),
+        actions: [{ label: "Close", kind: "primary" }]
+      });
+    }
+  }, "?");
 }
 
 /** Append the accordion to a host if there is one to append. */

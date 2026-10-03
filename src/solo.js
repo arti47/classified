@@ -15,7 +15,7 @@ import { modal, showToast, confirmModal, promptModal, chooseModal } from "./ui.j
 import * as S from "../data-solo.js";
 import * as Store from "./store.js";
 import { Settings } from "./settings.js";
-import { appendHelp, glossaryRow } from "./help.js";
+import { appendHelp, helpButton, glossaryRow } from "./help.js";
 
 /* ---------------------------------------------------------------- dice */
 
@@ -94,26 +94,113 @@ export function renderSolo(host) {
     return;
   }
 
-  // Two columns on a wide screen: the loop on the left (where you are, what is next, the
-  // in-scene tools), the record on the right (lists, journal, reference). On a phone they
-  // stack in the same order as before.
-  host.classList.add("two-col");
-  const play = el("div", { class: "col-a" });
-  const record = el("div", { class: "col-b" });
+  // Four pages on a phone — Scene, Oracle, Lists, Journal — under one sticky bar that carries
+  // the Chaos Factor, the scene, the city and the next boundary. On a wide screen every page
+  // shows at once, the loop on the left and the record on the right (ruling S26).
+  host.classList.add("two-col", "solo-screen");
+  const pages = {};
+  for (const p of SOLO_PAGES) {
+    pages[p.key] = el("section", { class: "solo-page", id: "solo-page-" + p.key, dataset: { page: p.key },
+      role: "tabpanel", "aria-label": p.label });
+  }
+  const play = el("div", { class: "col-a" }, pages.scene, pages.oracle);
+  const record = el("div", { class: "col-b" }, pages.lists, pages.journal);
 
-  appendHeader(play, adv);
-  appendCoach(play);
-  appendHelp(play, "solo", {
-    actions: [{ label: "Open the tutorial", onClick: () => import("./router.js").then(m => m.navigate("tutorial")) }]
-  });
-  appendPrimary(play, adv);
-  appendBriefing(play, adv);
-  appendInPlay(play, adv);
-  appendLists(record, adv);
-  appendJournal(record, adv);
-  appendTopics(record);
+  appendHeader(pages.scene, adv);
+  appendCoach(pages.scene);
+  appendPrimary(pages.scene, adv);
+  appendBriefing(pages.scene, adv);
+  appendInPlay(pages.scene, pages.oracle, adv);
+  appendLists(pages.lists, adv);
+  appendMysteries(pages.lists, adv);
+  appendJournal(pages.journal, adv);
+  appendTopics(pages.journal);
+
+  const bar = soloBar(host, adv);
+  host.appendChild(bar);
   host.appendChild(play);
   host.appendChild(record);
+  showPage(pages, currentPage());
+  // The record column sits under the bar on a wide screen, so it needs the bar's height.
+  requestAnimationFrame(() => host.style.setProperty("--soloBarH", bar.offsetHeight + "px"));
+}
+
+/* ---------------------------------------------------------------- pages */
+
+const SOLO_PAGES = [
+  { key: "scene", label: "Scene" },
+  { key: "oracle", label: "Oracle" },
+  { key: "lists", label: "Lists" },
+  { key: "journal", label: "Journal" }
+];
+const PAGE_KEY = "classified.soloPage";
+let soloPage = null;
+
+function currentPage() {
+  if (!soloPage) {
+    try { soloPage = sessionStorage.getItem(PAGE_KEY); } catch { /* storage blocked */ }
+  }
+  return SOLO_PAGES.some(p => p.key === soloPage) ? soloPage : "scene";
+}
+
+/** Open one of the four pages. Exported so a flow that lands on another page can follow it. */
+export function setSoloPage(key) {
+  soloPage = key;
+  try { sessionStorage.setItem(PAGE_KEY, key); } catch { /* storage blocked */ }
+  const host = document.querySelector(".solo-screen");
+  if (host) showPage(null, key, host);
+}
+
+function showPage(pages, key, host) {
+  const root = host || document.querySelector(".solo-screen");
+  if (!root) return;
+  root.querySelectorAll(".solo-page").forEach(p => p.classList.toggle("is-current", p.dataset.page === key));
+  root.querySelectorAll(".solo-tab").forEach(t => {
+    const on = t.dataset.page === key;
+    t.setAttribute("aria-selected", on ? "true" : "false");
+    t.tabIndex = on ? 0 : -1;
+  });
+}
+
+/**
+ * The status bar: Chaos Factor with its gauge, the scene, the city, and the primary action —
+ * then the page tabs. Sticky, so the boundary is one tap from any page.
+ */
+function soloBar(host, adv) {
+  const next = primaryAction(adv, host);
+  const bar = el("div", { class: "solo-bar" });
+  bar.appendChild(el("div", { class: "solo-status" },
+    el("button", { class: "solo-cell", type: "button", title: "What the Chaos Factor does",
+      "aria-label": `Chaos Factor ${adv.chaos}`, onclick: () => openTopic("chaos") },
+      el("span", { class: "k", text: "Chaos" }),
+      el("span", { class: "v", text: String(adv.chaos) }),
+      el("span", { class: "chaos-gauge", "aria-hidden": "true" },
+        Array.from({ length: 9 }, (_, i) => el("span", { class: i < adv.chaos ? "on" + (i >= 6 ? " hot" : "") : "" })))),
+    el("div", { class: "solo-cell" },
+      el("span", { class: "k", text: "Scene" }),
+      el("span", { class: "v", text: String(adv.scene) })),
+    adv.city ? el("span", { class: "city-tag", title: "Where the adventure is now" }, adv.city) : null,
+    el("button", { class: "btn primary solo-primary", type: "button", onclick: next.run }, next.label)));
+
+  const tabs = el("div", { class: "solo-tabs", role: "tablist", "aria-label": "Solo pages" });
+  for (const p of SOLO_PAGES) {
+    tabs.appendChild(el("button", {
+      class: "sub-tab solo-tab", type: "button", role: "tab", dataset: { page: p.key },
+      "aria-controls": "solo-page-" + p.key,
+      onclick: () => { setSoloPage(p.key); window.scrollTo({ top: 0 }); },
+      onkeydown: e => {
+        const i = SOLO_PAGES.findIndex(x => x.key === p.key);
+        const step = e.key === "ArrowRight" ? 1 : e.key === "ArrowLeft" ? -1 : 0;
+        if (!step) return;
+        e.preventDefault();
+        const to = SOLO_PAGES[(i + step + SOLO_PAGES.length) % SOLO_PAGES.length].key;
+        setSoloPage(to);
+        tabs.querySelector(`[data-page="${to}"]`).focus();
+      }
+    }, el("span", { text: p.label })));
+  }
+  bar.appendChild(tabs);
+  return bar;
 }
 
 /* The sequence of play, and the whole reason the screen is ordered the way it is:
@@ -142,9 +229,12 @@ function save(mutator) {
   return adv;
 }
 
-function section(title, sub) {
+function section(title, sub, helpKey) {
   const s = el("div", { class: "section" });
-  s.appendChild(el("div", { class: "section-head" }, el("div", { class: "section-title", text: title })));
+  // The how-to copy rides on the heading as a "?" rather than as a bar above every panel: the
+  // Solo screen carries ten panels, and ten bars were a third of its length (ruling S26).
+  s.appendChild(el("div", { class: "section-head" }, el("div", { class: "section-title", text: title }),
+    helpKey ? helpButton(helpKey) : null));
   if (sub) s.appendChild(el("p", { class: "small muted", style: "margin-top:-2px", text: sub }));
   return s;
 }
@@ -191,33 +281,22 @@ function appendHeader(host, adv) {
     el("button", { class: "btn sm", type: "button", onclick: () => openAdventureMenu(host) }, "Adventures")
   ));
 
-  const grid = el("div", { class: "grid grid-2", style: "margin-top:10px" });
-
-  const chaosBox = el("div", { class: "stat-box" },
-    el("div", { class: "k", text: "Chaos Factor" }),
-    el("div", { class: "v", text: String(adv.chaos) }),
-    // The 1–9 range drawn as a gauge: the number above is the record, this is where it sits.
-    el("div", { class: "chaos-gauge", "aria-hidden": "true" },
-      Array.from({ length: 9 }, (_, i) => el("span", { class: i < adv.chaos ? "on" + (i >= 6 ? " hot" : "") : "" }))),
-    el("div", { class: "s", text: adv.chaos >= 7 ? "running away from you" : adv.chaos <= 3 ? "firmly in hand" : "even footing" }));
-  grid.appendChild(chaosBox);
-
-  grid.appendChild(el("div", { class: "stat-box" },
-    el("div", { class: "k", text: "Scene" }),
-    el("div", { class: "v", text: String(adv.scene) }),
-    el("div", { class: "s", text: adv.sceneKind
-      ? S.SCENE_KINDS[adv.sceneKind].name.toLowerCase()
-      : `${count(adv.threads, "thread")} · ${count(adv.characters, "character")}` })));
-  card.appendChild(grid);
+  // The numbers themselves ride on the sticky bar above every page; the card keeps what they
+  // mean, so the readings are not lost when the boxes moved (ruling S26).
+  card.appendChild(el("p", { class: "small muted solo-reading", text:
+    `Chaos ${adv.chaos >= 7 ? "running away from you" : adv.chaos <= 3 ? "firmly in hand" : "even footing"} · ` +
+    (adv.sceneKind ? S.SCENE_KINDS[adv.sceneKind].name.toLowerCase()
+      : `${count(adv.threads, "thread")} · ${count(adv.characters, "character")}`) }));
 
   card.appendChild(el("div", { class: "row tight", style: "margin-top:10px" },
     el("span", { class: "pill " + (adv.completedAt ? "q1" : "neutral"),
       text: adv.completedAt ? "Mission closed" : phaseOf(adv).label }),
-    adv.city ? el("span", { class: "city-tag", title: "Where the adventure is now" }, adv.city) : null,
     el("span", { class: "spacer" }),
-    el("button", { class: "btn sm ghost", type: "button", onclick: () => openTopic("chaos") }, "What Chaos does")));
+    el("button", { class: "btn sm ghost", type: "button", onclick: () => openTopic("chaos") }, "What Chaos does"),
+    helpButton("solo", {
+      actions: [{ label: "Open the tutorial", onClick: () => import("./router.js").then(m => m.navigate("tutorial")) }]
+    })));
   host.appendChild(card);
-
 
   const undo = Store.peekSoloUndo();
   if (undo) {
@@ -364,6 +443,7 @@ function newAdventure(host) {
     : (chars.length === 1 ? chars[0].id : null);
 
   const adv = Store.createAdventure({ characterId });
+  soloPage = "scene";
   save(a => { journal(a, "note", `Adventure opened at Chaos Factor ${adv.chaos}.`); });
 
   const linked = characterId ? Store.getCharacter(characterId) : null;
@@ -379,7 +459,6 @@ function newAdventure(host) {
  * something you reach for during a scene, so only this one changes with the phase.
  */
 function appendPrimary(host, adv) {
-  appendHelp(host, "solo.scene");
   const phase = phaseOf(adv);
   const card = el("div", { class: "card" });
 
@@ -393,10 +472,6 @@ function appendPrimary(host, adv) {
       el("div", { class: "small", text: `Closed ${fmtDate(adv.completedAt)} after ${adv.scene - 1} scene${adv.scene === 2 ? "" : "s"}.` })));
     card.appendChild(el("p", { class: "small muted", style: "margin-top:8px", text:
       "The journal, the lists and the mysteries are all still here to read. Starting a new adventure leaves this one filed." }));
-    card.appendChild(el("button", {
-      class: "btn primary block solo-primary", type: "button", style: "margin-top:10px",
-      onclick: () => newAdventure(host)
-    }, "Start a new adventure"));
     card.appendChild(el("button", {
       class: "btn ghost block", style: "margin-top:6px", type: "button",
       onclick: async () => {
@@ -413,10 +488,6 @@ function appendPrimary(host, adv) {
   if (phase.key === "briefing") {
     card.appendChild(el("p", { class: "small muted", text:
       "Before scene one there is a mission. Roll the briefing and write it in your own words — the objective and the complication become your first threads, and the opponent your first character, so the oracle has something to point at." }));
-    card.appendChild(el("button", {
-      class: "btn primary block solo-primary", type: "button", style: "margin-top:10px",
-      onclick: () => openBriefing(adv)
-    }, "Write the mission briefing"));
     card.appendChild(el("button", {
       class: "btn ghost block", style: "margin-top:6px", type: "button",
       onclick: async () => {
@@ -437,10 +508,6 @@ function appendPrimary(host, adv) {
   if (phase.key === "setup") {
     card.appendChild(el("p", { class: "small muted", text:
       "Say what you expect to happen next, then test it against the Chaos Factor. Over it, you get the scene you planned; at or under, it is altered or interrupted." }));
-    card.appendChild(el("button", {
-      class: "btn primary block solo-primary", type: "button", style: "margin-top:10px",
-      onclick: () => startScene(adv)
-    }, `Start scene ${adv.scene}`));
     // Between scenes is when a mission ends, so the exit sits beside the next scene rather
     // than buried in settings.
     if (adv.scene > 1) {
@@ -465,17 +532,27 @@ function appendPrimary(host, adv) {
     }
     card.appendChild(el("p", { class: "small muted", style: "margin-top:6px", text:
       "Play it out with the tools below. Ending the scene steps the Chaos Factor and takes you through your lists." }));
-    card.appendChild(el("button", {
-      class: "btn primary block solo-primary", type: "button", style: "margin-top:10px",
-      onclick: () => endScene(adv)
-    }, `End scene ${adv.scene}`));
   }
 
   card.appendChild(el("button", {
     class: "btn ghost block", style: "margin-top:6px", type: "button",
     onclick: () => openTopic("scenes")
   }, "How scenes work"));
+  const q = helpButton("solo.scene");
+  if (q) card.appendChild(el("div", { class: "row", style: "justify-content:flex-end;margin-top:6px" }, q));
   host.appendChild(card);
+}
+
+/**
+ * The one control that moves the loop on: whichever boundary is next. It lives on the status
+ * bar rather than in the scene card, so it is in reach from every Solo page (ruling S26).
+ */
+function primaryAction(adv, host) {
+  if (adv.completedAt) return { label: "Start a new adventure", run: () => newAdventure(host) };
+  const phase = phaseOf(adv).key;
+  if (phase === "briefing") return { label: "Write the mission briefing", run: () => openBriefing(adv) };
+  if (phase === "setup") return { label: `Start scene ${adv.scene}`, run: () => startScene(adv) };
+  return { label: `End scene ${adv.scene}`, run: () => endScene(adv) };
 }
 
 /* ---------------------------------------------------------------- mission briefing */
@@ -486,7 +563,6 @@ function appendPrimary(host, adv) {
  */
 function appendBriefing(host, adv) {
   if (!adv.briefing) return;
-  appendHelp(host, "solo.briefing");
   const rows = S.BRIEFING_ROWS
     .map(r => ({ row: r, val: adv.briefing.rows[r.key] }))
     .filter(x => x.val && x.val.text);
@@ -525,7 +601,8 @@ function appendBriefing(host, adv) {
           }) }, "To combat")
       : null,
     el("button", { class: "btn sm danger", type: "button",
-      onclick: () => deleteBriefing(Store.activeAdventure()) }, "Delete mission")));
+      onclick: () => deleteBriefing(Store.activeAdventure()) }, "Delete mission"),
+    helpButton("solo.briefing")));
 
   acc.appendChild(body);
   host.appendChild(acc);
@@ -993,21 +1070,23 @@ export async function autoBriefing(adv) {
  * what the next scene is — but quietened when no scene is open, so the primary action above
  * stays the obvious next move.
  */
-function appendInPlay(host, adv) {
+function appendInPlay(sceneHost, oracleHost, adv) {
   const open = phaseOf(adv).key === "play";
-  const wrap = el("div", { class: "solo-inplay" + (open ? "" : " is-quiet") });
+  const quiet = "solo-inplay" + (open ? "" : " is-quiet");
 
+  const check = el("div", { class: quiet });
+  appendCheck(check, adv);
+  if (check.childNodes.length) sceneHost.appendChild(check);
+
+  const wrap = el("div", { class: quiet });
   if (!open) {
     wrap.appendChild(el("p", { class: "small muted", text:
       `The in-scene tools. They still work between scenes, but scene ${adv.scene} has not started yet.` }));
   }
-
-  appendCheck(wrap, adv);
   appendFate(wrap, adv);
   appendEvents(wrap, adv);
-  appendMysteries(wrap, adv);
   appendMeaning(wrap, adv);
-  host.appendChild(wrap);
+  oracleHost.appendChild(wrap);
 }
 
 /**
@@ -1021,9 +1100,8 @@ function appendInPlay(host, adv) {
 function appendCheck(host, adv) {
   const linked = adv.characterId ? Store.getCharacter(adv.characterId) : null;
   if (!linked) return;
-  appendHelp(host, "solo.check");
   const sec = section("Roll a check",
-    "Fate says what is true. What the character tries is an ordinary Classified check, on the dossier this adventure is linked to.");
+    "Fate says what is true. What the character tries is an ordinary Classified check, on the dossier this adventure is linked to.", "solo.check");
   sec.appendChild(el("div", { class: "btn-row" },
     el("button", { class: "btn", type: "button",
       onclick: () => import("./roller.js").then(m => m.openQuickRoll(linked)) }, "Roll a skill"),
@@ -1035,8 +1113,7 @@ function appendCheck(host, adv) {
 }
 
 function appendEvents(host, adv) {
-  appendHelp(host, "solo.events");
-  const sec = section("Random Events", "A doubles roll within the Chaos Factor fires one on its own. Roll one here when the fiction needs a push.");
+  const sec = section("Random Events", "A doubles roll within the Chaos Factor fires one on its own. Roll one here when the fiction needs a push.", "solo.events");
   sec.appendChild(el("button", {
     class: "btn block", type: "button", onclick: () => rollRandomEvent(adv)
   }, "Roll a Random Event"));
@@ -1049,8 +1126,7 @@ function appendEvents(host, adv) {
 /* ---------------------------------------------------------------- ask fate */
 
 function appendFate(host, adv) {
-  appendHelp(host, "solo.fate");
-  const sec = section("Ask Fate", "A closed question the fiction cannot already answer. Skill checks stay on the Classified engine — this settles what is true, not what you manage.");
+  const sec = section("Ask Fate", "A closed question the fiction cannot already answer. Skill checks stay on the Classified engine — this settles what is true, not what you manage.", "solo.fate");
 
   const state = { odds: S.FATE_DEFAULT_ODDS, question: "" };
 
@@ -1626,12 +1702,11 @@ async function rollPair(tableKey) {
  * says so itself, the way End Scene does on the Combat screen.
  */
 function appendMysteries(host, adv) {
-  appendHelp(host, "solo.mysteries");
   const list = adv.mysteries || [];
   const open = list.filter(m => !m.revealedAt);
   const done = list.filter(m => m.revealedAt);
 
-  const sec = section("Mysteries", "A question you do not know the answer to yet. Fill the clock as play turns it up; the answer is rolled when the last segment falls.");
+  const sec = section("Mysteries", "A question you do not know the answer to yet. Fill the clock as play turns it up; the answer is rolled when the last segment falls.", "solo.mysteries");
 
   sec.querySelector(".section-head").appendChild(el("button", {
     class: "btn sm primary", type: "button", onclick: () => newMystery(adv)
@@ -2129,8 +2204,7 @@ async function rewriteObjective(shape, pair) {
 }
 
 function appendMeaning(host, adv) {
-  appendHelp(host, "solo.meaning");
-  const sec = section("Meaning Tables", "Roll a word pair and read the first thing that fits. The same word twice is amplification, not a wasted roll.");
+  const sec = section("Meaning Tables", "Roll a word pair and read the first thing that fits. The same word twice is amplification, not a wasted roll.", "solo.meaning");
 
   const groups = {};
   for (const m of S.MEANING_TABLES) (groups[m.group] = groups[m.group] || []).push(m);
@@ -2180,14 +2254,12 @@ export async function rollMeaning(adv, tableKey) {
 /* ---------------------------------------------------------------- adventure lists */
 
 function appendLists(host, adv) {
-  appendHelp(host, "solo.threads");
   host.appendChild(listSection(adv, "threads", "Threads", "Everything the character is trying to do. Strike one off when it closes."));
-  appendHelp(host, "solo.characters");
   host.appendChild(listSection(adv, "characters", "Characters", "Everyone who matters. Enter a name twice to make it come up twice as often."));
 }
 
 function listSection(adv, which, title, sub) {
-  const sec = section(title, sub);
+  const sec = section(title, sub, "solo." + which);
   const list = adv[which] || [];
 
   sec.querySelector(".section-head").appendChild(el("button", {
@@ -2543,9 +2615,8 @@ function upkeepBlock(adv, which, title, pending) {
 /* ---------------------------------------------------------------- journal */
 
 function appendJournal(host, adv) {
-  appendHelp(host, "solo.journal");
   const entries = adv.journal || [];
-  const sec = section("Journal", "Every Fate answer, event and scene boundary, newest first.");
+  const sec = section("Journal", "Every Fate answer, event and scene boundary, newest first.", "solo.journal");
 
   sec.querySelector(".section-head").appendChild(el("button", {
     class: "btn sm", type: "button",

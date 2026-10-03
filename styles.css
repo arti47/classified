@@ -1400,3 +1400,57 @@ button.log-entry.is-link:hover { background: var(--paper-hi); }
   background: var(--stamp); flex: none;
 }
 .desk-card .city-tag { align-self: flex-start; margin: 2px 0 4px; }
+
+/* ---------------------------------------------------------------- solo: four pages (S26) */
+
+/* One sticky bar over every Solo page: the readings, the next boundary, then the page tabs.
+   On a phone only the current page shows; on a desk every page shows and the tabs go. */
+.solo-bar {
+  position: sticky; top: var(--chromeH, var(--headerH)); z-index: 8;
+  margin: -18px calc(-1 * var(--pad)) 14px; padding: 10px var(--pad) 0;
+  background: var(--paper); border-bottom: 2px solid var(--rule-2);
+  box-shadow: 0 6px 10px -10px rgba(0,0,0,.35);
+}
+.solo-status { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; padding-bottom: 8px; }
+.solo-cell {
+  display: inline-grid; grid-template-columns: auto auto; align-items: baseline; column-gap: 6px;
+  padding: 4px 8px; min-height: 40px; border: 1px solid var(--rule-2); border-radius: var(--r);
+  background: var(--paper-2); color: var(--ink); font: inherit; text-align: left;
+}
+button.solo-cell { cursor: pointer; }
+button.solo-cell:hover { border-color: var(--ink-3); }
+.solo-cell .k { font: 700 9.5px/1 var(--mono); letter-spacing: .14em; text-transform: uppercase; color: var(--ink-2); }
+.solo-cell .v { font: 700 20px/1 var(--mono); }
+.solo-cell .chaos-gauge { grid-column: 1 / -1; margin: 4px 0 0; justify-content: flex-start; }
+.solo-cell .chaos-gauge span { width: 7px; flex: none; height: 4px; }
+.solo-status .solo-primary { margin-left: auto; min-height: 44px; flex: 1 1 140px; max-width: 260px; }
+.solo-tabs { display: flex; gap: 4px; overflow-x: auto; scrollbar-width: none; }
+.solo-tabs::-webkit-scrollbar { display: none; }
+.solo-tab { flex: 1 1 0; justify-content: center; }
+.solo-tab[aria-selected="true"] {
+  background: var(--paper); color: var(--stamp); border-bottom-color: var(--paper);
+  transform: translateY(-3px); padding-bottom: 10px; box-shadow: 0 -3px 0 var(--stamp) inset;
+}
+.solo-tab[aria-selected="true"] span { color: var(--ink); }
+@media (max-width: 899px) {
+  .solo-page:not(.is-current) { display: none; }
+}
+@media (max-width: 360px) {
+  .solo-status .solo-primary { flex-basis: 100%; max-width: none; }
+}
+@media (min-width: 900px) {
+  .solo-tabs { display: none; }
+  .solo-bar { margin: -6px 0 18px; padding: 8px 0 0; border-bottom-width: 1px; box-shadow: none; }
+  .screen.solo-screen > .col-b { top: calc(var(--chromeH, var(--headerH)) + var(--soloBarH, 0px) + 22px);
+    max-height: calc(100vh - var(--chromeH, var(--headerH)) - var(--soloBarH, 0px) - 44px); }
+}
+
+/* The how-to copy behind a "?" on a heading: a small ringed mark, never a bar. */
+.help-q {
+  flex: none; width: 30px; height: 30px; border-radius: 50%; cursor: pointer;
+  border: 1.5px dashed var(--ink-3); background: transparent; color: var(--ink-2);
+  font: 700 14px/1 var(--mono); display: inline-flex; align-items: center; justify-content: center;
+}
+.help-q:hover { border-style: solid; color: var(--stamp); border-color: var(--stamp); }
+.section-head .help-q { margin-right: auto; margin-left: calc(6px - var(--gap)); }
+.solo-reading { margin: 6px 0 0; }

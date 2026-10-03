@@ -505,6 +505,15 @@ Mythic feature:
 briefing ──Commit──▶ setup ──Start scene──▶ play ──End scene──▶ setup (next scene)
 ```
 
+**Four pages, one bar** (ruling S26). On a phone the screen is four pages under a divider strip —
+**Scene** (header, scene card, pinned briefing, Roll a check), **Oracle** (Ask Fate, Random
+Events, Meaning Tables), **Lists** (Threads, Characters, Mysteries) and **Journal** (journal and
+the Solo reference) — beneath one sticky bar carrying the Chaos Factor with its gauge, the scene
+number, the city and the primary action, so the next boundary is one tap from any page. The page
+is remembered for the session. At ≥900px the strip goes and all four show at once, Scene and
+Oracle in the left column and Lists and Journal in the right. Each panel's how-to copy is a **?**
+on its heading rather than a bar above it.
+
 `scenePhase` (§6) is what makes the screen know where it stands, and only one control changes
 with it: the **primary action**, which reads `Write the mission briefing` at briefing,
 `Start scene N` at setup and `End scene N` in play. Under it sit the in-scene tools — Ask Fate, Random Events, the Meaning Tables — then the
@@ -691,6 +700,7 @@ layer carries the flag rather than the UI.
 | S19 | Start an adventure opened a name prompt, and then a dossier chooser, before anything existed | **Both removed.** The name was the wrong question a tap too early: the briefing's codename row names the adventure a moment later, so the app was asking the player to invent the thing it was about to hand them. The dossier is whichever is already open. Adventure settings still holds rename and the dossier link. |
 | S18 | Every pinned briefing row printed twice — the line, then the words under it | The words go straight into the field, so an unedited row's text is the words joined and the two lines were the same sentence in two typefaces. The words are shown only when the player has written over them, which is the one case where they say something the line does not. Compared on letters alone, so the joiner and case never make an unedited row look edited. |
 | S25 | A scene opened on "what do you expect?" and nothing else, though a spy story always opens on a place — a city, then somewhere in it | **Set the scene**, pre-rolled at the head of Start scene: the adventure's city, then a place, a time and weather, and a detail off three existing authored Meaning Tables, every line editable. The city is carried from scene to scene and changes only on **Travel**, which rolls `CITY_TABLE` — one hundred real cities of the 1960s espionage circuit under their period names, authored for this app (T87). A list of real places carries no setting content, so the scope guard holds. Kept out of `MEANING_TABLES` because a city is a name to use rather than a word to interpret, and several are two words. The app's own aid on the S14 precedent: nothing in the scene test or the Fate machinery changes |
+| S26 | The Solo screen was one scroll of ten panels and eight how-to bars, so on a phone the Fate box sat several screens below the scene it served and End scene scrolled away from the tools a scene uses | **Four pages** — Scene, Oracle, Lists, Journal — under a sticky bar that carries the readings and the primary action, so the boundary is reachable from every page and only one page's panels are on screen. The how-to bars became **?** marks on the headings, opening the same copy. Every page is still rendered, so nothing is reachable from fewer places than before; on a desk all four show. No panel's content, rule or order within its page changed |
 | S13 | The Adventures button mixed switching adventures with configuring and deleting them | Split. Top level is the switcher plus *Start a new adventure*; a single **Adventure settings** row opens the Fate mechanic, the Chaos override, the dossier link, rename and delete. |
 | S12 | Whether re-rolling a Random Event's words should leave a trail | **No.** A re-roll supersedes: it deletes the journal row and roll-log row it replaces, so the record shows the reading that was kept. The Event Focus is held fixed across a re-roll — only the words change. |
 | S9 | Whether the in-scene tools should be locked while no scene is open | **No.** A solo player legitimately asks Fate a question between scenes — often to decide what the next scene even is. The tools stay live and the screen leans on emphasis instead: the primary action is the next boundary, and the in-play block is quietened until a scene is running. |
@@ -769,8 +779,9 @@ layer carries the flag rather than the UI.
   never a second source for them. One filled stamp button per screen; a section's own
   *+ Add* is an outlined stamp. Red behind white text uses `--stamp-fill`, which holds AA in
   dark mode where the brighter `--stamp` would not.
-  The Solo screen splits the same way — the loop (header, coach, primary action, briefing,
-  in-scene tools) in `.col-a`, the record (lists, journal, reference) in a sticky `.col-b` —
+  The Solo screen splits the same way — Scene and Oracle pages in `.col-a`, Lists and Journal
+  pages in a sticky `.col-b`, under a full-width `.solo-bar`; below 900px the pages become tabs
+  and only `.solo-page.is-current` shows (S26) —
   and the Chaos Factor carries a nine-cell gauge under its number. Journal rows carry a
   stamped tag per kind. Home tiles carry an icon from the same set as the nav. A dialog whose
   only action closes it uses an ink button, not the red stamp, which is kept for actions that
@@ -992,7 +1003,8 @@ reachable from its Home tile. `manualDice` applies to Mythic rolls too — `getD
 still the single entry point, and the Fate Check's 2d10 gets the same treatment.
 
 **How-to panels.** `showHelp` is the one toggle that starts **on**: a collapsed
-"How to use" accordion at the top of every screen and inside every Solo panel, holding what
+"How to use" accordion at the top of every screen — on Solo, a **?** on each panel's heading
+opening the same entry (S26) — holding what
 the panel is for and the taps that use it. `src/help.js` renders them from `data-help.js`, so
 no screen authors help text of its own and turning the flag off removes them everywhere in
 one place. The solo walkthrough is a screen of its own (`#/tutorial`), reachable from the
@@ -1214,7 +1226,7 @@ are flagged rather than presented as extracted (S1).
       - [x] Roll-log integration through `Store.addRoll()`.
       - [x] Regression checks: chart monotonicity, derived thresholds, event trigger,
             chaos clamping, list weighting, and every table exactly 100 entries.
-- [x] **Hardening.** Committed regression harness (1375 checks); accessibility pass;
+- [x] **Hardening.** Committed regression harness (1399 checks); accessibility pass;
       rules-accuracy audit with every finding closed (§11).
 
 ---
@@ -1459,3 +1471,4 @@ tables are this app's own work and are marked as such (S6).
 | 2026-10-03 | Third UX series, round 6 of 6 — final sweep: rules-fidelity audit and layout stress over the series, no code change needed | `git diff` across the six rounds shows no change to any `data*.js`, `rules.js`, `derived.js`, `store.js` or fixture; the only lines added to `roller.js` draw the dice faces for a roll already made and the range track from the manoeuvre's own list | 1353 checks green on two consecutive runs. axe clean on every route and the roll dialogs in both themes bar `meta-viewport`; zero overflow at 320, 360, 390, 768 and 1280px; zero console errors | `classified-v50` |
 | 2026-10-03 | One control per step on Solo (N13): the coach no longer repeats the primary action's briefing, Start-scene, End-scene or new-adventure control there; it appears only inside a scene, with its three choices | Reported with a screenshot of *Say what you are about to do · Go* directly above *Start scene 1*, both starting the scene. Root cause: the compact coach on Solo rendered every beat, and its boundary beats are the primary action's job on that screen | 1357 checks green, including one Start-scene control and no coach between scenes, and the coach's three choices with no boundary button of their own inside a scene | `classified-v51` |
 | 2026-10-03 | Set the scene (S25, T87, `SCHEMA_VERSION` 12): a 100-city `CITY_TABLE`, a **Where** row in the briefing, and a pre-rolled, editable setting at the head of Start scene — city, place, time and weather, detail — under a location card in capitals; **Travel** rolls a new city and journals the move; the card shows on the running scene, the Solo header and Home's mission card | Asked: spy stories always open on a city, then a place to set the scene, and a scene needs a table to roll for inspiration. The app had a generic Location table and Scene Framing, but no world city, and Start scene asked only what you expected. Decided with the user: real cities, pre-rolled and editable, the city held until Travel | 1375 checks green, including the City table's hundred unique entries and both ends of the d100, every setting line resolving to a real table, a version-11 adventure loading with no city, the setting pre-filled in the browser, the card naming the city in capitals, Travel moving both the scene and the adventure, and the journal carrying the card | `classified-v52` |
+| 2026-10-03 | Solo in four pages (S26): a Scene · Oracle · Lists · Journal strip on a phone, a sticky bar with the Chaos Factor and gauge, scene, city and the one primary action, and a **?** on each panel heading in place of the eight how-to bars. `helpButton()` in `help.js` renders the same `data-help.js` entry in a dialog | Reported: the Solo tab was a very long scroll. Root cause: ten panels and eight help bars in one column, with the primary action in the middle of it. Decided with the user: four pages. Every page stays in the DOM, so nothing lost a route, and the desk keeps its two columns | 1399 checks green, including the four pages, one shown at a time on a phone, a tab opening its page, the page surviving a trip to another screen, the bar sticky with the only primary action, no help bars and a ? per heading, and all four pages with no tabs at 1280px. axe clean bar `meta-viewport`; zero overflow at 360, 390 and 1280px; zero console errors | `classified-v53` |
