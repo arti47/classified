@@ -80,6 +80,7 @@ export function renderCombat(host) {
       el("div", { class: "section-title", text: state.phase === "declaration" ? "Declaration order (slowest first)" : "Action order (fastest first)" }),
       el("button", { class: "btn sm", type: "button", onclick: () => openAddCombatant(host) }, "+ Add")));
 
+  sec.appendChild(initiativeRail(state));
   for (const cb of order) {
     sec.appendChild(combatantCard(cb, state, host));
   }
@@ -94,6 +95,26 @@ export function renderCombat(host) {
 
   renderTasks(host);
   renderLifecycle(host);
+}
+
+/**
+ * The encounter drawn as a rail: one lane per Speed, 0 to 3, each combatant a token on its own
+ * lane, and an arrow along the rail in the direction the phase runs — slowest first while
+ * declaring, fastest first while acting (§3.17). Read from the same order the cards below use.
+ */
+function initiativeRail(state) {
+  const order = orderedCombatants(state, state.phase);
+  const lanes = [0, 1, 2, 3];
+  const rail = el("div", { class: "init-rail is-" + state.phase, "aria-hidden": "true" });
+  for (const sp of lanes) {
+    const who = order.filter(cb => clamp(Number(cb.speed) || 0, 0, 3) === sp);
+    rail.appendChild(el("div", { class: "ir-lane" },
+      el("span", { class: "ir-speed", text: String(sp) }),
+      el("span", { class: "ir-tokens" }, who.map(cb => el("span", {
+        class: "ir-token" + (cb.acted ? " is-acted" : "") + (cb.characterId ? " is-pc" : ""), title: cb.name
+      }, cb.name)))));
+  }
+  return rail;
 }
 
 function orderedCombatants(state, phase) {

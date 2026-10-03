@@ -123,6 +123,30 @@ export async function browserTests(t, { chromium, executablePath, baseURL }) {
         [...document.querySelectorAll(".modal-foot .btn")].find(b => b.textContent.trim() === "Open")?.click();
         await new Promise(r => setTimeout(r, 250));
         out.peekOpens = location.hash === "#/sheet";
+        // The initiative rail puts every combatant on its own Speed lane and points the way the
+        // phase runs; the chase dialog lights exactly the ranges its manoeuvre is legal at.
+        const savedFight = JSON.parse(JSON.stringify(Store.combatState()));
+        Store.saveCombat({ active: true, round: 1, phase: "declaration", combatants: [
+          { id: "r0", name: "Slow", speed: 0, tiebreak: 1, wound: "none" },
+          { id: "r2", name: "Mid", speed: 2, tiebreak: 2, wound: "none" },
+          { id: "r3", name: "Fast", speed: 3, tiebreak: 3, wound: "none", acted: true }] });
+        location.hash = "#/home"; await new Promise(r => setTimeout(r, 120));
+        location.hash = "#/combat"; await new Promise(r => setTimeout(r, 250));
+        const lanes = [...document.querySelectorAll(".init-rail .ir-lane")];
+        out.rail = lanes.length === 4 &&
+          lanes[0].textContent.includes("Slow") && lanes[2].textContent.includes("Mid") && lanes[3].textContent.includes("Fast") &&
+          !lanes[1].querySelector(".ir-token") && !!document.querySelector(".init-rail.is-declaration") &&
+          !!lanes[3].querySelector(".ir-token.is-acted");
+        const D = await import("./data.js");
+        const roller = await import("./src/roller.js");
+        roller.openChaseManeuver(Store.activeCharacter());
+        await new Promise(r => setTimeout(r, 250));
+        const mv = D.CHASE_MANEUVERS.find(m => m.key === "follow");
+        const lit = [...document.querySelectorAll(".modal .range-track .rt-step.on .rt-l")].map(x => x.textContent);
+        out.ranges = lit.join() === mv.ranges.join();
+        document.querySelectorAll(".modal-head .icon-btn").forEach(b => b.click());
+        await new Promise(r => setTimeout(r, 120));
+        if (savedFight.active) Store.saveCombat(savedFight); else Store.clearCombat();
         if (created) Store.deleteCharacter(created.id);
         return out;
       });
@@ -133,6 +157,8 @@ export async function browserTests(t, { chromium, executablePath, baseURL }) {
       t.ok(desk.fills, "every Base Chance box is filled to its share of the cap of 30");
       t.ok(desk.track, "the dossier head carries the wound track");
       t.ok(desk.peekOpens, "the GM party peek opens the dossier it summarises");
+      t.ok(desk.rail, "the initiative rail puts each combatant on its Speed lane, marks the acted, and runs the declaration way");
+      t.ok(desk.ranges, "the chase dialog's range track lights exactly the ranges the manoeuvre is legal at");
 
       // Every Home tile carries an icon, and the icon adds no text to the tile's name.
       await page.evaluate(() => { location.hash = "#/home"; });

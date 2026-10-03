@@ -1310,3 +1310,41 @@ details.acc.help-acc { margin-bottom: 12px; }
 
 /* Index-card ruling: the first row of a flush card list has a faint red margin line beside it. */
 .card.flush { background-image: linear-gradient(to right, transparent 8px, var(--line) 8px, var(--line) 9px, transparent 9px); }
+
+/* ---------------------------------------------------------------- diagrams */
+
+/* Initiative rail: four Speed lanes, tokens on them, an arrow showing which way the phase runs. */
+.init-rail {
+  position: relative; display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 4px;
+  padding: 26px 8px 10px; margin-bottom: 10px; border: 1px solid var(--rule-2); border-radius: var(--r-lg);
+  background: repeating-linear-gradient(90deg, transparent 0 calc(25% - 1px), var(--rule) calc(25% - 1px) 25%), var(--paper-2);
+}
+.init-rail::before {
+  content: ""; position: absolute; left: 14px; right: 22px; top: 12px; height: 2px; background: var(--stamp);
+}
+.init-rail::after {
+  content: ""; position: absolute; top: 7px; right: 12px; border: 6px solid transparent; border-left: 10px solid var(--stamp);
+}
+.init-rail.is-action::after { right: auto; left: 4px; border-left-color: transparent; border-right: 10px solid var(--stamp); }
+.init-rail.is-action::before { left: 22px; right: 14px; }
+.ir-lane { display: flex; flex-direction: column; align-items: center; gap: 6px; min-width: 0; }
+.ir-speed {
+  width: 26px; height: 26px; display: grid; place-items: center; border-radius: 50%;
+  font: 700 13px/1 var(--mono); border: 1.5px solid var(--ink-3); color: var(--ink-2); background: var(--paper);
+}
+.ir-tokens { display: flex; flex-direction: column; gap: 4px; align-items: stretch; width: 100%; min-width: 0; }
+.ir-token {
+  font: 600 10.5px/1.2 var(--sans); padding: 4px 5px; border-radius: 4px; text-align: center;
+  background: var(--ink); color: var(--paper-2); overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+}
+.ir-token.is-pc { background: var(--stamp-fill); color: #fff; }
+.ir-token.is-acted { background: transparent; color: var(--ink-3); border: 1px dashed var(--rule-2); text-decoration: line-through; }
+
+/* Chase ranges: five stations, the legal ones lit. */
+.range-track { display: flex; position: relative; margin: 6px 0 4px; }
+.range-track::before { content: ""; position: absolute; left: 10%; right: 10%; top: 7px; height: 2px; background: var(--rule-2); }
+.rt-step { flex: 1 1 0; display: flex; flex-direction: column; align-items: center; gap: 5px; position: relative; min-width: 0; }
+.rt-dot { width: 16px; height: 16px; border-radius: 50%; background: var(--paper); border: 2px solid var(--rule-2); }
+.rt-step.on .rt-dot { background: var(--stamp-fill); border-color: var(--stamp-fill); box-shadow: 0 0 0 3px color-mix(in srgb, var(--stamp) 18%, transparent); }
+.rt-l { font: 600 9.5px/1 var(--mono); letter-spacing: .06em; text-transform: uppercase; color: var(--ink-3); }
+.rt-step.on .rt-l { color: var(--ink); }

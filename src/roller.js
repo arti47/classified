@@ -1259,6 +1259,11 @@ export function openChaseManeuver(character) {
     wrap.appendChild(el("p", { class: "small muted", style: "margin-top:6px", text: mv.desc }));
     wrap.appendChild(el("p", { class: "small muted", text:
       `Legal at: ${mv.ranges.join(", ")} · Control Difficulty Factor ${mv.controlDF}` }));
+    // The five chase ranges as a track, the ones this manoeuvre is legal at lit — read from the
+    // manoeuvre's own range list, so the picture and the line above cannot disagree.
+    wrap.appendChild(el("div", { class: "range-track", "aria-hidden": "true" },
+      D.CHASE_RANGES.map(r => el("span", { class: "rt-step" + (mv.ranges.includes(r) ? " on" : "") },
+        el("span", { class: "rt-dot" }), el("span", { class: "rt-l", text: r })))));
 
     wrap.appendChild(el("div", { class: "field-label", style: "margin-top:12px", text: "Your bid (this becomes your Difficulty Factor)" }));
     const bw = el("div", { class: "df-ladder" });
