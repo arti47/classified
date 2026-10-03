@@ -1,7 +1,7 @@
 /* wizard.js — character creation. Legality is validated at every step and the
  * Creation Point budget is always on screen. */
 
-import { el, clear, signed, uid, percent, d100, clamp } from "./core.js";
+import { el, clear, signed, uid, percent, d100, clamp, statBox } from "./core.js";
 import { modal, showToast, confirmModal, promptModal, chooseModal } from "./ui.js";
 import * as D from "../data.js";
 import * as R from "./rules.js";
@@ -30,8 +30,6 @@ export function startWizard(rank = "rookie") {
   draft = normalize(blankCharacter(rank));
   stepIndex = 0;
 }
-
-export function hasDraft() { return !!draft; }
 
 export function renderWizard(host) {
   if (!draft) startWizard();
@@ -231,8 +229,8 @@ const STEP_RENDERERS = {
 
     const dv = derived(draft);
     body.appendChild(el("div", { class: "grid grid-3", style: "margin-top:12px" },
-      box("Speed", dv.speed), box("H-to-H", dv.hthDamage), box("Carry", dv.carryRange),
-      box("Run/Swim", dv.runSwim + "m"), box("Stamina", dv.stamina + "h"), box("Draw", signed(dv.drawBonus))
+      statBox("Speed", dv.speed), statBox("H-to-H", dv.hthDamage), statBox("Carry", dv.carryRange),
+      statBox("Run/Swim", dv.runSwim + "m"), statBox("Stamina", dv.stamina + "h"), statBox("Draw", signed(dv.drawBonus))
     ));
   },
 
@@ -480,12 +478,12 @@ const STEP_RENDERERS = {
     });
 
     body.appendChild(el("div", { class: "grid grid-2", style: "margin-top:12px" },
-      box("Name", draft.identity.name || "—"),
-      box("Rank", rankRow.name),
-      box("Hero Points", draft.state.heroPoints),
-      box("Reputation", rep),
-      box("Points left", val.spend.remaining),
-      box("Speed", dv.speed)
+      statBox("Name", draft.identity.name || "—"),
+      statBox("Rank", rankRow.name),
+      statBox("Hero Points", draft.state.heroPoints),
+      statBox("Reputation", rep),
+      statBox("Points left", val.spend.remaining),
+      statBox("Speed", dv.speed)
     ));
 
     if (rankRow.scarChance > 0) {
@@ -507,12 +505,6 @@ const STEP_RENDERERS = {
     }
   }
 };
-
-function box(k, v) {
-  return el("div", { class: "stat-box" },
-    el("div", { class: "k", text: k }),
-    el("div", { class: "v", style: String(v).length > 6 ? "font-size:15px" : "", text: String(v) }));
-}
 
 /* ---------------------------------------------------------------- finish */
 
@@ -669,8 +661,17 @@ export function renderCreate(host) {
           el("div", { text: c.identity.name || "Unnamed" }),
           el("div", { class: "small muted", text:
             `${R.RANK_BY_KEY[c.identity.rank]?.name || ""} · Reputation ${c.reputation} · ${Object.keys(c.skills).length} skills` })),
+        // A copy before a risky mission: the store has always offered it, and nothing called it.
         el("button", {
-          class: "btn-x btn sm ghost", "aria-label": "Remove", type: "button",
+          class: "btn-x btn-copy btn sm ghost", type: "button",
+          "aria-label": `Duplicate ${c.identity.name || "this dossier"}`, title: "Duplicate this dossier",
+          onclick: () => {
+            const copy = Store.duplicateCharacter(c.id);
+            if (copy) { showToast(`${copy.identity.name} filed`, "ok"); renderCreate(host); }
+          }
+        }, "⧉"),
+        el("button", {
+          class: "btn-x btn sm ghost", "aria-label": `Delete ${c.identity.name || "this dossier"}`, type: "button",
           onclick: async () => {
             if (await confirmModal(`Delete ${c.identity.name || "this dossier"}? This cannot be undone.`, { danger: true, okLabel: "Delete" })) {
               Store.deleteCharacter(c.id);

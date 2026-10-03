@@ -2,7 +2,7 @@
  * mission lifecycle engine (End Scene / End Session / End Mission) with a
  * confirmation summary and one-step undo. */
 
-import { el, clear, uid, signed, d100, d10, clamp, fmtDate, art } from "./core.js";
+import { el, clear, uid, signed, d100, d10, clamp, fmtDate, art, pick, rerender } from "./core.js";
 import { modal, showToast, confirmModal, promptModal, chooseModal } from "./ui.js";
 import * as D from "../data.js";
 import * as R from "./rules.js";
@@ -420,7 +420,7 @@ export function rollWeakness(exclude = []) {
   const taken = new Set(exclude.map(String));
   const pool = D.WEAKNESSES.filter(w => !taken.has(w.name) && !taken.has(w.key));
   const list = pool.length ? pool : D.WEAKNESSES;
-  return list[Math.floor(Math.random() * list.length)];
+  return pick(list);
 }
 
 export function showNPC(npc) {
@@ -503,7 +503,7 @@ export function renderTasks(host) {
       el("div", { class: "grow" },
         el("div", { style: "font-weight:600", text: t.name }),
         el("div", { class: "small muted", text: `${t.progress} / ${t.requirement}${t.unit ? " " + t.unit : ""}` })),
-      el("button", { class: "btn-x btn sm ghost", "aria-label": "Remove", type: "button", onclick: () => { Store.deleteTask(t.id); renderHostAgain(host); } }, "✕")
+      el("button", { class: "btn-x btn sm ghost", "aria-label": "Remove", type: "button", onclick: () => { Store.deleteTask(t.id); rerender(); } }, "✕")
     ));
 
     const track = el("div", { class: "progress-track" });
@@ -511,7 +511,7 @@ export function renderTasks(host) {
       track.appendChild(el("button", {
         class: "progress-pip" + (i < t.progress ? " on" : ""), type: "button",
         "aria-label": `Set progress to ${i + 1}`,
-        onclick: () => { t.progress = i + 1 === t.progress ? i : i + 1; Store.saveTask(t); renderHostAgain(host); }
+        onclick: () => { t.progress = i + 1 === t.progress ? i : i + 1; Store.saveTask(t); rerender(); }
       }));
     }
     card.appendChild(track);
@@ -524,11 +524,6 @@ export function renderTasks(host) {
   host.appendChild(sec);
 }
 
-function renderHostAgain(host) {
-  // Re-render whichever screen owns this host.
-  const ev = new CustomEvent("app:rerender");
-  document.dispatchEvent(ev);
-}
 
 async function openNewTask(host) {
   const name = await promptModal("What is being tracked?", { title: "New progress task" });
@@ -536,7 +531,7 @@ async function openNewTask(host) {
   const req = parseInt(await promptModal("How many steps to completion?", { title: name, type: "number", value: "6" }), 10);
   const note = await promptModal("Note (optional)", { title: name, value: "" });
   Store.saveTask({ id: uid("task"), name, requirement: clamp(Number.isFinite(req) ? req : 6, 1, 40), progress: 0, note: note || "" });
-  renderHostAgain(host);
+  rerender();
 }
 
 /* ---------------------------------------------------------------- lifecycle */
@@ -558,7 +553,7 @@ export function renderLifecycle(host) {
     sec.appendChild(el("div", { class: "banner", style: "margin-top:10px" },
       el("div", { class: "small", text: `Last boundary fired ${fmtDate(undo.ts)}.` }),
       el("button", { class: "btn sm", type: "button", style: "margin-top:6px", onclick: () => {
-        if (Store.applyUndo()) { showToast("Reverted", "ok"); renderResourceHeader(); renderHostAgain(host); }
+        if (Store.applyUndo()) { showToast("Reverted", "ok"); renderResourceHeader(); rerender(); }
       } }, "Undo it")));
   }
 

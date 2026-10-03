@@ -60,10 +60,6 @@ export function resolve(opts) {
   };
 }
 
-export function qualityPill(q) {
-  return el("span", { class: "pill q" + q, text: D.QUALITY_SHORT[q] });
-}
-
 function formulaText(res) {
   const parts = [`Base ${res.baseChance}`, `DF ${dfLabel(res.df)}`, `= SC ${res.successChance}`];
   if (res.modifiers.length) {

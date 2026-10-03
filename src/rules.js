@@ -209,11 +209,6 @@ export function skillCost(rank) {
   return D.SKILL_COST_NEW + (r - 1) * D.SKILL_COST_RANK;
 }
 
-/** Skill rank cost when only a subset of ranks is paid from profession points. */
-export function rankStepCost(fromRank, toRank) {
-  return Math.max(0, (toRank - fromRank)) * D.SKILL_COST_RANK;
-}
-
 /* ---------------------------------------------------------------- experience */
 
 export function xpSkillRankCost(finalRank) { return D.XP_COSTS.skillRank.formula(finalRank); }

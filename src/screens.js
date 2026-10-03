@@ -1,7 +1,7 @@
 /* screens.js — home, rules library, roll log, advancement, settings and about. */
 
 import { el, clear, money, signed, dfLabel, fmtDate, clamp, icon, meter, art } from "./core.js";
-import { modal, showToast, confirmModal, promptModal, chooseModal } from "./ui.js";
+import { modal, showToast, confirmModal, promptModal, chooseModal, copyText } from "./ui.js";
 import * as D from "../data.js";
 import * as R from "./rules.js";
 import * as Store from "./store.js";
@@ -231,9 +231,19 @@ function logRow(r) {
         (r.modifiers && r.modifiers.length ? " · " + r.modifiers.map(m => `${m.name} ${signed(m.value)}`).join(", ") : "") +
         (r.heroSpent ? ` · ${r.heroSpent} Hero Point(s) spent` : "") +
         (r.note ? " · " + r.note : "") }),
-      el("div", { class: "lm", text: `${r.by || ""} · ${fmtDate(r.ts)}` })
+      el("div", { class: "lm" }, byLink(r), ` · ${fmtDate(r.ts)}`)
     )
   );
+}
+
+/** Who rolled it: the dossier's name leads to its sheet when that dossier is on this device. */
+function byLink(r) {
+  const c = r.characterId ? Store.getCharacter(r.characterId) : null;
+  if (!c) return r.by || "";
+  return el("button", { class: "link-btn", type: "button", onclick: () => {
+    Store.setActive(c.id);
+    navigate("sheet");
+  } }, r.by || c.identity.name || "Agent");
 }
 
 export function renderLog(host) {
@@ -306,13 +316,45 @@ function appendSharedLog(host, local) {
 
 /* ---------------------------------------------------------------- rules library */
 
+/*
+ * Each rules topic leads to the control that runs it. The topics explained a procedure and
+ * stopped, so reading about chases left the player to find the chase roller on their own. The
+ * map is UI routing only — which screen or dialog, never a number — so it lives here rather
+ * than in the data layer. A procedure that rolls needs a dossier; with none it offers Create.
+ */
+const TOPIC_TOOLS = {
+  resolution:  { label: "Roll a check", roll: m => m.openQuickRoll },
+  difficulty:  { label: "Roll a check", roll: m => m.openQuickRoll },
+  interaction: { label: "Roll an interaction", roll: m => m.openQuickRoll },
+  chases:      { label: "Chase manoeuvre", roll: m => m.openChaseManeuver },
+  reputation:  { label: "Reputation check", roll: m => m.openReputationCheck },
+  heropoints:  { label: "Hero Points", sheet: m => m.openHeroPoints },
+  wounds:      { label: "Wounds", sheet: m => m.openWoundPanel },
+  combatround: { label: "Go to Combat", route: "combat" },
+  advancement: { label: "Go to Advancement", route: "advance" }
+};
+
+function runTopicTool(tool) {
+  if (tool.route) { navigate(tool.route); return; }
+  const c = Store.activeCharacter();
+  if (!c) { showToast("Create a character first", "err"); navigate("create"); return; }
+  if (tool.roll) import("./roller.js").then(m => tool.roll(m)(c));
+  else import("./sheet.js").then(m => tool.sheet(m)(c));
+}
+
 export function openRulesTopic(key) {
   const topic = D.RULES_TOPICS.find(t => t.key === key);
   if (!topic) return;
+  const tool = TOPIC_TOOLS[key];
   modal({
     title: topic.title,
     body: el("div", {}, ...topic.body.map(t => el("p", { text: t }))),
-    actions: [{ label: "Close", kind: "primary" }]
+    actions: [
+      // With a tool to run, the tool is the stamp and Close steps back; without one, Close is
+      // the only action and keeps the ink style one-action dialogs use.
+      ...(tool ? [{ label: "Close", kind: "ghost" }, { label: tool.label, kind: "primary", onClick: () => runTopicTool(tool) }]
+        : [{ label: "Close", kind: "primary" }])
+    ]
   });
 }
 
@@ -987,14 +1029,9 @@ function campaignCard(host) {
   return card;
 }
 
-function copyJoinCode(code) {
-  if (navigator.clipboard && navigator.clipboard.writeText) {
-    navigator.clipboard.writeText(code).then(() => showToast("Join code copied", "ok"),
-      () => showToast(code, ""));
-    return;
-  }
-  showToast(code, "");
-}
+// One clipboard path for the app: the async API, then a hidden textarea, then a dialog to copy
+// from by hand. The join code used to stop at the first and show a toast when it failed.
+function copyJoinCode(code) { copyText(code, "Join code copied"); }
 
 /** Who is at the table. Falls back to this device's own seat when nothing is shared yet. */
 function renderParty(hostEl, c) {

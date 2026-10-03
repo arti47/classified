@@ -45,6 +45,10 @@ function boot() {
 
   // A write that fails is data the player thinks they have. The store raises this once per
   // session; saying nothing would mean finding out on the next reload.
+  // A message the GM sends from the GM screen reaches every other device at the table here.
+  document.addEventListener("sync:broadcast", e => {
+    showToast(`From the GM: ${e.detail.text}`, "", 10000);
+  });
   document.addEventListener("store:writefailed", () => {
     showToast("Storage is full — export a backup, then remove a portrait or wipe old missions", "err", 8000);
   });

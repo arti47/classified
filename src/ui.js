@@ -194,3 +194,39 @@ export function chooseModal(title, items, opts = {}) {
 export function closeAllModals() {
   [...openModals].forEach(m => m.close());
 }
+
+/**
+ * Copy to the clipboard. The async API needs a secure context, so a hidden textarea and
+ * execCommand stand in when it is unavailable — over plain http on a phone, for instance.
+ */
+export async function copyText(text, okMessage) {
+  try {
+    if (navigator.clipboard && window.isSecureContext) {
+      await navigator.clipboard.writeText(text);
+      showToast(okMessage, "ok");
+      return;
+    }
+  } catch { /* fall through to the textarea */ }
+
+  const ta = el("textarea", { style: "position:fixed;top:-1000px;left:-1000px;opacity:0" });
+  ta.value = text;
+  document.body.appendChild(ta);
+  ta.select();
+  let ok = false;
+  try { ok = document.execCommand("copy"); } catch { ok = false; }
+  ta.remove();
+
+  if (ok) { showToast(okMessage, "ok"); return; }
+
+  // Nothing worked, so show the text and let the player copy it by hand.
+  const area = el("textarea", { style: "min-height:220px" });
+  area.value = text;
+  modal({
+    title: "Copy",
+    body: el("div", {},
+      el("p", { class: "small muted", text: "This browser blocked the clipboard. Select the text and copy it." }),
+      area),
+    actions: [{ label: "Close", kind: "primary" }]
+  });
+  area.select();
+}

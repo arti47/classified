@@ -44,6 +44,7 @@ export async function init() {
     const cred = await authMod.signInAnonymously(auth);
     fb = { app, auth, db, user: cred.user, authMod, dbMod };
     document.dispatchEvent(new CustomEvent("sync:ready"));
+    listenForBroadcasts();
     return fb;
   })().catch(err => {
     console.warn("Firebase unavailable, staying in local mode:", err && err.message);
@@ -72,6 +73,7 @@ export async function createCampaign(name, role = "gm") {
   });
   campaign = { id: node.key, joinCode: code, name, role };
   persistCampaign();
+  listenForBroadcasts();
   return campaign;
 }
 
@@ -91,10 +93,11 @@ export async function joinCampaign(code, displayName, characterId) {
   });
   campaign = { id, joinCode: code, name: snap.val()[id].meta.name, role: "player" };
   persistCampaign();
+  listenForBroadcasts();
   return campaign;
 }
 
-export function leaveCampaign() { campaign = null; persistCampaign(); }
+export function leaveCampaign() { stopBroadcasts(); campaign = null; persistCampaign(); }
 
 /**
  * Set this device's member record. Called when the player picks which dossier they are
@@ -179,6 +182,33 @@ export async function pushCombat(state) {
 /** True when a mirrored record came from this device. */
 export function isOwnEcho(record) {
   return !!(record && fb && record.by && record.by === fb.user.uid);
+}
+
+/*
+ * The receiving end of the GM's Broadcast. Sending was wired from the start and nothing
+ * listened, so a message reached the database and no player ever saw it. Each new message
+ * from someone else is raised as `sync:broadcast`; main.js shows it, so this module stays
+ * free of UI. Only messages sent after this device started listening are raised — joining a
+ * table does not replay its history as a burst of toasts.
+ */
+let stopBroadcast = null;
+
+function stopBroadcasts() {
+  if (stopBroadcast) { stopBroadcast(); stopBroadcast = null; }
+}
+
+async function listenForBroadcasts() {
+  stopBroadcasts();
+  const since = Date.now();
+  const seen = new Set();
+  stopBroadcast = await watch("broadcast", val => {
+    for (const [id, m] of Object.entries(val || {})) {
+      if (seen.has(id) || !m || m.ts < since) continue;
+      seen.add(id);
+      if (fb && m.from === fb.user.uid) continue;
+      document.dispatchEvent(new CustomEvent("sync:broadcast", { detail: { text: m.text, ts: m.ts } }));
+    }
+  });
 }
 
 export async function broadcast(text) {

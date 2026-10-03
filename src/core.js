@@ -175,7 +175,6 @@ export function meter(fraction, kind = "") {
 
 export function d100() { return 1 + Math.floor(Math.random() * 100); }
 export function d10() { return 1 + Math.floor(Math.random() * 10); }
-export function d6() { return 1 + Math.floor(Math.random() * 6); }
 export function die(sides) { return 1 + Math.floor(Math.random() * sides); }
 export function roll(count, sides) {
   let total = 0;
@@ -222,15 +221,6 @@ export function deepClone(obj) {
   return JSON.parse(JSON.stringify(obj));
 }
 
-export function debounce(fn, ms = 250) {
-  let t;
-  return (...args) => { clearTimeout(t); t = setTimeout(() => fn(...args), ms); };
-}
-
-export function titleCase(s) {
-  return String(s).replace(/\w\S*/g, w => w[0].toUpperCase() + w.slice(1).toLowerCase());
-}
-
 export function fmtDate(ts) {
   if (!ts) return "";
   const d = new Date(ts);
@@ -244,4 +234,29 @@ export const JOIN_WORDS_C = ["sword","dagger","cipher","key","crown","shield","l
 
 export function joinCode() {
   return `${pick(JOIN_WORDS_A)}-${pick(JOIN_WORDS_B)}-${pick(JOIN_WORDS_C)}`;
+}
+
+/* ---------------------------------------------------------------- shared screen pieces */
+
+/** Ask the router to redraw the current screen. One event, so no screen keeps its own copy. */
+export function rerender() {
+  document.dispatchEvent(new CustomEvent("app:rerender"));
+}
+
+/**
+ * A section on a screen: a typed heading on its rule, an optional line under it, and an
+ * optional control on the heading (a "?" or an "+ Add"). Every screen builds its sections here.
+ */
+export function section(title, sub, ...headExtras) {
+  const s = el("div", { class: "section" });
+  s.appendChild(el("div", { class: "section-head" }, el("div", { class: "section-title", text: title }), ...headExtras));
+  if (sub) s.appendChild(el("p", { class: "small muted", style: "margin-top:-2px", text: sub }));
+  return s;
+}
+
+/** A labelled number box. A long value steps its size down rather than wrapping. */
+export function statBox(k, v) {
+  return el("div", { class: "stat-box" },
+    el("div", { class: "k", text: k }),
+    el("div", { class: "v", style: String(v).length > 6 ? "font-size:15px" : "", text: String(v) }));
 }

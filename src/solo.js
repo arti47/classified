@@ -10,8 +10,8 @@
  * engine and importing it would breach the rule.
  */
 
-import { el, clear, uid, d100, d10, die, announce, clamp, fmtDate, signed, art, diceFaces, d100Faces } from "./core.js";
-import { modal, showToast, confirmModal, promptModal, chooseModal } from "./ui.js";
+import { el, clear, uid, d100, d10, die, announce, clamp, fmtDate, signed, art, diceFaces, d100Faces, rerender, section as coreSection } from "./core.js";
+import { modal, showToast, confirmModal, promptModal, chooseModal, copyText } from "./ui.js";
 import * as S from "../data-solo.js";
 import * as Store from "./store.js";
 import { Settings } from "./settings.js";
@@ -220,9 +220,6 @@ const PHASES = {
 
 function phaseOf(adv) { return PHASES[adv.scenePhase] || PHASES.setup; }
 
-function rerender() {
-  document.dispatchEvent(new CustomEvent("app:rerender"));
-}
 
 function save(mutator) {
   const adv = Store.updateAdventure(mutator);
@@ -230,14 +227,13 @@ function save(mutator) {
   return adv;
 }
 
+/**
+ * A Solo panel's section. The how-to copy rides on the heading as a "?" rather than as a bar
+ * above every panel: the screen carries ten panels, and ten bars were a third of its length
+ * (ruling S26).
+ */
 function section(title, sub, helpKey) {
-  const s = el("div", { class: "section" });
-  // The how-to copy rides on the heading as a "?" rather than as a bar above every panel: the
-  // Solo screen carries ten panels, and ten bars were a third of its length (ruling S26).
-  s.appendChild(el("div", { class: "section-head" }, el("div", { class: "section-title", text: title }),
-    helpKey ? helpButton(helpKey) : null));
-  if (sub) s.appendChild(el("p", { class: "small muted", style: "margin-top:-2px", text: sub }));
-  return s;
+  return coreSection(title, sub, helpKey ? helpButton(helpKey) : null);
 }
 
 /* ---------------------------------------------------------------- header */
@@ -2689,42 +2685,6 @@ function entryText(e) {
 /** The whole journal, oldest first, so a pasted log reads forwards. */
 function journalText(entries) {
   return [...entries].reverse().map(entryText).join("\n\n");
-}
-
-/**
- * Copy to the clipboard. The async API needs a secure context, so a hidden textarea and
- * execCommand stand in when it is unavailable — over plain http on a phone, for instance.
- */
-async function copyText(text, okMessage) {
-  try {
-    if (navigator.clipboard && window.isSecureContext) {
-      await navigator.clipboard.writeText(text);
-      showToast(okMessage, "ok");
-      return;
-    }
-  } catch { /* fall through to the textarea */ }
-
-  const ta = el("textarea", { style: "position:fixed;top:-1000px;left:-1000px;opacity:0" });
-  ta.value = text;
-  document.body.appendChild(ta);
-  ta.select();
-  let ok = false;
-  try { ok = document.execCommand("copy"); } catch { ok = false; }
-  ta.remove();
-
-  if (ok) { showToast(okMessage, "ok"); return; }
-
-  // Nothing worked, so show the text and let the player copy it by hand.
-  const area = el("textarea", { style: "min-height:220px" });
-  area.value = text;
-  modal({
-    title: "Copy",
-    body: el("div", {},
-      el("p", { class: "small muted", text: "This browser blocked the clipboard. Select the text and copy it." }),
-      area),
-    actions: [{ label: "Close", kind: "primary" }]
-  });
-  area.select();
 }
 
 /* ---------------------------------------------------------------- topics */

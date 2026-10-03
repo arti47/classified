@@ -250,7 +250,9 @@ export function renderPlayGuide(host, opts = {}) {
     card.appendChild(el("div", { class: "field-label", text: "Do this next" }));
     card.appendChild(el("div", { style: "font-weight:600", text: next.st.label }));
     card.appendChild(el("p", { class: "small muted", style: "margin-top:4px", text: next.st.sub }));
-    if (next.st.tap) card.appendChild(tapLine(next.st.tap, host, next.st.go));
+    // One control per destination: the button goes there, so the tap line beside it is the
+    // path written out rather than a second link to the same place.
+    if (next.st.tap) card.appendChild(el("div", { class: "small mono tut-tap", text: next.st.tap }));
     card.appendChild(el("button", {
       class: "btn primary block", type: "button", style: "margin-top:10px",
       onclick: () => goTo(next.st.go, host)
@@ -274,8 +276,16 @@ export function renderPlayGuide(host, opts = {}) {
         el("span", { class: "guide-tick", text: done ? "✓" : "" }),
         el("b", { class: "grow", text: st.label })));
       row.appendChild(el("p", { class: "small muted", style: "margin:4px 0 0", text: st.sub }));
-      if (st.tap) row.appendChild(tapLine(st.tap, host, st.go));
-      if (!done && st.go) {
+      // The step already pinned above as "Do this next" is marked here rather than offered
+      // twice, and a step whose tap line is its link carries no second button to the same place.
+      const isNext = next && next.st === st;
+      if (isNext) row.classList.add("is-next");
+      if (st.tap) row.appendChild(isNext
+        ? el("div", { class: "small mono tut-tap", text: st.tap })
+        : tapLine(st.tap, host, st.go));
+      if (isNext) {
+        row.appendChild(el("span", { class: "pill neutral", style: "margin-top:8px", text: "Next — above" }));
+      } else if (!done && st.go && !st.tap) {
         row.appendChild(el("button", { class: "btn sm", type: "button", style: "margin-top:8px",
           onclick: () => goTo(st.go, host) }, st.action || "Go"));
       }
@@ -313,11 +323,17 @@ export function renderPlayGuide(host, opts = {}) {
  */
 function tapRoute(tap) {
   const first = String(tap).split("→")[0].trim().toLowerCase();
-  if (first.startsWith("create")) return "create";
-  if (first.startsWith("settings")) return "settings";
-  if (first.startsWith("sheet")) return "sheet";
+  // The first stop names a screen; anything that names none is a Solo step. Combat, Home and
+  // Advancement were missing, so the table track's "Combat → …" lines offered solo play.
+  for (const [word, route] of TAP_ROUTES) if (first.startsWith(word)) return route;
+  if (first.includes("hero chip")) return "sheet";
   return Settings.solo() ? "solo" : "offerSolo";
 }
+
+const TAP_ROUTES = [
+  ["create", "create"], ["settings", "settings"], ["sheet", "sheet"], ["combat", "combat"],
+  ["advancement", "advance"], ["home", "home"], ["gear", "gear"], ["rules", "rules"], ["roll log", "log"]
+];
 
 function tapLine(tap, host, go) {
   return el("button", { class: "small mono tut-tap is-link", type: "button",

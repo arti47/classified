@@ -812,7 +812,12 @@ layer carries the flag rather than the UI.
   breakdown; and the Solo reference carries **Rules**, since Solo takes the Rules tab's slot.
   Every tap line in the Tutorial and the play guide is itself the control that goes there —
   its route read from its first stop, Solo offered rather than opened while solo is off — and
-  a Mythic row in the roll log leads to the Solo screen.
+  a Mythic row in the roll log leads to the Solo screen; a Classified row's author leads to that
+  dossier. Each rules-library topic carries the control that runs it (Chases → the chase roller,
+  The Combat Round → Combat, Wounds → the wound panel, and so on); a GM broadcast arrives as a
+  toast on every other device at the table; and the GM screen lists the campaign's other seats.
+  One control per destination: a step that has a tap link carries no second button to the same
+  place, and the play guide's pinned next step is marked in its act rather than offered twice.
 - **Dice drawn.** A d100 result shows its two percentile dice — the tens die dark, the units
   light, 100 read as 00 + 0 — above the printed number; a Fate Check shows its two d10s, a
   scene test its d10. The value is decided before the faces are drawn; they tumble for under
@@ -867,8 +872,8 @@ No `data-<expansion>.js` — no expansions were supplied.
 
 | Module | Responsibility |
 |---|---|
-| `core.js` | Constants, DOM helpers, raw dice, formatting, the stroke-icon set (`icon()`), the line-art props (`art()`), the dice faces (`diceFaces()`, `d100Faces()`) and the decorative `meter()`. **No imports.** |
-| `ui.js` | Themed modal, toast, confirm, prompt, chooser |
+| `core.js` | Constants, DOM helpers, raw dice, formatting, the stroke-icon set (`icon()`), the line-art props (`art()`), the dice faces (`diceFaces()`, `d100Faces()`), the decorative `meter()`, and the shared screen pieces every module builds with — `section()`, `statBox()`, `rerender()` (L1). **No imports.** |
+| `ui.js` | Themed modal, toast, confirm, prompt, chooser, and the one clipboard path (`copyText()`, with its textarea and dialog fallbacks) |
 | `rules.js` | Pure rules lookups over the data libraries. No DOM, no state. |
 | `derived.js` | Character-derived calculation, normalization, migration, validation |
 | `settings.js` | Feature and content toggles, theme |
@@ -1226,7 +1231,7 @@ are flagged rather than presented as extracted (S1).
       - [x] Roll-log integration through `Store.addRoll()`.
       - [x] Regression checks: chart monotonicity, derived thresholds, event trigger,
             chaos clamping, list weighting, and every table exactly 100 entries.
-- [x] **Hardening.** Committed regression harness (1403 checks); accessibility pass;
+- [x] **Hardening.** Committed regression harness (1427 checks); accessibility pass;
       rules-accuracy audit with every finding closed (§11).
 
 ---
@@ -1352,6 +1357,30 @@ on it.
 | F7 | A long note beside a label in a `card-row` took the whole row and squeezed the label to **zero width**, so the thing the row was about was the part clipped | Text in a row may shrink and wrap; buttons are left alone, because a button allowed to shrink breaks its own label across two lines. The scar row stacks its note under its location, which is what the note is | A row with a long note keeps a readable label and keeps the button beside it on one line |
 | F8 | The Home how-to said the bottom bar carries "the six screens you use in play"; a fresh install carries five, and six only with the GM screen on | Corrected, and it now names why the count changes | — |
 
+### Redundancy and link audit
+
+Asked: is anything in the app done twice, and is everything that should be linked linked?
+Method: a source sweep for functions defined in more than one module and functions nothing
+calls; a crawler that lists, per screen, every visible control sharing a label with another;
+and a check of every tap line, rules topic and roll-log row against where it leads.
+
+| # | Finding | Fix | Regression check |
+|---|---|---|---|
+| L1 | **The same helper, written two to four times.** `section()` in gm, sheet and solo; a stat box in gm and wizard; an `app:rerender` dispatcher in coach, combat, sheet and solo; a random list pick in coach and combat beside core's `pick()`; and two clipboard paths, of which the join code's had no fallback at all and degraded to a toast | One of each: `section()`, `statBox()` and `rerender()` in `core.js`, `copyText()` in `ui.js`. Solo's `section()` only wraps core's to add its **?** mark | A source sweep: each helper is defined in one module, `Math.random` appears only in `core.js`, and `navigator.clipboard` only in `ui.js` |
+| L2 | **Six helpers nothing called** — `d6`, `debounce`, `titleCase`, `qualityPill`, `rankStepCost`, `hasDraft` | Removed. `maxHeroPoints()` stays: it returns `null` on purpose and is the record of R8 | The sweep asserts they stay gone |
+| L3 | **The GM's Broadcast reached no one.** It wrote to `broadcast/` and nothing listened, so a message sent from the GM screen arrived in the database and on no player's screen | `sync.js` listens for the current campaign's broadcasts from the moment it starts or joins one and raises `sync:broadcast`; `main.js` shows it as a toast. History is not replayed on joining | A broadcast event raises the toast on the receiving device |
+| L4 | `watchMembers()` existed for a live party and nothing called it; the GM screen's Party was this device's dossiers only, so a GM could not see who had joined | The GM screen's Party gains **At the table**: the campaign's other seats, live, with **Open** on any whose dossier is on this device. One subscription per session | — (needs live keys; the local path renders nothing) |
+| L5 | `duplicateCharacter()` — "a copy before a risky mission" — was in the store with no control | A copy button beside the delete on the dossier list | Duplicating adds exactly one dossier |
+| L6 | **The table track's tap lines offered solo play.** `tapRoute()` knew Create, Settings and the Sheet and sent everything else to Solo, so *Combat → Start an encounter*, *Combat → End Mission* and *the Hero chip* opened the solo offer for a player at a table | A route map that names every screen a tap line can start on — Combat, Advancement, Home, Gear, Rules, the log — with the Hero chip going to the sheet | A Combat tap line on the table track opens Combat and offers nothing |
+| L7 | **Two controls per step on the play guide.** Every step carried its tap line as a link *and* a button to the same place, and the next step appeared twice — pinned at the top and again in its act, both with live controls | One control per destination: a step with a tap link has no button; the pinned card keeps its button and prints the path as text; the step's row below is marked **Next — above** | The pinned card carries one control, its row none, and no row both a link and a button |
+| L8 | The rules library explained a procedure and stopped there — reading about chases left the player to find the chase roller | Each topic carries the control that runs it, after Close: a roll needs a dossier and offers Create without one | The Chases topic offers the chase roller; The Combat Round opens Combat |
+| L9 | A Mythic row in the roll log led to Solo; a Classified row's author led nowhere | The author's name opens that dossier when it is on this device | The name in the log opens the sheet |
+
+The crawler's remaining same-label pairs are per-item controls — an **Open** per Home card, a
+**Raise** per Advancement row, an **+ Add** per list, *The rule behind it* per tutorial step —
+and the play guide's two *Start a new adventure* lines, which are two different steps of the
+arc (the first mission and the next one).
+
 Two process guards came out of it and are asserted from now on: every shipped module appears
 in the service worker's `APP_SHELL` and every `APP_SHELL` entry is a file that exists, so the
 §5 rule about updating the list is no longer a rule the build cannot check.
@@ -1473,3 +1502,4 @@ tables are this app's own work and are marked as such (S6).
 | 2026-10-03 | Set the scene (S25, T87, `SCHEMA_VERSION` 12): a 100-city `CITY_TABLE`, a **Where** row in the briefing, and a pre-rolled, editable setting at the head of Start scene — city, place, time and weather, detail — under a location card in capitals; **Travel** rolls a new city and journals the move; the card shows on the running scene, the Solo header and Home's mission card | Asked: spy stories always open on a city, then a place to set the scene, and a scene needs a table to roll for inspiration. The app had a generic Location table and Scene Framing, but no world city, and Start scene asked only what you expected. Decided with the user: real cities, pre-rolled and editable, the city held until Travel | 1375 checks green, including the City table's hundred unique entries and both ends of the d100, every setting line resolving to a real table, a version-11 adventure loading with no city, the setting pre-filled in the browser, the card naming the city in capitals, Travel moving both the scene and the adventure, and the journal carrying the card | `classified-v52` |
 | 2026-10-03 | Solo in four pages (S26): a Scene · Oracle · Lists · Journal strip on a phone, a sticky bar with the Chaos Factor and gauge, scene, city and the one primary action, and a **?** on each panel heading in place of the eight how-to bars. `helpButton()` in `help.js` renders the same `data-help.js` entry in a dialog | Reported: the Solo tab was a very long scroll. Root cause: ten panels and eight help bars in one column, with the primary action in the middle of it. Decided with the user: four pages. Every page stays in the DOM, so nothing lost a route, and the desk keeps its two columns | 1399 checks green, including the four pages, one shown at a time on a phone, a tab opening its page, the page surviving a trip to another screen, the bar sticky with the only primary action, no help bars and a ? per heading, and all four pages with no tabs at 1280px. axe clean bar `meta-viewport`; zero overflow at 360, 390 and 1280px; zero console errors | `classified-v53` |
 | 2026-10-03 | Settled the two leftovers from S26: the Solo bar is one row at every phone width — the city moved under the scene number and the primary action's label may wrap inside its button — and the Mysteries subtitle and the new-mystery dialog no longer describe a clock | The bar wrapped its button onto a second row at 360px, costing about 150px of every page. The mystery copy still read "fill the clock… when the last segment falls", drift left over from S21, which removed the clock; the panel's own how-to already said there is none. Copy corrected to what the engine does — clues raise the odds and Fate decides the moment — with the user's go-ahead | 1403 checks green, including the bar's readings and button sharing one row and no clock wording left on the Solo screen. axe clean bar `meta-viewport`; zero overflow at 360, 390 and 1280px; zero console errors | `classified-v54` |
+| 2026-10-03 | Redundancy and link audit (L1–L9): one copy of every shared helper (`section`, `statBox`, `rerender` in core, `copyText` in ui), six dead helpers removed, the GM broadcast given a receiver, the campaign's seats on the GM screen, Duplicate on the dossier list, the play guide's tap lines routed to the screen they name with one control per destination, rules topics leading to their tools, and a roll's author linked to the dossier | Asked to double-check for redundant functions and for anything that should be linked and is not. Root causes: helpers copied into each new module instead of moved to core when the second one needed them; two sync functions and a store function written for surfaces that were never built; and `tapRoute()` defaulting to Solo, which was right for the solo track and wrong for every Combat line on the table track | 1427 checks green, including a source sweep that each shared helper is defined once and the dead ones stay gone, and browser checks for every new link. A duplicate-label crawl of all thirteen routes at 390 and 1280px leaves only per-item controls. axe clean bar `meta-viewport`; zero console errors | `classified-v55` |

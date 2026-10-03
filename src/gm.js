@@ -1,6 +1,6 @@
 /* gm.js — GM dashboard: party panel, NPC generator, rollable reference tables. */
 
-import { el, clear, d10, d100, signed, pick, uid } from "./core.js";
+import { el, clear, d10, d100, signed, pick, uid, section, statBox, rerender } from "./core.js";
 import { modal, showToast, chooseModal, promptModal } from "./ui.js";
 import * as D from "../data.js";
 import * as R from "./rules.js";
@@ -49,6 +49,7 @@ export function renderGM(host) {
     pSec.appendChild(el("p", { class: "small muted", text:
       "The final column is the Skill Rank + Characteristic total the book uses to gauge rank: under 125 Rookie, 126-250 Agent, over 250 Special Agent." }));
   }
+  appendTable(pSec);
   host.appendChild(pSec);
 
   // Generators
@@ -94,10 +95,45 @@ export function renderGM(host) {
   host.appendChild(bSec);
 }
 
-function section(title) {
-  const s = el("div", { class: "section" });
-  s.appendChild(el("div", { class: "section-title", text: title }));
-  return s;
+
+/* ---------------------------------------------------------------- the table */
+
+/*
+ * Who has joined the campaign. The party above is the dossiers on this device; a GM running a
+ * table needs the other seats too, and `watchMembers()` existed for exactly this but nothing
+ * called it. One subscription for the session, so redrawing the screen never stacks another.
+ */
+let tableSeats = null;
+let watchingSeats = false;
+
+function appendTable(sec) {
+  if (!Sync.isEnabled() || !Sync.currentCampaign()) return;
+  if (!watchingSeats) {
+    watchingSeats = true;
+    Sync.watchMembers(list => {
+      tableSeats = list;
+      if (location.hash.startsWith("#/gm")) rerender();
+    });
+  }
+  const me = (Sync.currentUser() || {}).uid;
+  const others = (tableSeats || []).filter(m => m.uid !== me);
+  sec.appendChild(el("div", { class: "field-label", style: "margin-top:12px", text: "At the table" }));
+  if (!others.length) {
+    sec.appendChild(el("p", { class: "small muted", text: tableSeats
+      ? `Nobody else has joined yet. Join code: ${Sync.currentCampaign().joinCode}`
+      : "Looking for the other seats…" }));
+    return;
+  }
+  const card = el("div", { class: "card flush" });
+  for (const m of others) {
+    const local = m.characterId ? Store.getCharacter(m.characterId) : null;
+    card.appendChild(el("div", { class: "card-row" },
+      el("div", { class: "grow" },
+        el("div", { text: m.displayName || "Agent" }),
+        el("div", { class: "small muted", text: m.role === "gm" ? "Game master" : "Player" })),
+      local ? el("button", { class: "btn sm ghost", type: "button", onclick: () => peekCharacter(local) }, "Open") : null));
+  }
+  sec.appendChild(card);
 }
 
 /* ---------------------------------------------------------------- party peek */
@@ -110,8 +146,8 @@ function peekCharacter(c) {
       el("div", { class: "k", text: ch.abbr }), el("div", { class: "v", text: String(c.attributes[ch.key]) })))));
 
   body.appendChild(el("div", { class: "grid grid-3", style: "margin-top:10px" },
-    box("Speed", dv.speed), box("Hero", c.state.heroPoints), box("Rep", c.reputation),
-    box("Wound", R.woundLevel(c.state.wound).name), box("H-to-H", dv.hthDamage), box("Carry", dv.carryRange)));
+    statBox("Speed", dv.speed), statBox("Hero", c.state.heroPoints), statBox("Rep", c.reputation),
+    statBox("Wound", R.woundLevel(c.state.wound).name), statBox("H-to-H", dv.hthDamage), statBox("Carry", dv.carryRange)));
 
   const skills = Object.entries(c.skills).sort((a, b) => b[1] - a[1]);
   if (skills.length) {
@@ -139,12 +175,6 @@ function peekCharacter(c) {
     { label: "Close", kind: "ghost" },
     { label: "Open", kind: "primary", onClick: () => { Store.setActive(c.id); navigate("sheet"); } }
   ] });
-}
-
-function box(k, v) {
-  return el("div", { class: "stat-box" },
-    el("div", { class: "k", text: k }),
-    el("div", { class: "v", style: String(v).length > 5 ? "font-size:14px" : "", text: String(v) }));
 }
 
 /* ---------------------------------------------------------------- encounters */

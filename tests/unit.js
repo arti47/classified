@@ -588,6 +588,19 @@ export function unitTests(t) {
     (versions.length ? ` (also in ${versions.join(", ")})` : ""));
   t.ok(/const CACHE_VERSION = "classified-v\d+"/.test(swText), "and the worker declares one");
 
+  // One copy of each shared helper. The redundancy audit found section(), a stat box, a
+  // rerender dispatcher, a list picker and the clipboard path each written two to four times.
+  const src = Object.fromEntries(srcJs.map(f => [f, readFileSync(new URL("../src/" + f, import.meta.url), "utf8")]));
+  const definers = re => srcJs.filter(f => re.test(src[f]));
+  t.deep(definers(/^(export )?function section\(/m), ["core.js", "solo.js"].filter(f => srcJs.includes(f)),
+    "section() is defined once in core.js; Solo only wraps it to add its ? mark");
+  t.deep(definers(/^function (box|statBox)\(|^export function statBox\(/m), ["core.js"], "one stat box helper, in core.js");
+  t.deep(definers(/new CustomEvent\("app:rerender"\)/), ["core.js"], "one rerender dispatcher, in core.js");
+  t.deep(definers(/Math\.random\(/), ["core.js"], "every random pick goes through core.js");
+  t.deep(definers(/navigator\.clipboard/), ["ui.js"], "one clipboard path, in ui.js, with its fallbacks");
+  const dead = ["function d6(", "function debounce(", "function titleCase(", "function qualityPill(", "function rankStepCost(", "function hasDraft("];
+  t.ok(!dead.some(d => Object.values(src).some(b => b.includes(d))), "the dead helpers the audit found stay removed");
+
   t.group("Data integrity");
 
   for (const s of D.SKILLS) {

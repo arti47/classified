@@ -1,7 +1,7 @@
 /* sheet.js — the live character sheet, in-play tracking, and the persistent
  * resource header shown on every in-play screen. */
 
-import { el, clear, $, money, signed, dfLabel, uid, percent, d100, meter, art } from "./core.js";
+import { el, clear, $, money, signed, dfLabel, uid, percent, d100, meter, art, section, rerender } from "./core.js";
 import { modal, showToast, confirmModal, promptModal, chooseModal } from "./ui.js";
 import * as D from "../data.js";
 import * as R from "./rules.js";
@@ -384,7 +384,7 @@ async function openPortrait(c) {
     if (!pick) return;
     if (pick === "remove") {
       Store.updateActive(x => { x.identity.portraitUrl = ""; });
-      renderHostAgain();
+      rerender();
       showToast("Photograph removed", "ok");
       return;
     }
@@ -402,7 +402,7 @@ function pickPortraitFile(c) {
     try {
       const url = await compressImage(file);
       Store.updateActive(x => { x.identity.portraitUrl = url; });
-      renderHostAgain();
+      rerender();
       showToast("Photograph added", "ok");
     } catch (e) {
       showToast("That image could not be read", "err");
@@ -435,9 +435,6 @@ export function compressImage(file, px = PORTRAIT_PX) {
   });
 }
 
-function renderHostAgain() {
-  document.dispatchEvent(new CustomEvent("app:rerender"));
-}
 
 export function renderSheet(host) {
   const c = Store.activeCharacter();
@@ -684,12 +681,6 @@ function bcFill(base) {
   return `--fill:${Math.round(Math.max(0, Math.min(1, base / D.MAX_BASE_CHANCE)) * 100)}%`;
 }
 
-function section(title, sub) {
-  const s = el("div", { class: "section" });
-  s.appendChild(el("div", { class: "section-head" }, el("div", { class: "section-title", text: title })));
-  if (sub) s.appendChild(el("p", { class: "small muted", style: "margin-top:-2px", text: sub }));
-  return s;
-}
 
 function openNotes(c) {
   const ta = el("textarea", { value: c.identity.notes || "" });

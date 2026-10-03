@@ -12,7 +12,7 @@
  * briefing's NPC generator makes under ruling S15.
  */
 
-import { el, clear } from "./core.js";
+import { el, clear, pick, rerender } from "./core.js";
 import { modal, showToast, confirmModal } from "./ui.js";
 import { Settings, set as setSetting } from "./settings.js";
 import * as Store from "./store.js";
@@ -71,7 +71,7 @@ export function renderCoach(host, opts = {}) {
 
 /** Redraw wherever the coach is mounted, so a beat never lags behind the state. */
 function again(host, opts) {
-  document.dispatchEvent(new CustomEvent("app:rerender"));
+  rerender();
   if (host && host.isConnected && !opts.compact) {
     // The Play screen is the coach and nothing else, so it can redraw itself immediately
     // rather than waiting for the router.
@@ -158,9 +158,9 @@ function drawBeat(body, beat, host, opts) {
 async function takeReadyMade(host, opts) {
   const { PREGENS } = await import("../data-pregens.js");
   const { instantiatePregen } = await import("./wizard.js");
-  const pick = PREGENS[Math.floor(Math.random() * PREGENS.length)];
+  const chosen = pick(PREGENS);
   // instantiatePregen builds the dossier; saving it is the caller's job.
-  const saved = Store.saveCharacter(instantiatePregen(pick));
+  const saved = Store.saveCharacter(instantiatePregen(chosen));
   Store.setActive(saved.id);
   showToast(`${saved.identity.name} is ready`, "ok");
   again(host, opts);

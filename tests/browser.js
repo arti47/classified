@@ -2810,6 +2810,80 @@ export async function browserTests(t, { chromium, executablePath, baseURL }) {
       t.ok(/next one|what now/i.test(coached.step5), "and the coach asks for the next scene");
 
 
+      // Redundancy and linking audit: one control per destination on the play guide, every
+      // tap line leading to the screen it names, rules topics leading to their tools, a GM
+      // broadcast arriving, a dossier that can be duplicated, and a roll's author linked.
+      const linked = await page.evaluate(async () => {
+        const Store = await import("./src/store.js");
+        const S = await import("./src/settings.js");
+        const wait = ms => new Promise(r => setTimeout(r, ms));
+        const out = {};
+        document.querySelectorAll(".modal-head .icon-btn").forEach(b => b.click());
+        await wait(100);
+        // Table track: the tap lines that used to offer solo play.
+        const soloWas = S.Settings.solo();
+        S.set("solo", false);
+        location.hash = "#/home"; await wait(150);
+        location.hash = "#/play"; await wait(300);
+        const combatTap = [...document.querySelectorAll("#screen .tut-tap.is-link")].find(b => /^Combat/.test(b.textContent));
+        out.combatTap = !!combatTap;
+        combatTap?.click(); await wait(250);
+        out.combatTapGoes = location.hash;
+        out.offeredSolo = !!document.querySelector(".modal");
+        document.querySelectorAll(".modal-head .icon-btn").forEach(b => b.click());
+        S.set("solo", soloWas);
+        location.hash = "#/play"; await wait(300);
+        const nextCard = document.querySelector("#screen .next-step");
+        out.nextCardLinks = nextCard ? nextCard.querySelectorAll("button").length : -1;
+        const nextRow = document.querySelector("#screen .guide-step.is-next");
+        out.nextRowControls = nextRow ? nextRow.querySelectorAll("button").length : -1;
+        out.doubleControlRows = [...document.querySelectorAll("#screen .guide-step")]
+          .filter(r => r.querySelector(".tut-tap.is-link") && r.querySelector("button.btn")).length;
+        // Rules topics lead to their tools.
+        const scr = await import("./src/screens.js");
+        scr.openRulesTopic("chases"); await wait(150);
+        out.chaseTool = [...document.querySelectorAll(".modal .modal-foot .btn")].map(b => b.textContent);
+        document.querySelectorAll(".modal-head .icon-btn").forEach(b => b.click()); await wait(100);
+        scr.openRulesTopic("combatround"); await wait(150);
+        [...document.querySelectorAll(".modal .modal-foot .btn")].find(b => /Combat/.test(b.textContent))?.click();
+        await wait(250);
+        out.topicToCombat = location.hash;
+        // A broadcast from the GM reaches this device.
+        document.dispatchEvent(new CustomEvent("sync:broadcast", { detail: { text: "Rendezvous moved to the pier", ts: Date.now() } }));
+        await wait(100);
+        out.broadcastShown = [...document.querySelectorAll(".toast")].some(x => /pier/.test(x.textContent));
+        // Duplicate a dossier from the list.
+        const before = Store.allCharacters().length;
+        location.hash = "#/create"; await wait(300);
+        document.querySelector('#screen button[aria-label^="Duplicate"]')?.click(); await wait(250);
+        out.duplicated = Store.allCharacters().length - before;
+        const copy = Store.allCharacters().find(c => /\(copy\)$/.test(c.identity.name));
+        if (copy) Store.deleteCharacter(copy.id);
+        // The roll log names who rolled, and the name opens that dossier.
+        const roller = Store.allCharacters()[0];
+        if (roller) Store.setActive(roller.id);
+        Store.addRoll({ by: roller ? roller.identity.name : "Agent", characterId: roller ? roller.id : null,
+          label: "Audit roll", roll: 12, quality: 3, modifiers: [] });
+        location.hash = "#/log"; await wait(300);
+        const by = document.querySelector("#screen .log-entry .link-btn");
+        out.byLink = !!by;
+        location.hash = "#/home"; await wait(150);
+        location.hash = "#/log"; await wait(300);
+        document.querySelector("#screen .log-entry .link-btn")?.click(); await wait(250);
+        out.byGoes = location.hash;
+        return out;
+      });
+      t.ok(linked.combatTap && linked.combatTapGoes === "#/combat" && !linked.offeredSolo,
+        "a Combat tap line on the table track opens Combat, not the solo offer");
+      t.eq(linked.nextCardLinks, 1, "the pinned next step carries one control, not a link and a button to the same place");
+      t.eq(linked.nextRowControls, 0, "and its row below is marked rather than offered a second time");
+      t.eq(linked.doubleControlRows, 0, "no guide step carries both a tap link and a button to the same place");
+      t.ok(linked.chaseTool.includes("Chase manoeuvre"), "the Chases rules topic offers the chase roller");
+      t.eq(linked.topicToCombat, "#/combat", "and The Combat Round leads to the Combat screen");
+      t.ok(linked.broadcastShown, "a GM broadcast is shown on the receiving device");
+      t.eq(linked.duplicated, 1, "a dossier can be duplicated from the dossier list");
+      t.ok(linked.byLink && linked.byGoes === "#/sheet", "a roll's author in the log opens that dossier");
+
       t.eq(errors.length, 0, "zero JavaScript errors during the whole run" +
         (errors.length ? `: ${errors.slice(0, 3).join(" | ")}` : ""));
 
