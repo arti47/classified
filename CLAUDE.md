@@ -1279,6 +1279,10 @@ are flagged rather than presented as extracted (S1).
    explicitly labelled a house aid — End Scene (R9), the solo Mysteries (S20) and the name
    tables (R12).
 9. **Module discipline.** Respect the §5.1 responsibilities; import and export explicitly.
+10. **Reporting to the user.** Do not narrate every step. Report progress only as
+    percentages — 5%, 10%, 15% … up to 100% — then a short technical summary at the end.
+11. **Rules fidelity, always.** Every change, of any kind, keeps the app faithful to the
+    supplied rules (§2). Check it before declaring any task done.
 
 ---
 
