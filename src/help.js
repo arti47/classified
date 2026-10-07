@@ -114,7 +114,13 @@ export function openGlossary(q = "") {
       for (const g of rows) {
         card.appendChild(el("div", { class: "card-row col" },
           el("b", { text: g.term }),
-          el("span", { class: "small muted", text: g.what })));
+          el("span", { class: "small muted", text: g.what }),
+          // A definition is a sentence; the topic behind it is the procedure. Terms that have
+          // one lead there, so the glossary is not a dead end (L13).
+          (g.rule || g.solo) ? el("button", {
+            class: "link-btn small", type: "button", "aria-label": `The rule behind ${g.term}`,
+            onclick: () => openGlossaryTopic(g)
+          }, "The rule behind it →") : null));
       }
       list.appendChild(card);
     }
@@ -131,6 +137,15 @@ export function openGlossary(q = "") {
       search, list),
     actions: [{ label: "Close", kind: "primary" }]
   });
+}
+
+/**
+ * Open the topic a glossary term points at. Both libraries arrive by dynamic import: help.js is
+ * imported by solo.js, which may not reach the Classified rules statically (S15).
+ */
+export function openGlossaryTopic(g) {
+  if (g.rule) return import("./screens.js").then(m => m.openRulesTopic(g.rule));
+  if (g.solo) return import("./solo.js").then(m => m.openTopic(g.solo));
 }
 
 /** A row a screen can drop into a list to open the glossary. */

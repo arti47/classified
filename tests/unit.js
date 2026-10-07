@@ -770,6 +770,12 @@ function helpTests(t) {
   }
   t.ok(!gbad, "every entry names a system and defines the term in a sentence or two" + (gbad ? ` (${gbad})` : ""));
 
+  // L13: a term that names a rule points at a topic that exists.
+  for (const g of GLOSSARY.filter(x => x.rule || x.solo)) {
+    const ok = g.rule ? D.RULES_TOPICS.some(x => x.key === g.rule) : SOLO.SOLO_TOPICS.some(x => x.key === g.solo);
+    t.ok(ok, `glossary "${g.term}" leads to a real topic (${g.rule || g.solo})`);
+  }
+  t.ok(GLOSSARY.filter(x => x.rule || x.solo).length >= 25, "most glossary terms lead to their rule");
   const terms = GLOSSARY.map(g => g.term.toLowerCase());
   t.eq(new Set(terms).size, terms.length, "no term is defined twice");
   for (const sys of systems) {

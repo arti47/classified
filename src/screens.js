@@ -1078,7 +1078,9 @@ export function renderSettings(host) {
   appendHelp(host, "settings");
 
   host.appendChild(el("div", { class: "section" }, el("div", { class: "section-title", text: "Campaign style" })));
-  host.appendChild(el("p", { class: "small muted", text: "Style decides when Hero Points are earned and how forgiving the table is." }));
+  host.appendChild(el("p", { class: "small muted" }, "Style decides when Hero Points are earned and how forgiving the table is. ",
+    // The choice changes a rule; the rule is one tap away rather than in another tab (L16).
+    el("button", { class: "link-btn", type: "button", onclick: () => openRulesTopic("heropoints") }, "Hero Points rule →")));
   for (const s of D.CAMPAIGN_STYLES) {
     host.appendChild(el("button", {
       class: "opt-btn" + (Settings.campaignStyle() === s.key ? " on" : ""), type: "button",

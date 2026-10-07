@@ -1381,9 +1381,19 @@ export async function browserTests(t, { chromium, executablePath, baseURL }) {
         const adv = Store.activeAdventure();
         const m = adv.mysteries.find(x => x.id === "mys_opp");
         const text = document.querySelector(".modal") ? document.querySelector(".modal").textContent : "";
+        // The tell names a stat block, so the stat block is a tap away (L15).
+        const openOpp = [...document.querySelectorAll(".modal button")].find(b => b.textContent === "Open the opponent");
+        let oppOpened = false;
+        if (openOpp) {
+          openOpp.click();
+          await new Promise(r => setTimeout(r, 200));
+          const top = [...document.querySelectorAll(".modal")].pop();
+          oppOpened = !!top && /Cormorant/.test(top.textContent) && top.textContent.includes(m.reveal.tell.name);
+        }
         (await import("./src/ui.js")).closeAllModals();
         await new Promise(r => setTimeout(r, 60));
         return {
+          oppOpened,
           shape: m.reveal.shapeName,
           implicated: m.reveal.implicated,
           tellKind: m.reveal.tell && m.reveal.tell.kind,
@@ -1401,6 +1411,7 @@ export async function browserTests(t, { chromium, executablePath, baseURL }) {
       t.eq(namedReveal.npcWeaknesses, 1, "which is written onto their stat block, not just described");
       t.ok(!!namedReveal.tellName, `and named on the reveal (${namedReveal.tellName})`);
       t.ok(namedReveal.shownTell, "the reveal shows the tell it added");
+      t.ok(namedReveal.oppOpened, "and opens the opponent's stat block, with the tell on it, from the reveal");
 
       // A mystery nobody has touched is a thing running away from you.
       const stale = await page.evaluate(async () => {
@@ -3112,6 +3123,54 @@ export async function browserTests(t, { chromium, executablePath, baseURL }) {
       t.ok(wiz.fullAfterTwo === true, "after which a profession Field is not offered");
       t.ok(wiz.stillOpen, "raising a skill leaves its group open");
       t.ok(wiz.scrollKept, "and keeps the page where it was");
+
+      // Link audit, second pass (L13–L16): every library entry leads to what runs it.
+      const links = await page.evaluate(async () => {
+        const wait = ms => new Promise(r => setTimeout(r, ms));
+        const ui = await import("./src/ui.js");
+        const help = await import("./src/help.js");
+        const router = await import("./src/router.js");
+        const settings = await import("./src/settings.js");
+        const out = {};
+        ui.closeAllModals(); await wait(60);
+        help.openGlossary("Difficulty Factor"); await wait(150);
+        const ruleBtn = [...document.querySelectorAll(".modal button")].find(b => /The rule behind it/.test(b.textContent));
+        out.glossLink = !!ruleBtn;
+        ruleBtn && ruleBtn.click(); await wait(250);
+        out.glossTopic = ([...document.querySelectorAll(".modal")].pop() || {}).textContent || "";
+        ui.closeAllModals(); await wait(60);
+        help.openGlossary("Chaos Factor"); await wait(150);
+        [...document.querySelectorAll(".modal button")].find(b => /The rule behind it/.test(b.textContent))?.click(); await wait(250);
+        out.glossSolo = ([...document.querySelectorAll(".modal")].pop() || {}).textContent || "";
+        ui.closeAllModals(); await wait(60);
+
+        settings.set("solo", true);
+        router.navigate("home"); await wait(150);
+        const Solo = await import("./src/solo.js");
+        Solo.setSoloPage("scene");
+        Solo.openTopic("fate"); await wait(150);
+        [...document.querySelectorAll(".modal-foot .btn")].find(b => b.textContent === "Ask Fate")?.click(); await wait(350);
+        out.fateRoute = location.hash;
+        out.fatePage = document.querySelector(".solo-page.is-current")?.dataset.page;
+        ui.closeAllModals(); await wait(60);
+        settings.set("solo", false);
+        Solo.openTopic("fate"); await wait(150);
+        out.offTool = [...document.querySelectorAll(".modal-foot .btn")].map(b => b.textContent);
+        ui.closeAllModals(); await wait(60);
+
+        router.navigate("settings"); await wait(200);
+        [...document.querySelectorAll("#screen button")].find(b => /Hero Points rule/.test(b.textContent))?.click(); await wait(200);
+        out.styleTopic = (document.querySelector(".modal h2, .modal .modal-title") || {}).textContent || "";
+        ui.closeAllModals(); await wait(60);
+        return out;
+      });
+      t.ok(links.glossLink, "a glossary term with a rule behind it offers that rule");
+      t.ok(/Difficulty Factor Modifiers/.test(links.glossTopic), "Difficulty Factor opens its rules topic");
+      t.ok(/The Chaos Factor/.test(links.glossSolo), "a Mythic term opens its solo topic");
+      t.eq(links.fateRoute, "#/solo", "a solo topic's tool goes to the Solo screen");
+      t.eq(links.fatePage, "oracle", "and opens the page that runs it");
+      t.ok(!links.offTool.includes("Ask Fate"), "with solo off the topic is reference only");
+      t.ok(/Hero Points/.test(links.styleTopic), "the campaign style links to the Hero Points rule it changes");
 
       t.eq(errors.length, 0, "zero JavaScript errors during the whole run" +
         (errors.length ? `: ${errors.slice(0, 3).join(" | ")}` : ""));

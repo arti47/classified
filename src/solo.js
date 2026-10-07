@@ -1872,6 +1872,7 @@ function mysteryCard(adv, m) {
       el("div", { class: "small", text: m.reveal.shapeDesc }),
       m.reveal.implicated ? el("div", { class: "small", text: `It runs through ${m.reveal.implicated}.` }) : null,
       m.reveal.tell ? el("div", { class: "small", text: `Tell: ${m.reveal.tell.name} — ${m.reveal.tell.desc}` }) : null,
+      m.reveal.tell ? opponentButton() : null,
       m.reveal.words.length
         ? el("div", { class: "roll-formula", style: "text-align:left", text: m.reveal.words.join(" · ") })
         : null,
@@ -1889,6 +1890,15 @@ function mysteryCard(adv, m) {
       }, "Clear")));
   }
   return card;
+}
+
+/** The briefing's opponent as a stat block, for any surface that names it. Null when there is none. */
+function opponentButton() {
+  const adv = Store.activeAdventure();
+  const npc = adv && adv.briefing && adv.briefing.npc;
+  if (!npc) return null;
+  return el("button", { class: "btn sm ghost", type: "button", style: "margin-top:6px",
+    onclick: () => import("./combat.js").then(m => m.showNPC(Store.activeAdventure().briefing.npc)) }, "Open the opponent");
 }
 
 /**
@@ -2200,7 +2210,9 @@ export async function revealMystery(adv, id, opts = {}) {
     body.appendChild(el("div", { class: "banner", style: "margin-top:8px" },
       el("b", { text: "Tell: " + tell.name }),
       el("div", { class: "small", text: tell.desc }),
-      el("div", { class: "lm", text: "Added to the opponent's stat block — open Opponent on the briefing to see it." })));
+      el("div", { class: "lm", text: "Added to the opponent's stat block." }),
+      // The stat block it changed is one tap away, not an instruction to go and find it (L15).
+      opponentButton()));
   }
   // The clues are what the shape and the words have to answer. Read against nothing, a reveal
   // is just two more words.
@@ -2784,13 +2796,43 @@ function journalText(entries) {
 
 /* ---------------------------------------------------------------- topics */
 
+/*
+ * Each solo topic leads to the page that runs it, as each rules topic leads to its tool (L8,
+ * L14). Routing only — a page or a screen, never a number. The page tools need solo on; with it
+ * off the topic is reference and Close is all it offers.
+ */
+const SOLO_TOPIC_TOOLS = {
+  briefing:   { label: "Open the briefing", briefing: true },
+  fate:       { label: "Ask Fate", page: "oracle" },
+  events:     { label: "Random Events", page: "oracle" },
+  scenes:     { label: "Go to the scene", page: "scene" },
+  lists:      { label: "Open the lists", page: "lists" },
+  mysteries:  { label: "Open Mysteries", page: "lists" },
+  twosystems: { label: "Classified rules", route: "rules" }
+};
+
+function runSoloTopicTool(tool) {
+  const go = where => import("./router.js").then(m => m.navigate(where));
+  if (tool.route) return go(tool.route);
+  if (tool.briefing && Store.activeAdventure()) {
+    setSoloPage("scene");
+    return go("solo").then(() => openBriefing(Store.activeAdventure()));
+  }
+  setSoloPage(tool.page || "scene");
+  return go("solo");
+}
+
 export function openTopic(key) {
   const topic = S.SOLO_TOPICS.find(t => t.key === key);
   if (!topic) return;
+  const tool = SOLO_TOPIC_TOOLS[key];
+  const usable = tool && (tool.route || Settings.solo());
   modal({
     title: topic.title,
     body: el("div", {}, ...topic.body.map(t => el("p", { text: t }))),
-    actions: [{ label: "Close", kind: "primary" }]
+    actions: usable
+      ? [{ label: "Close", kind: "ghost" }, { label: tool.label, kind: "primary", onClick: () => runSoloTopicTool(tool) }]
+      : [{ label: "Close", kind: "primary" }]
   });
 }
 
