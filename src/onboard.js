@@ -10,25 +10,26 @@
  */
 
 import { el, clear, art } from "./core.js";
-import { showToast } from "./ui.js";
 import * as Store from "./store.js";
 import { Settings, set as setSetting } from "./settings.js";
 import { PREGENS } from "../data-pregens.js";
 import * as R from "./rules.js";
 import { skillList } from "./derived.js";
 import { instantiatePregen } from "./wizard.js";
+import { lookPicker } from "./sheet.js";
 import { navigate, rebuildNav } from "./router.js";
 
 let step = "agent";
 
 export function renderHome(host) {
-  if (Store.activeCharacter() && step !== "mode") {
+  if (Store.activeCharacter() && step !== "mode" && step !== "look") {
     navigate("mission", { replace: true });
     return;
   }
   clear(host);
   host.classList.add("onboard");
-  if (step === "mode" && Store.activeCharacter()) renderMode(host);
+  if (step === "look" && Store.activeCharacter()) renderLook(host);
+  else if (step === "mode" && Store.activeCharacter()) renderMode(host);
   else renderAgents(host);
 }
 
@@ -71,17 +72,27 @@ function profName(key) {
 function recruit(p, host) {
   const saved = Store.saveCharacter(instantiatePregen(p));
   Store.setActive(saved.id);
-  showToast(`${p.name} recruited`, "ok");
-  step = "mode";
+  // No toast: the next screen is the confirmation, and a toast would sit over its title.
+  step = "look";
   clear(host);
-  renderMode(host);
+  renderLook(host);
   window.scrollTo(0, 0);
+}
+
+/* ---------------------------------------------------------------- step 2: the look */
+
+function renderLook(host) {
+  host.appendChild(dots(2));
+  host.appendChild(el("h1", { class: "ob-title", text: "Make it yours" }));
+  host.appendChild(lookPicker());
+  host.appendChild(el("button", { class: "btn primary block", type: "button",
+    onclick: () => { step = "mode"; clear(host); renderMode(host); window.scrollTo(0, 0); } }, "Next"));
 }
 
 /* ---------------------------------------------------------------- step 2: how */
 
 function renderMode(host) {
-  host.appendChild(dots(2));
+  host.appendChild(dots(3));
   host.appendChild(el("h1", { class: "ob-title", text: "How will you play?" }));
   const grid = el("div", { class: "ob-modes" });
   grid.appendChild(modeTile("oracle", "Alone", "The app runs the world", () => begin(true)));
@@ -117,6 +128,6 @@ async function begin(solo) {
 }
 
 function dots(n) {
-  return el("div", { class: "ob-dots", role: "img", "aria-label": `Step ${n} of 2` },
-    [1, 2].map(i => el("span", { class: "ob-dot" + (i === n ? " on" : i < n ? " done" : "") })));
+  return el("div", { class: "ob-dots", role: "img", "aria-label": `Step ${n} of 3` },
+    [1, 2, 3].map(i => el("span", { class: "ob-dot" + (i === n ? " on" : i < n ? " done" : "") })));
 }

@@ -19,7 +19,7 @@ const ROUTES = {
   solo: { label: "Case board", icon: "◈", navIcon: "board", title: "Case board", gated: () => Settings.solo(), render: h => imp("./solo.js", m => m.renderSolo(h)) },
   settings: { label: "Settings", icon: "⚑", title: "Settings", render: h => imp("./screens.js", m => m.renderSettings(h)) },
   tutorial: { label: "Tutorial", icon: "◎", title: "Tutorial", render: h => imp("./help.js", m => m.renderTutorial(h)) },
-  play: { label: "Guide", icon: "▶", title: "How to play", render: h => imp("./help.js", m => m.renderPlayGuide(h)) }
+  play: { label: "Training", icon: "▶", title: "Training", render: h => imp("./help.js", m => m.renderPlayGuide(h)) }
 };
 
 /* Three places (CLAUDE.md §1.3, U1): the Agent, the Mission, the Files. Everything else is a
@@ -36,7 +36,7 @@ function primaryTabs() {
 const FOLDERS = {
   agent: { tab: "sheet", routes: ["sheet", "gear", "advance"] },
   mission: { tab: "mission", routes: ["mission", "solo", "combat"] },
-  files: { tab: "files", routes: ["rules", "play", "tutorial", "log", "settings"], also: ["files"], hideOn: ["files"],
+  files: { tab: "files", routes: ["rules", "play", "log", "settings"], also: ["files", "tutorial"], hideOn: ["files", "tutorial"],
     actions: [{ key: "glossary", label: "Glossary", run: () => import("./help.js").then(m => m.openGlossary()) }] }
 };
 

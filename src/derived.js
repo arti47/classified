@@ -1,6 +1,6 @@
 /* derived.js — character-derived calculations, normalization and migration. */
 
-import { clamp, uid, SCHEMA_VERSION } from "./core.js";
+import { clamp, uid, SCHEMA_VERSION, SILHOUETTES, STAMP_COLOURS } from "./core.js";
 import * as D from "../data.js";
 import * as R from "./rules.js";
 
@@ -22,7 +22,8 @@ export function blankCharacter(rank = "rookie") {
       heightBand: 4, weightBand: 4, appearance: "normal",
       height: "", weight: "", age: D.PROFESSION_RULES.startAge,
       profession: null, professionYears: 0,
-      organisation: "", cover: "", portraitUrl: "", notes: ""
+      organisation: "", cover: "", portraitUrl: "", notes: "",
+      silhouette: "", stamp: "red"             // the agent's look (U22); "" follows the gender
     },
     attributes: { str: 5, dex: 5, wil: 5, per: 5, int: 5 },
     // Every character begins with Charisma and Driving at rank 1 [Ch.2].
@@ -73,6 +74,9 @@ export function normalize(c) {
     const g = String(out.identity.gender || "").trim().toLowerCase();
     out.identity.gender = g.startsWith("f") ? "female" : g.startsWith("m") ? "male" : "";
   }
+  // The look is presentation only: an unknown value falls back rather than failing (v14).
+  if (!SILHOUETTES.some(x => x.key === out.identity.silhouette)) out.identity.silhouette = "";
+  if (!STAMP_COLOURS.some(x => x.key === out.identity.stamp)) out.identity.stamp = "red";
   out.attributes = { ...base.attributes, ...(c.attributes || {}) };
   out.state = { ...base.state, ...(c.state || {}) };
   out.state.conditions = { ...(c.state?.conditions || {}) };

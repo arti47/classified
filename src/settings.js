@@ -78,7 +78,7 @@ export function applyTheme() {
   else root.setAttribute("data-theme", t);
   // The browser chrome follows the paper: an explicit choice overrides both media-matched
   // theme-color tags, and "system" hands them back to the media queries.
-  const colours = { light: "#e9dfc7", dark: "#0f141c" };
+  const colours = { light: "#e9dfc7", dark: "#0f141c", nightops: "#030a05" };
   for (const meta of document.querySelectorAll('meta[name="theme-color"]')) {
     if (!meta.dataset.media) meta.dataset.media = meta.getAttribute("media") || "";
     if (t === "system") {
@@ -92,7 +92,7 @@ export function applyTheme() {
 }
 
 export function cycleTheme() {
-  const order = ["system", "light", "dark"];
+  const order = ["system", "light", "dark", "nightops"];
   const next = order[(order.indexOf(get("theme")) + 1) % order.length];
   set("theme", next);
   applyTheme();
@@ -110,6 +110,6 @@ export const TOGGLE_ROWS = [
   { key: "airbags", name: "Assume airbags fitted", desc: "Reduces a single three-rank accident hit by one further Wound Rank." },
   { key: "showHelp", name: "Show how-to panels", desc: "A collapsed how-to bar on every screen. The ? in the header always has the same help." },
   { key: "veteran", name: "Veteran mode", desc: "Every procedure the book defines on one picker, instead of the common ones first." },
-  { key: "sfx", name: "Sound and vibration", desc: "A click and a buzz when the dice land." },
+  { key: "sfx", name: "Sound and vibration", desc: "A click and a buzz when the dice land, and shake the phone to roll." },
   { key: "solo", name: "Solo play (Mythic)", desc: "The Mythic Game Master Emulator runs the world: Fate questions, the Chaos Factor, scenes, Random Events and 37 Meaning Tables. A second system, not part of Classified." }
 ];

@@ -250,12 +250,22 @@ export function renderPlayGuide(host, opts = {}) {
   host.appendChild(coachSlot);
   import("./coach.js").then(m => m.renderCoach(coachSlot));
 
+  // Training is the one place to learn (U18): the coach plays a mission with you, and the
+  // written guide and a mission somebody else played sit folded under it.
+  const watch = el("details", { class: "acc training-watch" }, el("summary", {},
+    el("span", { text: "Watch a mission played" }),
+    el("span", { class: "small muted", text: "start to finish" })));
+  const watchBody = el("div", { class: "acc-body" });
+  watch.appendChild(watchBody);
+  watch.addEventListener("toggle", () => { if (watch.open && !watchBody.firstChild) renderTutorial(watchBody); });
+
   const acc = el("details", { class: "acc" }, el("summary", {},
     el("span", { text: "How a game works" }),
     el("span", { class: "small muted", text: "the whole arc" })));
   const guide = el("div", { class: "acc-body", style: "padding:0" });
   acc.appendChild(guide);
   host.appendChild(acc);
+  host.appendChild(watch);
   host = guide;
 
   host.appendChild(el("div", { class: "card" },

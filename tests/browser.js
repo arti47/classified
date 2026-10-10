@@ -103,8 +103,8 @@ export async function browserTests(t, { chromium, executablePath, baseURL }) {
       t.ok(["mission", "solo", "combat"].every(r => folders[r].shown && folders[r].current === r &&
         folders[r].tabs.join() === "mission,solo,combat" && folders[r].lit === "mission"),
         "the Mission's feed, case board and combat share one strip under the Mission tab");
-      t.ok(["log", "rules", "play", "tutorial", "settings"].every(r => folders[r].shown &&
-        folders[r].tabs.join() === "rules,play,tutorial,log,settings" && folders[r].glossary && folders[r].lit === "files"),
+      t.ok(["log", "rules", "play", "settings"].every(r => folders[r].shown &&
+        folders[r].tabs.join() === "rules,play,log,settings" && folders[r].glossary && folders[r].lit === "files"),
         "the Files pages share a strip that also opens the Glossary, under the Files tab");
       t.ok(!folders.files.shown && folders.files.lit === "files", "the Files hub is its own navigation and carries no strip");
       t.ok(!folders.create.shown, "screens outside a folder carry no strip");
@@ -193,7 +193,7 @@ export async function browserTests(t, { chromium, executablePath, baseURL }) {
       const tiles = await page.evaluate(() => [...document.querySelectorAll(".drawers .drawer")].map(b => ({
         svg: !!b.querySelector(".drawer-art svg"), name: b.querySelector(".drawer-label").textContent
       })));
-      t.ok(tiles.length >= 6 && tiles.every(x => x.svg && x.name.trim().length), "every Files drawer draws a picture above its name");
+      t.ok(tiles.length >= 5 && tiles.every(x => x.svg && x.name.trim().length), "every Files drawer draws a picture above its name");
 
       // No horizontal overflow anywhere.
       for (const tab of TABS) {
@@ -2322,9 +2322,15 @@ export async function browserTests(t, { chromium, executablePath, baseURL }) {
       const homeTile = await page.evaluate(async () => {
         location.hash = "#/files";
         await new Promise(r => setTimeout(r, 220));
-        return [...document.querySelectorAll(".drawer")].some(b => /Tutorial/.test(b.textContent));
+        const d = [...document.querySelectorAll(".drawer")].find(b => /Training/.test(b.textContent));
+        if (!d) return false;
+        d.click(); await new Promise(r => setTimeout(r, 300));
+        const watch = document.querySelector("#screen details.training-watch");
+        if (!watch) return false;
+        watch.open = true; await new Promise(r => setTimeout(r, 100));
+        return !!watch.querySelector(".tut-step");
       });
-      t.ok(homeTile, "Files carries a drawer that opens it");
+      t.ok(homeTile, "Files carries one Training drawer, and the walkthrough is folded inside it (U18)");
 
       // Every accordion starts closed, on every screen that has one.
       const accordions = await page.evaluate(async () => {
@@ -2522,6 +2528,17 @@ export async function browserTests(t, { chromium, executablePath, baseURL }) {
         document.querySelector("#screen .ob-card .btn.primary").click();
         await new Promise(r => setTimeout(r, 250));
         out.onboard.recruited = !!Store.activeCharacter();
+        // U22: the look comes next — three silhouettes, four stamp colours, saved to the dossier.
+        out.onboard.look = {
+          sils: document.querySelectorAll("#screen .sil-opt").length,
+          swatches: document.querySelectorAll("#screen .swatch").length
+        };
+        document.querySelectorAll("#screen .sil-opt")[2].click(); await new Promise(r => setTimeout(r, 60));
+        document.querySelector("#screen .swatch.s-teal").click(); await new Promise(r => setTimeout(r, 60));
+        out.onboard.look.saved = Store.activeCharacter().identity.silhouette === "agentB" && Store.activeCharacter().identity.stamp === "teal";
+        out.onboard.look.applied = document.documentElement.dataset.stamp === "teal";
+        [...document.querySelectorAll("#screen button")].find(b => b.textContent === "Next").click();
+        await new Promise(r => setTimeout(r, 200));
         out.onboard.modes = [...document.querySelectorAll("#screen .ob-mode-name")].map(x => x.textContent);
 
         // 3. Solo is offered from a table mission, and turning it on lands on the mission it runs.
@@ -2634,7 +2651,10 @@ export async function browserTests(t, { chromium, executablePath, baseURL }) {
       t.ok(newcomer.onboard.cards >= 6 && newcomer.onboard.own, "a fresh device opens on the recruitment: the published agents and Build my own");
       t.eq(newcomer.onboard.title, "Choose your agent", "under one instruction");
       t.ok(newcomer.onboard.recruited, "Recruit makes the dossier in one tap");
-      t.deep(newcomer.onboard.modes, ["Alone", "With a group"], "and the next question is only how you will play");
+      t.ok(newcomer.onboard.look.sils === 3 && newcomer.onboard.look.swatches === 4, "then the look: three silhouettes and four stamp colours");
+      t.ok(newcomer.onboard.look.saved, "chosen ones are saved to the dossier");
+      t.ok(newcomer.onboard.look.applied, "and the stamp colour becomes the app's accent while that agent is open");
+      t.deep(newcomer.onboard.modes, ["Alone", "With a group"], "and the last question is only how you will play");
       t.ok(!newcomer.soloOff.navHasSolo, "with solo off there is no case board");
       t.ok(newcomer.soloOff.tile, "but a table mission offers solo play, so it can be found at all");
       t.ok(/Mythic Game Master Emulator/.test(newcomer.soloOffer), "the offer explains what solo play is before switching anything on");
@@ -3411,6 +3431,93 @@ export async function browserTests(t, { chromium, executablePath, baseURL }) {
       t.ok(v3.openingGone, "which is gone within two seconds");
       t.eq(v3.emptyCards, 0, "with explanations off, the case board carries no empty card");
       t.deep(v3.wrap, ["End Scene", "End Session", "End Mission"], "Wrap up offers End Scene, End Session and End Mission");
+      // The third pass (U18–U25).
+      const v4 = await page.evaluate(async () => {
+        const wait = ms => new Promise(r => setTimeout(r, ms));
+        const ui = await import("./src/ui.js");
+        const Store = await import("./src/store.js");
+        const settings = await import("./src/settings.js");
+        const router = await import("./src/router.js");
+        const out = {};
+        ui.closeAllModals(); await wait(60);
+        const c = Store.activeCharacter();
+
+        // U19: the table — every token is a button, and a tap is everything the card offers.
+        const savedFight = JSON.parse(JSON.stringify(Store.combatState()));
+        Store.saveCombat({ active: true, round: 1, phase: "declaration", combatants: [
+          { id: "tk1", name: "Guard", speed: 1, tiebreak: 1, wound: "none", npc: { name: "Guard", attrs: { str: 6, dex: 6, wil: 6, per: 6, int: 6 }, skills: {} } }] });
+        router.navigate("combat"); await wait(250);
+        const tok = document.querySelector(".init-rail .ir-token");
+        out.tokenButton = !!tok && tok.tagName === "BUTTON";
+        tok.click(); await wait(200);
+        out.tokenSheet = [...document.querySelectorAll(".modal .tp-tile")].map(b => b.textContent);
+        [...document.querySelectorAll(".modal .tp-tile")].find(b => b.textContent === "Acted").click(); await wait(200);
+        out.acted = Store.combatState().combatants[0].acted === true;
+        if (savedFight.active) Store.saveCombat(savedFight); else Store.clearCombat();
+
+        // U20 and U21: the case file as an image, and red string on the board.
+        settings.set("solo", true); router.rebuildNav();
+        const Solo = await import("./src/solo.js");
+        const adv = Store.createAdventure({ name: "String test", characterId: c.id });
+        Store.updateAdventure(a => {
+          a.scenePhase = "setup";
+          a.threads = [{ id: "li_str", text: "Find the courier", weight: 1 }];
+          a.mysteries = [{ id: "mys_str", subject: "thread", label: "Who sent the courier?", sourceId: "li_str", origin: "",
+            clues: 0, clueLog: [], misses: 0, lastScene: 1, createdAt: Date.now(), revealedAt: null, reveal: null }];
+          a.journal = [{ id: "j1", ts: Date.now(), kind: "fate", text: "Is the door locked? — Yes", detail: "d100 12" }];
+        });
+        const one = await Solo.caseFileImage(Store.activeAdventure());
+        Store.updateAdventure(a => { for (let i = 0; i < 6; i++) a.journal.unshift({ id: "jx" + i, ts: Date.now(), kind: "note", text: "A note " + i, detail: "" }); });
+        const seven = await Solo.caseFileImage(Store.activeAdventure());
+        const size = url => new Promise(r => { const im = new Image(); im.onload = () => r(im.height); im.src = url; });
+        out.png = one.startsWith("data:image/png");
+        out.taller = (await size(seven)) > (await size(one));
+        router.navigate("solo"); await wait(300);
+        Solo.setSoloPage("lists"); await wait(200);
+        const svg = document.querySelector("#solo-page-lists svg.red-string");
+        out.strings = svg ? Number(svg.dataset.strings) : 0;
+        Solo.setSoloPage("scene");
+
+        // U25: End scene's Chaos step swings the needle from where it was.
+        router.navigate("mission"); await wait(250);
+        Store.updateAdventure(a => { a.chaos = Math.min(9, a.chaos + 1); });
+        router.navigate("mission"); await wait(100);
+        const dial = document.querySelector(".scene-card .chaos-dial");
+        out.needle = dial ? { from: dial.dataset.from, to: dial.dataset.to, moving: dial.classList.contains("is-moving") } : null;
+        Store.deleteAdventure(adv.id);
+
+        // U23: with sound and vibration on, a shake presses Roll.
+        settings.set("sfx", true);
+        const R = await import("./src/roller.js");
+        R.openRoll({ character: c, skillKey: "charisma" }); await wait(200);
+        window.dispatchEvent(new DeviceMotionEvent("devicemotion", { acceleration: { x: 30, y: 0, z: 0 }, interval: 16 }));
+        await wait(500);
+        out.shook = !!document.querySelector(".modal .roll-d100");
+        ui.closeAllModals(); await wait(60);
+        settings.set("sfx", false);
+        R.openRoll({ character: c, skillKey: "charisma" }); await wait(200);
+        window.dispatchEvent(new DeviceMotionEvent("devicemotion", { acceleration: { x: 30, y: 0, z: 0 }, interval: 16 }));
+        await wait(300);
+        out.stillWithoutSfx = !document.querySelector(".modal .roll-d100");
+        ui.closeAllModals(); await wait(60);
+
+        // U24: night ops is a theme of its own.
+        router.navigate("settings"); await wait(200);
+        const before = settings.get("theme");
+        [...document.querySelectorAll("#screen .chip")].find(b => b.textContent === "Night ops").click(); await wait(100);
+        out.night = document.documentElement.getAttribute("data-theme");
+        settings.set("theme", before); settings.applyTheme();
+        return out;
+      });
+      t.ok(v4.tokenButton, "every token on the table is a button");
+      t.ok(["Declare", "Damage", "Stat block", "Acted", "Remove"].every(l => v4.tokenSheet.includes(l)), `and a tap offers what the card does (${v4.tokenSheet.join(", ")})`);
+      t.ok(v4.acted, "which acts on the encounter");
+      t.ok(v4.png && v4.taller, "the journal exports as a case-file image that grows with the entries");
+      t.eq(v4.strings, 1, "red string ties a mystery to the thread it hangs on");
+      t.ok(v4.needle && v4.needle.moving && Number(v4.needle.to) === Number(v4.needle.from) + 1, "a Chaos step swings the needle from where it was");
+      t.ok(v4.shook, "with sound and vibration on, a shake rolls");
+      t.ok(v4.stillWithoutSfx, "and with it off, a shake does nothing");
+      t.eq(v4.night, "nightops", "night ops is a theme of its own");
       t.ok(links.npcIsLink, "an NPC in the encounter is named as a link");
       t.eq(links.npcBlock, "Test Sentry", "and the link opens their stat block");
       t.ok(!!links.skillName && links.skillModal === links.skillName, `an Advancement skill name opens what the skill does (${links.skillName})`);

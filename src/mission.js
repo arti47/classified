@@ -132,14 +132,15 @@ function sceneCard(adv, over = {}) {
       el("span", { class: "sc-city", text: big }),
       line ? el("span", { class: "sc-line", text: line }) : null,
       el("span", { class: "sc-scene", text: phase === "play" ? `Scene ${adv.scene} · in play` : `Scene ${adv.scene}` })),
-    chaosDial(adv.chaos));
+    chaosDial(adv.chaos, adv.id));
 }
 
 /**
  * The Chaos Factor as a gauge: a needle on a nine-step arc, the number under it. A picture of
  * the number printed beside it, never a second source for it.
  */
-export function chaosDial(chaos) {
+const seenChaos = new Map();
+export function chaosDial(chaos, advId = null) {
   const NS = "http://www.w3.org/2000/svg";
   const svg = document.createElementNS(NS, "svg");
   svg.setAttribute("viewBox", "0 0 100 60");
@@ -154,14 +155,22 @@ export function chaosDial(chaos) {
     p.setAttribute("class", "cd-seg" + (i < chaos ? " on" : "") + (i >= 6 ? " hot" : ""));
     svg.appendChild(p);
   }
-  const ang = Math.PI * (1 - (chaos - 0.5) / 9);
+  // The needle points straight up and is turned into place, so a change of Chaos Factor can
+  // swing it from where it was to where it is now (U25). Cut under reduced motion.
+  const turn = c => 90 - 180 * (1 - (c - 0.5) / 9);
   const needle = document.createElementNS(NS, "path");
-  needle.setAttribute("d", `M50 52 L${(50 + 30 * Math.cos(ang)).toFixed(2)} ${(52 - 30 * Math.sin(ang)).toFixed(2)}`);
+  needle.setAttribute("d", "M50 52 L50 22");
   needle.setAttribute("class", "cd-needle");
+  const prev = advId != null ? seenChaos.get(advId) : undefined;
+  if (advId != null) seenChaos.set(advId, chaos);
+  const from = prev !== undefined && prev !== chaos ? prev : chaos;
+  needle.style.transform = `rotate(${turn(from)}deg)`;
   svg.appendChild(needle);
-  return el("div", { class: "chaos-dial", title: `Chaos Factor ${chaos}`,
-    role: "img", "aria-label": `Chaos Factor ${chaos}` },
+  const dial = el("div", { class: "chaos-dial" + (from !== chaos ? " is-moving" : ""), title: `Chaos Factor ${chaos}`,
+    role: "img", "aria-label": `Chaos Factor ${chaos}`, dataset: { from: String(from), to: String(chaos) } },
     svg, el("span", { class: "cd-num", text: String(chaos) }), el("span", { class: "cd-k", text: "Chaos" }));
+  if (from !== chaos) requestAnimationFrame(() => requestAnimationFrame(() => { needle.style.transform = `rotate(${turn(chaos)}deg)`; }));
+  return dial;
 }
 
 /** The briefing as a slip: what you are after, what is in the way, who you are, who is against you. */

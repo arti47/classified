@@ -38,13 +38,19 @@ function boot() {
   });
 
   Store.subscribe(what => {
-    if (what === "character" || what === "active") { renderResourceHeader(); renderAgentBadge(); }
+    if (what === "character" || what === "active") { renderResourceHeader(); renderAgentBadge(); applyStamp(); }
   });
   // Explanations — the line under a heading, a "How it works" button — show only when the
   // player has asked for the how-to panels (U4). One class on the body, read by the stylesheet.
   const explain = () => document.body.classList.toggle("explain-on", Settings.showHelp());
   explain();
   document.addEventListener("settings:changed", e => { if (e.detail.key === "showHelp") explain(); });
+  // iOS asks before a page may read the motion sensors; the toggle's tap is the gesture it needs.
+  document.addEventListener("settings:changed", e => {
+    if (e.detail.key === "sfx" && e.detail.value && window.DeviceMotionEvent && typeof DeviceMotionEvent.requestPermission === "function") {
+      DeviceMotionEvent.requestPermission().catch(() => {});
+    }
+  });
   document.addEventListener("settings:changed", e => {
     if (e.detail.key === "gmScreen" || e.detail.key === "multiplayer" || e.detail.key === "solo") rebuildNav();
   });
@@ -62,10 +68,19 @@ function boot() {
   blockPinchZoom();
   renderResourceHeader();
   renderAgentBadge();
+  applyStamp();
   initRouter();
 
   if (Settings.multiplayer()) Sync.init();
   registerServiceWorker();
+}
+
+/** The open agent's stamp colour is the app's accent while they are open (U22). */
+function applyStamp() {
+  const c = Store.activeCharacter();
+  const k = c && c.identity.stamp && c.identity.stamp !== "red" ? c.identity.stamp : null;
+  if (k) document.documentElement.dataset.stamp = k;
+  else delete document.documentElement.dataset.stamp;
 }
 
 /**

@@ -51,8 +51,7 @@ export function renderFiles(host) {
   const drawers = [
     { label: "Rules", art: "book", go: () => navigate("rules") },
     { label: "Glossary", art: "cards", go: () => openGlossary() },
-    { label: "How to play", art: "keyhole", go: () => navigate("play") },
-    { label: "Tutorial", art: "typewriter", go: () => navigate("tutorial") },
+    { label: "Training", art: "keyhole", go: () => navigate("play") },
     { label: "Roll log", art: "reel", go: () => navigate("log") },
     { label: "Settings", art: "cipher", go: () => navigate("settings") }
   ];
@@ -969,11 +968,11 @@ export function renderSettings(host) {
 
   host.appendChild(el("div", { class: "section", style: "margin-top:18px" }, el("div", { class: "section-title", text: "Theme" })));
   const themeWrap = el("div", { class: "chip-wrap" });
-  for (const t of ["system", "light", "dark"]) {
+  for (const t of ["system", "light", "dark", "nightops"]) {
     themeWrap.appendChild(el("button", {
       class: "chip" + (Settings.theme() === t ? " on" : ""), type: "button",
       onclick: () => { SettingsMod.set("theme", t); SettingsMod.applyTheme(); renderSettings(host); }
-    }, t === "system" ? "Follow system" : t[0].toUpperCase() + t.slice(1)));
+    }, t === "system" ? "Follow system" : t === "nightops" ? "Night ops" : t[0].toUpperCase() + t.slice(1)));
   }
   host.appendChild(themeWrap);
 

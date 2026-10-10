@@ -52,7 +52,7 @@ export const HELP = {
     what: "Everything you look up rather than play: rules, words, guides, your rolls, settings.",
     steps: [
       "Tap a drawer to open it.",
-      "Rules and Glossary are the book; How to play and Tutorial show the game.",
+      "Rules and Glossary are the book; Training plays a mission with you.",
       "Settings holds the theme, the toggles and your backups."
     ]
   },

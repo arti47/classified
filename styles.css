@@ -1831,3 +1831,84 @@ button.head-wound { width: 100%; background: none; border: none; padding: 4px 0 
 .wf-fill { fill: var(--warn); }
 .wound-figure:is(.w-medium, .w-heavy, .w-incap) .wf-fill { fill: var(--danger); }
 .wound-figure.w-killed .wf-fill { fill: var(--ink); }
+
+/* ================================================================ third pass (U18–U25) */
+
+/* -------- the encounter as a table (U19) */
+.init-rail.is-table {
+  min-height: 210px; padding: 30px 8px 14px; border: 6px solid #4a2f1a; border-radius: 18px;
+  background: radial-gradient(ellipse at 50% 40%, #2f6b45, #1d4a2f 75%);
+  box-shadow: inset 0 0 24px rgba(0,0,0,.45), var(--shadow-2);
+}
+.init-rail.is-table::before { background: #f4e7c4; opacity: .8; }
+.init-rail.is-table::after { border-left-color: #f4e7c4; }
+.init-rail.is-table.is-action::after { border-left-color: transparent; border-right-color: #f4e7c4; }
+.init-rail.is-table .ir-speed { background: #f4e7c4; color: #1d140a; border-color: #f4e7c4; }
+.init-rail.is-table .ir-token {
+  border: none; cursor: pointer; min-height: 44px; border-radius: 22px; font-size: 11.5px; white-space: normal;
+  background: #f4e7c4; color: #1d140a; box-shadow: 0 3px 0 rgba(0,0,0,.35), 0 6px 10px -4px rgba(0,0,0,.5);
+}
+.init-rail.is-table .ir-token.is-pc { background: var(--stamp-fill); color: #fff; }
+.init-rail.is-table .ir-token.is-acted { background: transparent; color: #f4e7c4; border: 2px dashed #f4e7c4; box-shadow: none; }
+.init-rail.is-table .ir-token:active { transform: translateY(2px); box-shadow: 0 1px 0 rgba(0,0,0,.35); }
+.combat-cards { margin-top: 6px; }
+
+/* -------- red string (U21) */
+.solo-page[data-page="lists"] { position: relative; }
+svg.red-string { position: absolute; left: 0; top: 0; pointer-events: none; overflow: visible; z-index: 2; }
+svg.red-string path { fill: none; stroke: #c0281b; stroke-width: 2.5; stroke-linecap: round; filter: drop-shadow(0 2px 1px rgba(0,0,0,.35)); }
+svg.red-string circle { fill: #c0281b; stroke: #5a0d06; stroke-width: 1.5; }
+
+/* -------- the agent's stamp colour (U22): each pair holds AA on every paper tone */
+:root[data-stamp="blue"]   { --stamp: #1f4e8c; --stamp-2: #2a5fa6; --stamp-fill: #1f4e8c; }
+:root[data-stamp="teal"]   { --stamp: #0b5d55; --stamp-2: #0f7266; --stamp-fill: #0b5d55; }
+:root[data-stamp="violet"] { --stamp: #5a3a8c; --stamp-2: #6c49a6; --stamp-fill: #5a3a8c; }
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"])[data-stamp="blue"]   { --stamp: #8ab8ff; --stamp-2: #a6c8ff; --stamp-fill: #2f5fa8; }
+  :root:not([data-theme="light"])[data-stamp="teal"]   { --stamp: #5fd3c2; --stamp-2: #7fe0d2; --stamp-fill: #0f6f63; }
+  :root:not([data-theme="light"])[data-stamp="violet"] { --stamp: #c0a6ff; --stamp-2: #d0bcff; --stamp-fill: #654aa8; }
+}
+:root[data-theme="dark"][data-stamp="blue"]   { --stamp: #8ab8ff; --stamp-2: #a6c8ff; --stamp-fill: #2f5fa8; }
+:root[data-theme="dark"][data-stamp="teal"]   { --stamp: #5fd3c2; --stamp-2: #7fe0d2; --stamp-fill: #0f6f63; }
+:root[data-theme="dark"][data-stamp="violet"] { --stamp: #c0a6ff; --stamp-2: #d0bcff; --stamp-fill: #654aa8; }
+.swatches { display: flex; gap: 10px; justify-content: center; flex-wrap: wrap; }
+.swatch { width: 48px; height: 48px; border-radius: 50%; border: 3px solid var(--paper-2); box-shadow: 0 0 0 2px var(--rule-2); cursor: pointer; }
+.swatch.on { box-shadow: 0 0 0 3px var(--ink); }
+.swatch.s-red { background: #9b1c12; } .swatch.s-blue { background: #1f4e8c; } .swatch.s-teal { background: #0b5d55; } .swatch.s-violet { background: #5a3a8c; }
+.sil-pick { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 10px; }
+.sil-opt { display: flex; flex-direction: column; align-items: center; gap: 6px; padding: 10px 4px; border: 1px solid var(--rule-2); border-radius: var(--r-lg); background: var(--paper-2); color: var(--ink); cursor: pointer; font: 600 13px/1 var(--sans); }
+.sil-opt .art { width: 72px; height: 72px; color: var(--ink-2); }
+.sil-opt.on { border-color: var(--stamp); box-shadow: 0 0 0 2px var(--stamp); }
+.ob-look { display: grid; gap: 16px; max-width: 420px; margin: 0 auto 18px; }
+
+/* -------- night ops (U24): a green phosphor terminal in a dark room. Every text token holds
+   AA on every surface; the stamp turns amber, and white on its fill holds AA. */
+:root[data-theme="nightops"] {
+  color-scheme: dark;
+  --desk: #000; --paper: #030a05; --paper-2: #07130a; --paper-3: #0c1d11; --paper-hi: #11281a;
+  --ink: #7dffa6; --ink-2: #5be38a; --ink-3: #46c271;
+  --rule: #164d2a; --rule-2: #23753f; --line: rgba(125,255,166,.15);
+  --stamp: #ffb21e; --stamp-2: #ffc64d; --stamp-ink: #fff; --stamp-fill: #8a5a00;
+  --on-signal: #000; --ok: #7dffa6; --warn: #ffb21e; --danger: #ff6a5a;
+  --field: #020702; --tab: #05100a; --redact: #7dffa6;
+  --shadow-1: 0 0 0 1px rgba(125,255,166,.06) inset, 0 0 8px rgba(0,0,0,.6);
+  --shadow-2: 0 0 0 1px rgba(125,255,166,.08) inset, 0 0 24px rgba(0,0,0,.8);
+  --grain-op: .18;
+}
+:root[data-theme="nightops"] body { text-shadow: 0 0 6px rgba(125,255,166,.25); }
+:root[data-theme="nightops"] body::before { mix-blend-mode: screen; }
+:root[data-theme="nightops"] body::after {
+  content: ""; position: fixed; inset: 0; z-index: 200; pointer-events: none;
+  background: repeating-linear-gradient(0deg, rgba(0,0,0,.18) 0 1px, transparent 1px 3px),
+    radial-gradient(ellipse at 50% 50%, transparent 60%, rgba(0,0,0,.45));
+}
+:root[data-theme="nightops"] .solo-page[data-page="lists"] { background-color: #0a1a0e; box-shadow: inset 0 0 0 6px #04100a, inset 0 2px 10px rgba(0,0,0,.6); }
+:root[data-theme="nightops"] .solo-page[data-page="lists"] .section-title { color: var(--ink); }
+:root[data-theme="nightops"] .init-rail.is-table { background: radial-gradient(ellipse at 50% 40%, #0f2a16, #06140a 75%); border-color: #164d2a; }
+:root[data-theme="nightops"] .ob-skill b, :root[data-theme="nightops"] .fc-stamp.is-no { color: var(--stamp); }
+@media (prefers-reduced-motion: reduce) { :root[data-theme="nightops"] body { text-shadow: none; } }
+
+/* -------- the Chaos needle swings (U25) */
+.cd-needle { transform-box: view-box; transform-origin: 50px 52px; }
+.chaos-dial.is-moving .cd-needle { transition: transform .9s cubic-bezier(.3,1.6,.5,1); }
+@media (prefers-reduced-motion: reduce) { .chaos-dial.is-moving .cd-needle { transition: none; } }

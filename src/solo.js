@@ -112,6 +112,7 @@ export function renderSolo(host) {
   appendInPlay(pages.scene, pages.oracle, adv);
   appendLists(pages.lists, adv);
   appendMysteries(pages.lists, adv);
+  stringBoard(pages.lists);
   appendJournal(pages.journal, adv);
   appendTopics(pages.journal);
 
@@ -142,6 +143,47 @@ function currentPage() {
   return SOLO_PAGES.some(p => p.key === soloPage) ? soloPage : "scene";
 }
 
+/**
+ * Red string on the board (U21): each open mystery tied to the thread or character it hangs
+ * on, the way a wall of index cards is tied together. Drawn after layout and again whenever
+ * the board is shown or the window changes size; a mystery about nothing on the lists has no
+ * string, because there is nothing to tie it to.
+ */
+function stringBoard(page) {
+  const draw = () => {
+    if (!page.isConnected) { window.removeEventListener("resize", draw); return; }
+    page.querySelectorAll(":scope > svg.red-string").forEach(n => n.remove());
+    if (getComputedStyle(page).display === "none") return;
+    const box = page.getBoundingClientRect();
+    const NS = "http://www.w3.org/2000/svg";
+    const svg = document.createElementNS(NS, "svg");
+    svg.setAttribute("class", "red-string"); svg.setAttribute("aria-hidden", "true");
+    svg.setAttribute("width", String(page.scrollWidth)); svg.setAttribute("height", String(page.scrollHeight));
+    let n = 0;
+    for (const card of page.querySelectorAll("[data-mystery]")) {
+      const src = card.dataset.source;
+      const row = src ? page.querySelector(`[data-entry="${CSS.escape(src)}"]`) : null;
+      if (!row) continue;
+      const a = card.getBoundingClientRect(), b = row.getBoundingClientRect();
+      const x1 = a.left - box.left + 18, y1 = a.top - box.top + 4, x2 = b.left - box.left + 18, y2 = b.top - box.top + b.height / 2;
+      const path = document.createElementNS(NS, "path");
+      const sag = Math.min(60, Math.abs(y1 - y2) / 4 + 20);
+      path.setAttribute("d", `M${x1} ${y1} C ${x1 - sag} ${(y1 + y2) / 2}, ${x2 - sag} ${(y1 + y2) / 2}, ${x2} ${y2}`);
+      svg.appendChild(path);
+      for (const [x, y] of [[x1, y1], [x2, y2]]) {
+        const pin = document.createElementNS(NS, "circle");
+        pin.setAttribute("cx", x); pin.setAttribute("cy", y); pin.setAttribute("r", "5");
+        svg.appendChild(pin);
+      }
+      n++;
+    }
+    if (n) { svg.dataset.strings = String(n); page.appendChild(svg); }
+  };
+  page.redrawStrings = draw;
+  requestAnimationFrame(() => requestAnimationFrame(draw));
+  window.addEventListener("resize", draw);
+}
+
 /** Move one page along the strip (a swipe, U13). Stops at the ends rather than wrapping. */
 export function stepSoloPage(dir) {
   const i = SOLO_PAGES.findIndex(p => p.key === currentPage());
@@ -155,6 +197,8 @@ export function setSoloPage(key) {
   try { sessionStorage.setItem(PAGE_KEY, key); } catch { /* storage blocked */ }
   const host = document.querySelector(".solo-screen");
   if (host) showPage(null, key, host);
+  const board = document.getElementById("solo-page-lists");
+  if (board && board.redrawStrings) requestAnimationFrame(board.redrawStrings);
 }
 
 function showPage(pages, key, host) {
@@ -1783,7 +1827,7 @@ function appendMysteries(host, adv) {
 
 function mysteryCard(adv, m) {
   const subject = S.MYSTERY_SUBJECT_BY_KEY[m.subject] || S.MYSTERY_SUBJECT_BY_KEY.thread;
-  const card = el("div", { class: "card" });
+  const card = el("div", { class: "card", dataset: { mystery: m.id, source: m.sourceId || "" } });
 
   const oddsKey = S.mysteryOdds(m.clues);
   card.appendChild(el("div", { class: "row" },
@@ -2348,7 +2392,7 @@ function listSection(adv, which, title, sub) {
   } else {
     const card = el("div", { class: "card flush" });
     for (const item of list) {
-      card.appendChild(el("div", { class: "card-row" },
+      card.appendChild(el("div", { class: "card-row", dataset: { entry: item.id } },
         // The text is the button: an entry seeded from a word pair reads like a word pair
         // until you write it as something you can act on (ruling S22).
         el("button", {
@@ -2707,6 +2751,10 @@ function appendJournal(host, adv) {
     class: "btn sm ghost", type: "button",
     onclick: () => copyText(journalText(entries), `${entries.length} entries copied`)
   }, "Copy all"));
+  // The case file as one picture to keep or send (U20).
+  sec.querySelector(".section-head").appendChild(el("button", {
+    class: "btn sm ghost", type: "button", onclick: () => shareCaseFile(Store.activeAdventure())
+  }, "Case file"));
 
   const card = el("div", { class: "card flush journal" });
   for (const e of entries.slice(0, 40)) {
@@ -2754,6 +2802,80 @@ function appendJournal(host, adv) {
 /** One journal row as plain text: what happened, the dice behind it, and when. */
 function entryText(e) {
   return [`[${e.kind}] ${e.text}`, e.detail, fmtDate(e.ts)].filter(Boolean).join("\n");
+}
+
+/**
+ * The journal drawn as a case file (U20): a manila sheet with the codename stamped at the head,
+ * the city and the scene, then each entry as a frame on a strip — its kind on a tab, its line
+ * typed, the dice under it — oldest first so it reads as the mission ran. Returns a PNG data
+ * URL. The words are the journal's own; nothing is summarised or invented.
+ */
+export async function caseFileImage(adv, { max = 60 } = {}) {
+  if (document.fonts && document.fonts.ready) { try { await document.fonts.ready; } catch { /* draw anyway */ } }
+  const W = 1080, pad = 64;
+  const rows = [...(adv.journal || [])].slice(0, max).reverse();
+  const cv = document.createElement("canvas");
+  const cx = cv.getContext("2d");
+  const wrap = (text, font, width) => {
+    cx.font = font;
+    const out = []; let line = "";
+    for (const w of String(text || "").split(/\s+/)) {
+      const t = line ? line + " " + w : w;
+      if (cx.measureText(t).width > width && line) { out.push(line); line = w; } else line = t;
+    }
+    if (line) out.push(line);
+    return out;
+  };
+  const textFont = '500 30px "IBM Plex Sans", sans-serif', detFont = '400 22px "IBM Plex Mono", monospace';
+  const frames = rows.map(r => ({ r, t: wrap(r.text, textFont, W - pad * 2 - 170), d: r.detail ? wrap(r.detail, detFont, W - pad * 2 - 170) : [] }));
+  const H = 330 + frames.reduce((h, f) => h + 40 + f.t.length * 40 + f.d.length * 30 + 24, 0) + 80;
+  cv.width = W; cv.height = H;
+  cx.fillStyle = "#e9dfc7"; cx.fillRect(0, 0, W, H);
+  cx.fillStyle = "rgba(60,44,20,.05)";
+  for (let y = 0; y < H; y += 6) cx.fillRect(0, y, W, 2);
+  // the stamp
+  cx.save(); cx.translate(W - pad - 200, 92); cx.rotate(-0.07);
+  cx.strokeStyle = "#9b1c12"; cx.lineWidth = 5; cx.strokeRect(0, 0, 220, 64);
+  cx.fillStyle = "#9b1c12"; cx.font = '400 30px "Special Elite", serif'; cx.fillText("CLASSIFIED", 18, 43); cx.restore();
+  cx.fillStyle = "#1d1914"; cx.font = '400 60px "Special Elite", serif';
+  cx.fillText(adv.name || "Untitled", pad, 130);
+  cx.fillStyle = "#463d31"; cx.font = '600 24px "IBM Plex Mono", monospace';
+  cx.fillText([adv.city ? adv.city.toUpperCase() : "", `SCENE ${adv.scene}`, `CHAOS ${adv.chaos}`].filter(Boolean).join("  ·  "), pad, 180);
+  cx.fillStyle = "#ab9a72"; cx.fillRect(pad, 220, W - pad * 2, 3);
+  let y = 270;
+  const tagColour = { scene: "#1d1914", fate: "#2b6a3b", event: "#9b1c12", meaning: "#8a5609", check: "#2a4f7a", note: "#5c5141" };
+  for (const f of frames) {
+    const h = 40 + f.t.length * 40 + f.d.length * 30;
+    cx.fillStyle = "#fffaee"; cx.fillRect(pad, y - 34, W - pad * 2, h);
+    cx.strokeStyle = "#d2c4a1"; cx.lineWidth = 2; cx.strokeRect(pad, y - 34, W - pad * 2, h);
+    cx.fillStyle = tagColour[f.r.kind] || "#5c5141"; cx.fillRect(pad, y - 34, 130, h);
+    cx.fillStyle = "#fff8ef"; cx.font = '600 20px "IBM Plex Mono", monospace';
+    cx.fillText(String(f.r.kind || "note").toUpperCase(), pad + 16, y);
+    let ty = y;
+    cx.fillStyle = "#1d1914"; cx.font = textFont;
+    for (const l of f.t) { cx.fillText(l, pad + 160, ty); ty += 40; }
+    cx.fillStyle = "#5c5141"; cx.font = detFont;
+    for (const l of f.d) { cx.fillText(l, pad + 160, ty - 8); ty += 30; }
+    y += h + 24;
+  }
+  cx.fillStyle = "#5c5141"; cx.font = '400 20px "IBM Plex Mono", monospace';
+  cx.fillText(`Filed ${fmtDate(Date.now())} · ${rows.length} ${rows.length === 1 ? "entry" : "entries"}`, pad, H - 40);
+  return cv.toDataURL("image/png");
+}
+
+/** Hand the case file over: the share sheet where there is one, a download where there is not. */
+async function shareCaseFile(adv) {
+  if (!adv) return;
+  const url = await caseFileImage(adv);
+  const name = `${(adv.name || "case-file").replace(/[^a-z0-9]+/gi, "-").toLowerCase()}.png`;
+  try {
+    const blob = await (await fetch(url)).blob();
+    const file = new File([blob], name, { type: "image/png" });
+    if (navigator.canShare && navigator.canShare({ files: [file] })) { await navigator.share({ files: [file], title: adv.name || "Case file" }); return; }
+  } catch { /* fall through to a download */ }
+  const a = el("a", { href: url, download: name });
+  document.body.appendChild(a); a.click(); a.remove();
+  showToast("Case file saved", "ok");
 }
 
 /** The whole journal, oldest first, so a pasted log reads forwards. */

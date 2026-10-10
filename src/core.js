@@ -2,7 +2,7 @@
 
 export const APP_NAME = "Classified Player";
 export const STORAGE_PREFIX = "classified.";
-export const SCHEMA_VERSION = 13;  // 9 clue odds, 10 clue lines and reveal tells, 11 the mission end, 12 the city and scene setting, 13 the Hidden truth as a choice (§6)
+export const SCHEMA_VERSION = 14;  // 9 clue odds, 10 clue lines and reveal tells, 11 the mission end, 12 the city and scene setting, 13 the Hidden truth choice, 14 the agent's silhouette and stamp colour
 
 /* ---------------------------------------------------------------- DOM */
 
@@ -36,6 +36,21 @@ export function announce(text) {
   region.textContent = "";
   window.setTimeout(() => { region.textContent = text; }, 30);
 }
+
+/* The agent's look (U22): presentation only, chosen at recruitment and changeable on the
+ * dossier. A silhouette for a dossier with no photograph, and the colour of the stamp — the
+ * app's one accent — while that agent is open. Each colour has an AA pair in both themes. */
+export const SILHOUETTES = [
+  { key: "agent", name: "Fedora" },
+  { key: "agentF", name: "Cloche" },
+  { key: "agentB", name: "Beret" }
+];
+export const STAMP_COLOURS = [
+  { key: "red", name: "Red" },
+  { key: "blue", name: "Blue" },
+  { key: "teal", name: "Teal" },
+  { key: "violet", name: "Violet" }
+];
 
 /* ---------------------------------------------------------------- icons */
 
@@ -133,6 +148,10 @@ const ART = {
   agent: [["p", "M26 34c0-3 6-6 22-6s22 3 22 6-8 3-22 3-22 0-22-3z"], ["p", "M34 30c0-9 6-14 14-14s14 5 14 14", "accent"],
     ["p", "M36 38c0 10 5 17 12 17s12-7 12-17"], ["p", "M30 58l18 12 18-12"],
     ["p", "M18 88c2-16 10-26 22-30l8 14 8-14c12 4 20 14 22 30"], ["p", "M48 72v16"]],
+  /* A beret, a polo neck, a short jacket. */
+  agentB: [["p", "M30 30c2-8 10-12 20-12s16 3 18 8c-6 3-24 5-38 4z", "accent"], ["c", 65, 22, 2],
+    ["p", "M35 32c0 13 5 22 13 22s13-9 13-22"], ["p", "M40 56h16v8H40z"],
+    ["p", "M18 88c2-15 10-23 22-24M78 88c-2-15-10-23-22-24"], ["p", "M40 64l8 10 8-10"]],
   /* Her silhouette: a cloche hat over a bob, a scarf knotted at the throat, a belted coat. */
   agentF: [["p", "M30 36c0-12 8-20 18-20s18 8 18 20c-6-2-12-3-18-3s-12 1-18 3z", "accent"], ["p", "M26 37c4-2 12-3 22-3s18 1 22 3"],
     ["p", "M33 38c-1 9 1 16 3 19M63 38c1 9-1 16-3 19"], ["p", "M38 40c0 9 4 15 10 15s10-6 10-15"],

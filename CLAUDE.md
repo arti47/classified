@@ -72,6 +72,9 @@ All of it is presentation: no rule, table, number or procedure changed (§10 rul
 | U7 | **Beginner first, veteran on request** | The move picker leads with six common procedures and folds the other seven behind **More moves**; `veteran` shows all thirteen. Nothing is removed |
 | U8 | **Sound and vibration**, off by default | `sfx`: a click and a buzz when the dice land (`landFeedback()`); never carries a result |
 
+**Third pass** — U18–U25 are the eight ideas offered at the end of the second pass, all taken
+(*"Let's do all these"*).
+
 **Second pass** — asked again, the user answered the first question with *"do all, even those,
 based on your recommendations"*, so U9–U17 are again the recommended options throughout.
 
@@ -85,6 +88,14 @@ based on your recommendations"*, so U9–U17 are again the recommended options t
 | U14 | **Gear is three drawers** | Carried · Armoury · Garage, one at a time, remembered across redraws |
 | U15 | **No fight is one picture and one button** | Progress tasks and the End Scene / Session / Mission boundaries fold under **Trackers & boundaries**; the Mission's **Wrap up** offers all three boundaries |
 | U16 | **Create is pictures** | The published agents as a rail of silhouette cards, the three ranks as tiles with the budget large, your dossiers below |
+| U18 | **Training is the one place to learn** | The Files drawers *How to play* and *Tutorial* become one **Training**: the coach plays a mission with you, with the guide and the walkthrough folded under it. The header's ? stays the screen's own help |
+| U19 | **The encounter is a table** | The initiative rail is a felt table and every combatant's token is a button: a tap offers Declare, Attack, Damage, the stat block or dossier, Acted and Remove — the card's own calls. The cards fold under it |
+| U20 | **The journal exports as a case file** | *Case file* draws the journal as a manila sheet, oldest first, each entry a frame with its kind on a tab, and shares or downloads the PNG (`caseFileImage()`). The words are the journal's own |
+| U21 | **Red string on the board** | Each open mystery is tied with red string to the thread or character it hangs on (`sourceId`), redrawn when the board shows or the window resizes |
+| U22 | **The agent's look** | Recruitment gains a second step, *Make it yours*: three silhouettes and four stamp colours, saved as `identity.silhouette` and `identity.stamp` and changeable from the dossier photograph. The open agent's colour is the app's accent; every pair holds AA in both themes |
+| U23 | **Shake to roll** | With sound and vibration on, a sharp shake presses Roll in the roll dialog; iOS motion permission is asked when the setting is turned on |
+| U24 | **Night ops** | A fourth theme: green phosphor on black, amber stamps, scan lines and a vignette, every token at AA |
+| U25 | **The Chaos needle swings** | When the Chaos Factor changes, the Mission's dial swings from the old value to the new; cut under reduced motion |
 | U17 | **Faces and wounds drawn** | Her silhouette or his for a dossier with no photograph (`silhouette()`), and the wound as a body filled from the feet up to its place on the ladder, beside the printed name and track; it opens the wound panel |
 
 ---
@@ -887,7 +898,7 @@ layer carries the flag rather than the UI.
   with the ones the chosen manoeuvre is legal at lit, read from that manoeuvre's own list.
 - **Folders.** Screens that belong together share a divider strip under the header
   (`#subNav`), one per place (U1): **Agent** is Dossier · Gear · Advance, **Mission** is
-  Mission · Case board · Combat, **Files** is Rules · Guide · Tutorial · Log · Settings plus a
+  Mission · Case board · Combat, **Files** is Rules · Training · Log · Settings plus a
   Glossary action — the Files hub itself carries no strip, since its drawers are the navigation. The bottom tab that owns a folder is
   marked `aria-current="location"` on every screen in it, so it stays lit without claiming to
   be the page. Gear, Advancement and the log had no tab and were reachable only by the $ and
@@ -987,7 +998,7 @@ characters/{characterId}
   id, schema, createdAt, updatedAt, owner, campaignId
   identity:   { name, gender, rank, heightBand, weightBand, appearance, height, weight, age,
                 nativeLanguage, profession, professionYears, organisation, cover,
-                portraitUrl, notes }
+                portraitUrl, notes, silhouette, stamp }   // the look (v14, U22): "" | agent | agentF | agentB; red | blue | teal | violet
   attributes: { str, dex, wil, per, int }
   skills:     { <skillKey>: rank }
   languages:  [ { name, rank } ]
@@ -1042,7 +1053,8 @@ classified.soloUndo:   <one-step snapshot: { ts, label, adventures, active } >
 ```
 
 Every schema addition ships with a back-fill in `normalize()` and is documented here in the
-same change. `SCHEMA_VERSION` is 13; version 13 made the Hidden truth a stored choice and
+same change. `SCHEMA_VERSION` is 14; version 14 added the agent's `silhouette` and `stamp`,
+back-filled to follow the gender and to red; version 13 made the Hidden truth a stored choice and
 added `briefing.seededBy` and a mystery's `origin` — an older briefing's Hidden truth is read
 off its roll, and its mysteries read as opened by hand. Version 12 added `city` and
 `sceneSetting`, and an older adventure loads with neither — its next Start scene rolls a city. The pre-A11 single `bandIndex` field is migrated to `heightBand` and `weightBand` on load. Version 4 added the solo keys above, version 5 the three scene-phase fields, version 6 the briefing, version 7 its `seededIds` and version 8 the mysteries and version 9 their clue-driven odds — a version-8 clock's filled segments carry over as that many clues — a record from any earlier version simply has none. Version 5 records load with `briefing: null` and keep the phase they were in, so an adventure under way is never sent back to a briefing it never had; a version-6 briefing back-fills an empty `seededIds`, and deleting its mission falls back to matching the seeded rows by text. The one-step undo snapshot carries a `label` so the banner names what it would revert. Version 5 also added the three scene-phase
@@ -1063,7 +1075,7 @@ router.
 
 `gmScreen` · `multiplayer` · `manualDice` · `showUntrained` · `autoConditions` ·
 `heroPointPrompt` · `seatbelts` · `airbags` · `solo` · `showHelp` · `veteran` · `sfx`. Plus
-`theme` and `campaignStyle`, which are choices rather than toggles.
+`theme` (system · light · dark · night ops) and `campaignStyle`, which are choices rather than toggles.
 
 `solo` adds no tab (U1): it turns the Mission into a solo mission and puts the Case board on
 the Mission strip. `manualDice` applies to Mythic rolls too — `getD100()` is
@@ -1294,7 +1306,7 @@ are flagged rather than presented as extracted (S1).
       - [x] Roll-log integration through `Store.addRoll()`.
       - [x] Regression checks: chart monotonicity, derived thresholds, event trigger,
             chaos clamping, list weighting, and every table exactly 100 entries.
-- [x] **Hardening.** Committed regression harness (1622 checks); accessibility pass;
+- [x] **Hardening.** Committed regression harness (1646 checks); accessibility pass;
       rules-accuracy audit with every finding closed (§11).
 
 ---
@@ -1595,3 +1607,4 @@ tables are this app's own work and are marked as such (S6).
 | 2026-10-10 | Third link audit, by crawler (L17, L18): NPC names in the encounter open their stat blocks; Advancement's skill names open what each skill does, and its Reputation and experience gate link their rules | Asked again whether every part that should be linked is. This pass was run by machine rather than by reading: a script populated every surface, walked all thirteen routes at 390 and 1280px, and listed every on-screen name with a home of its own sitting in plain text. Two real gaps survived the earlier passes; everything else it found is a heading, a card that takes the tap as a whole, or a picture of something linked beside it. Rules fidelity: no `data*.js`, `rules.js`, `derived.js`, `store.js` or fixture changed | 1550 checks green, including each new link driven in the browser to its destination. Zero console errors | `classified-v62` |
 | 2026-10-10 | The redesign (U1–U8): three places (Agent · Mission · Files), a slim header with an agent badge and ?, a two-screen recruitment in place of Home's menu, one mission feed with a scene card, Chaos dial, stamped cards and a single phase-driven button opening eight pictured verbs, a Fate slider, tile pickers for checks and moves with a beginner fold, characteristic dials and skill tiles, explanations opt-in, and optional sound and vibration. New `src/mission.js` and `src/onboard.js` | Asked for a radical rethink: too wordy, too little graphics, too much at once, intimidating for a first-time player. The user chose to follow every recommendation. Root causes found in screenshots: four rows of chrome before any content, four competing ways to start on Home, a sentence and a "How it works" button and a ? saying the same thing on every panel, and every procedure offered as a list of names. Rules fidelity: `git diff` shows no change to any rules data file, `rules.js`, `derived.js` or fixture; the store's only change adds a check's Quality and d100 to its journal row; every verb calls the engine that already ran it | 1588 checks green, including the recruitment, the three-place bar and its strips, the feed's phases from Brief me to What do you do?, the eight verbs, the Fate slider across the nine printed odds into the engine's own answer, the tile pickers (5 characteristics, a tile per skill, 6 common moves and all 13 behind More or in veteran mode), and explanations following the setting. axe-core clean on every route and the new dialogs in both themes bar `meta-viewport`; zero overflow at 320, 360, 390 and 1280px; zero console errors | `classified-v63` |
 | 2026-10-10 | Second redesign (U9–U17, A20): the roll as one dial, the result as a moment, Start scene as a clapper slate with an opening title card, the Case board as a cork pinboard without the Mission's duplicate verbs, swipe between pages, Gear in three drawers, Combat as one picture and one button, Create as pictures, her silhouette or his, and the wound drawn as a body | Asked again for a radical rethink, and for the four leftovers (gendered silhouettes, the opening card, a wound body, swiping); the user chose every recommendation. A20 is a rules fault the audit turned up: Fire Combat modifiers hard-coded in `src/` and offered on every roll, with an Untrained chip that could double the automatic penalty and range modifiers that could stack — now read from `FIRE_COMBAT_MODS`, offered only on Fire Combat, ranges exclusive. Fidelity otherwise: no rules data, `rules.js`, `derived.js` or fixture changed | 1622 checks green, including the contextual modifiers, the ladder stepper, the folded Details, the three Gear drawers, a swipe there and back, the wound figure's fill against the ladder, both silhouettes, the empty Combat state, the opening card appearing and leaving, no empty card on the Case board with explanations off, and Wrap up's three boundaries. axe-core clean on every route and the new dialogs in both themes bar `meta-viewport`; zero overflow at 320, 360, 390 and 1280px; zero console errors | `classified-v64` |
+| 2026-10-10 | Third pass (U18–U25): Training as the one place to learn, the encounter as a felt table of tappable tokens, the journal as a shareable case-file image, red string from each mystery to its entry, the agent's silhouette and stamp colour chosen at recruitment (`SCHEMA_VERSION` 14), shake to roll, a night-ops theme, and the Chaos needle swinging on a change | The eight ideas offered at the end of the second pass; the user took all of them. Rules fidelity: no rules data, `rules.js` or fixture changed; the table's token actions are the card's own calls, the case file prints the journal's own words, and shake only presses the dialog's Roll | 1646 checks green, including the token sheet acting on the encounter, the case file PNG growing with the journal, one string for one tied mystery, the needle's from and to, shake with the setting on and not with it off, the look saved and applied, and the night-ops theme. axe-core clean in light, dark and night ops with all four stamp colours on the Mission, Agent, Gear, Combat, Case board, Settings, Files, the roll and the result bar `meta-viewport`; zero overflow at 320–1280px; zero console errors | `classified-v65` |

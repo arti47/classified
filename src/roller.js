@@ -374,9 +374,23 @@ export function openRoll(opts = {}) {
   }
   render();
 
+  // Shake to roll (U23): with sound and vibration on, a sharp shake of the phone presses Roll.
+  // Off with the setting, and gone when the dialog closes.
+  let shook = false;
+  const onShake = e => {
+    const a = e.acceleration && e.acceleration.x != null ? e.acceleration : null;
+    if (!a || shook) return;
+    if (Math.hypot(a.x || 0, a.y || 0, a.z || 0) < 18) return;
+    shook = true;
+    const btn = [...document.querySelectorAll(".modal-foot .btn")].find(b => b.textContent === "Roll");
+    if (btn) btn.click();
+  };
+  if (Settings.sfx() && "DeviceMotionEvent" in window) window.addEventListener("devicemotion", onShake);
+
   const m = modal({
     title: label,
     body,
+    onClose: () => window.removeEventListener("devicemotion", onShake),
     actions: [
       { label: "Cancel", kind: "ghost" },
       {

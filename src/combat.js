@@ -3,7 +3,7 @@
  * confirmation summary and one-step undo. */
 
 import { el, clear, uid, signed, d100, d10, clamp, fmtDate, art, pick, rerender } from "./core.js";
-import { modal, showToast, confirmModal, promptModal, chooseModal } from "./ui.js";
+import { modal, showToast, confirmModal, promptModal, chooseModal, tileModal } from "./ui.js";
 import * as D from "../data.js";
 import * as R from "./rules.js";
 import * as Store from "./store.js";
@@ -80,10 +80,16 @@ export function renderCombat(host) {
       el("div", { class: "section-title", text: state.phase === "declaration" ? "Declaration order (slowest first)" : "Action order (fastest first)" }),
       el("button", { class: "btn sm", type: "button", onclick: () => openAddCombatant(host) }, "+ Add")));
 
-  sec.appendChild(initiativeRail(state));
-  for (const cb of order) {
-    sec.appendChild(combatantCard(cb, state, host));
-  }
+  // The table is the encounter (U19): every combatant a token on a felt lane by Speed, and a
+  // tap on a token is everything you can do with them. The cards are the same controls laid
+  // out in full, folded underneath for whoever wants them.
+  sec.appendChild(initiativeRail(state, host));
+  const cards = el("details", { class: "acc combat-cards" },
+    el("summary", {}, el("span", { text: "Cards" }), el("span", { class: "small muted", text: `${order.length} in the fight` })));
+  const cardBody = el("div", { class: "acc-body" });
+  for (const cb of order) cardBody.appendChild(combatantCard(cb, state, host));
+  cards.appendChild(cardBody);
+  sec.appendChild(cards);
   host.appendChild(sec);
 
   host.appendChild(el("div", { class: "btn-row", style: "margin:16px 0" },
@@ -111,19 +117,51 @@ function appendTools(host) {
  * lane, and an arrow along the rail in the direction the phase runs — slowest first while
  * declaring, fastest first while acting (§3.17). Read from the same order the cards below use.
  */
-function initiativeRail(state) {
+function initiativeRail(state, host) {
   const order = orderedCombatants(state, state.phase);
   const lanes = [0, 1, 2, 3];
-  const rail = el("div", { class: "init-rail is-" + state.phase, "aria-hidden": "true" });
+  const rail = el("div", { class: "init-rail is-table is-" + state.phase, role: "group", "aria-label": "The table, by Speed" });
   for (const sp of lanes) {
     const who = order.filter(cb => clamp(Number(cb.speed) || 0, 0, 3) === sp);
     rail.appendChild(el("div", { class: "ir-lane" },
-      el("span", { class: "ir-speed", text: String(sp) }),
-      el("span", { class: "ir-tokens" }, who.map(cb => el("span", {
-        class: "ir-token" + (cb.acted ? " is-acted" : "") + (cb.characterId ? " is-pc" : ""), title: cb.name
+      el("span", { class: "ir-speed", text: String(sp), "aria-hidden": "true" }),
+      el("span", { class: "ir-tokens" }, who.map(cb => el("button", {
+        class: "ir-token" + (cb.acted ? " is-acted" : "") + (cb.characterId ? " is-pc" : ""), type: "button",
+        title: cb.name, "aria-label": `${cb.name}, Speed ${cb.speed}${cb.acted ? ", acted" : ""}`,
+        onclick: () => tokenSheet(cb, host)
       }, cb.name)))));
   }
   return rail;
+}
+
+/**
+ * Everything a combatant's card offers, from a tap on their token: declare, attack, damage,
+ * the stat block or the dossier, acted, remove. The same calls the card's buttons make.
+ */
+function tokenSheet(cb, host) {
+  const me = Store.activeCharacter();
+  const ch = cb.characterId ? Store.getCharacter(cb.characterId) : null;
+  const items = [
+    { key: "declare", label: "Declare", icon: "talk" },
+    ch ? { key: "attack", label: "Attack", icon: "skillcombat" } : me ? { key: "attackThis", label: "Attack this", icon: "skillcombat" } : null,
+    { key: "damage", label: "Damage", icon: "hurt" },
+    cb.npc ? { key: "stats", label: "Stat block", icon: "files" } : ch ? { key: "dossier", label: "Dossier", icon: "agent" } : null,
+    { key: "acted", label: cb.acted ? "Un-act" : "Acted", icon: "flag" },
+    { key: "remove", label: "Remove", icon: "more" }
+  ].filter(Boolean);
+  tileModal(cb.name, [{ items }]).then(async key => {
+    if (!key) return;
+    if (key === "declare") {
+      const t = await promptModal("What are they doing this round?", { title: cb.name, value: cb.declaration || "" });
+      if (t !== null) mutate(host, st => { const x = st.combatants.find(y => y.id === cb.id); if (x) x.declaration = t; });
+    } else if (key === "attack") import("./roller.js").then(m => m.openWeaponPicker(ch));
+    else if (key === "attackThis") import("./roller.js").then(m => m.openWeaponPicker(me, { targetId: cb.id }));
+    else if (key === "damage") openCombatantDamage(cb, host);
+    else if (key === "stats") showNPC(cb.npc);
+    else if (key === "dossier") { Store.setActive(cb.characterId); import("./router.js").then(m => m.navigate("sheet")); }
+    else if (key === "acted") mutate(host, st => { const x = st.combatants.find(y => y.id === cb.id); if (x) x.acted = !x.acted; });
+    else if (key === "remove") mutate(host, st => { st.combatants = st.combatants.filter(y => y.id !== cb.id); });
+  });
 }
 
 function orderedCombatants(state, phase) {

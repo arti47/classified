@@ -1,7 +1,7 @@
 /* sheet.js — the live character sheet, in-play tracking, and the persistent
  * resource header shown on every in-play screen. */
 
-import { el, clear, $, money, signed, dfLabel, uid, percent, d100, meter, art, icon, section, rerender } from "./core.js";
+import { el, clear, $, money, signed, dfLabel, uid, percent, d100, meter, art, icon, section, rerender, SILHOUETTES, STAMP_COLOURS } from "./core.js";
 import { modal, showToast, confirmModal, promptModal, chooseModal } from "./ui.js";
 import * as D from "../data.js";
 import * as R from "./rules.js";
@@ -50,8 +50,36 @@ export function portrait(c, cls = "") {
     : el("span", { class: "mugshot is-art " + cls, "aria-hidden": "true" }, art(silhouette(c)));
 }
 
+/**
+ * The agent's look (U22): the silhouette a dossier wears until it has a photograph, and the
+ * stamp colour the app takes while the agent is open. Saved straight to the open dossier.
+ */
+export function lookPicker(onChange) {
+  const box = el("div", { class: "ob-look" });
+  const draw = () => {
+    clear(box);
+    const c = Store.activeCharacter();
+    if (!c) return;
+    const now = silhouette(c);
+    box.appendChild(el("div", { class: "field-label", text: "Silhouette" }));
+    box.appendChild(el("div", { class: "sil-pick" }, SILHOUETTES.map(x => el("button", {
+      class: "sil-opt" + (x.key === now ? " on" : ""), type: "button", "aria-pressed": String(x.key === now),
+      onclick: () => { Store.updateActive(d => { d.identity.silhouette = x.key; }); draw(); if (onChange) onChange(); }
+    }, art(x.key), el("span", { text: x.name })))));
+    box.appendChild(el("div", { class: "field-label", text: "Stamp colour" }));
+    box.appendChild(el("div", { class: "swatches" }, STAMP_COLOURS.map(x => el("button", {
+      class: `swatch s-${x.key}` + (c.identity.stamp === x.key ? " on" : ""), type: "button",
+      "aria-label": `${x.name} stamp`, "aria-pressed": String(c.identity.stamp === x.key),
+      onclick: () => { Store.updateActive(d => { d.identity.stamp = x.key; }); draw(); if (onChange) onChange(); }
+    }))));
+  };
+  draw();
+  return box;
+}
+
 /** The silhouette for a dossier with no photograph: hers or his, from the gender on file. */
 export function silhouette(c) {
+  if (c && c.identity && c.identity.silhouette) return c.identity.silhouette;
   return c && c.identity && c.identity.gender === "female" ? "agentF" : "agent";
 }
 
@@ -412,6 +440,17 @@ function portraitEl(c) {
 }
 
 async function openPortrait(c) {
+  if (!c.identity.portraitUrl) {
+    const pick = await chooseModal("Dossier photograph", [
+      { key: "photo", label: "Add a photograph", desc: "Choose an image; it is compressed on this device." },
+      { key: "look", label: "Change the look", desc: "The silhouette and the stamp colour." }
+    ]);
+    if (!pick) return;
+    if (pick === "look") {
+      modal({ title: "The look", body: lookPicker(() => rerender()), actions: [{ label: "Done", kind: "primary" }] });
+      return;
+    }
+  }
   if (c.identity.portraitUrl) {
     const pick = await chooseModal("Dossier photograph", [
       { key: "replace", label: "Replace it", desc: "Choose another image." },
