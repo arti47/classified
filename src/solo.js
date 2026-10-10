@@ -107,7 +107,6 @@ export function renderSolo(host) {
   const record = el("div", { class: "col-b" }, pages.lists, pages.journal);
 
   appendHeader(pages.scene, adv);
-  appendCoach(pages.scene);
   appendPrimary(pages.scene, adv);
   appendBriefing(pages.scene, adv);
   appendInPlay(pages.scene, pages.oracle, adv);
@@ -130,7 +129,7 @@ export function renderSolo(host) {
 const SOLO_PAGES = [
   { key: "scene", label: "Scene" },
   { key: "oracle", label: "Oracle" },
-  { key: "lists", label: "Lists" },
+  { key: "lists", label: "Board" },
   { key: "journal", label: "Journal" }
 ];
 const PAGE_KEY = "classified.soloPage";
@@ -141,6 +140,13 @@ function currentPage() {
     try { soloPage = sessionStorage.getItem(PAGE_KEY); } catch { /* storage blocked */ }
   }
   return SOLO_PAGES.some(p => p.key === soloPage) ? soloPage : "scene";
+}
+
+/** Move one page along the strip (a swipe, U13). Stops at the ends rather than wrapping. */
+export function stepSoloPage(dir) {
+  const i = SOLO_PAGES.findIndex(p => p.key === currentPage());
+  const next = SOLO_PAGES[i + dir];
+  if (next) setSoloPage(next.key);
 }
 
 /** Open one of the four pages. Exported so a flow that lands on another page can follow it. */
@@ -237,25 +243,6 @@ function section(title, sub, helpKey) {
 }
 
 /* ---------------------------------------------------------------- header */
-
-/**
- * The guided player, at the top of the screen it guides. Dynamically imported so the Mythic
- * layer keeps no static dependency on the conductor that drives it, and skipped when the
- * player has switched the how-to copy off — at that point they know where they are.
- */
-function appendCoach(host) {
-  if (!Settings.showHelp()) return;
-  // On this screen the primary action owns every boundary — briefing, start scene, end scene,
-  // a new adventure — so the coach here only ever carries what the screen does not: the three
-  // plain choices inside a running scene. Rendering its boundary beats too put two controls for
-  // one step a few lines apart. The whole coach, boundaries included, stays on the Play screen.
-  const slot = el("div", { class: "coach-slot" });
-  host.appendChild(slot);
-  import("./coach.js").then(m => {
-    if (m.currentBeat() === "play") m.renderCoach(slot, { compact: true });
-    else slot.remove();
-  });
-}
 
 function appendHeader(host, adv) {
   const card = el("div", { class: "card solo-header" }, el("span", { class: "watermark" }, art("map")));
@@ -537,6 +524,8 @@ function appendPrimary(host, adv) {
   }, "How scenes work"));
   const q = helpButton("solo.scene");
   if (q) card.appendChild(el("div", { class: "row", style: "justify-content:flex-end;margin-top:6px" }, q));
+  // A card holding nothing but explanation is an empty box once explanations are off (U12).
+  if ([...card.children].every(c => c.classList.contains("explain"))) card.classList.add("explain");
   host.appendChild(card);
 }
 
@@ -1148,10 +1137,8 @@ function appendInPlay(sceneHost, oracleHost, adv) {
   const open = phaseOf(adv).key === "play";
   const quiet = "solo-inplay" + (open ? "" : " is-quiet");
 
-  const check = el("div", { class: quiet });
-  appendCheck(check, adv);
-  if (check.childNodes.length) sceneHost.appendChild(check);
-
+  // Rolling a check, attacking and taking damage are the Mission's verbs now (U12), so the
+  // case board no longer carries a second copy of them.
   const wrap = el("div", { class: quiet });
   if (!open) {
     wrap.appendChild(el("p", { class: "small muted explain", text:
@@ -1161,29 +1148,6 @@ function appendInPlay(sceneHost, oracleHost, adv) {
   appendEvents(wrap, adv);
   appendMeaning(wrap, adv);
   oracleHost.appendChild(wrap);
-}
-
-/**
- * The other half of the game, one tap away.
- *
- * Fate answers what is true; anything the character *attempts* is a Classified check, and
- * before this the player had to leave the screen to make one. The roller is the Classified
- * engine, so it is reached by dynamic import — `solo.js` still has no static dependency on
- * it (S15) — and the button is only there when a dossier is linked to roll for.
- */
-function appendCheck(host, adv) {
-  const linked = adv.characterId ? Store.getCharacter(adv.characterId) : null;
-  if (!linked) return;
-  const sec = section("Roll a check",
-    "Fate says what is true. What the character tries is an ordinary Classified check, on the dossier this adventure is linked to.", "solo.check");
-  sec.appendChild(el("div", { class: "btn-row" },
-    el("button", { class: "btn", type: "button",
-      onclick: () => import("./roller.js").then(m => m.openQuickRoll(linked)) }, "Roll a skill"),
-    el("button", { class: "btn ghost", type: "button",
-      onclick: () => import("./roller.js").then(m => m.openWeaponPicker(linked)) }, "Attack"),
-    el("button", { class: "btn ghost", type: "button",
-      onclick: () => import("./roller.js").then(m => m.openTakeDamage(linked)) }, "Take damage")));
-  host.appendChild(sec);
 }
 
 function appendEvents(host, adv) {
@@ -1403,16 +1367,18 @@ export function settingCaption(st) {
 
 /** The editable setting block at the head of Start scene. Mutates `setting` as you edit or reroll. */
 function settingEditor(setting) {
-  const card = el("div", { class: "scene-setting" });
+  // A film slate (U11): the scene as it will open, in capitals, each line written on the
+  // board and rerolled by the arrow beside it.
+  const card = el("div", { class: "scene-setting slate" });
   const caption = el("div", { class: "scene-caption", "aria-live": "polite" });
   const redraw = () => { caption.textContent = settingCaption(setting); };
-  card.appendChild(el("div", { class: "field-label", text: "Set the scene" }));
+  card.appendChild(el("div", { class: "slate-stripes", "aria-hidden": "true" }));
   card.appendChild(caption);
 
   const line = (label, key, reroll, extra) => {
     const input = el("input", { type: "text", value: setting[key] || "", "aria-label": label });
     input.addEventListener("input", () => { setting[key] = input.value.trim(); redraw(); });
-    const again = el("button", { class: "btn sm ghost", type: "button", "aria-label": `Roll ${label} again` }, "Reroll");
+    const again = el("button", { class: "icon-btn slate-roll", type: "button", "aria-label": `Roll ${label} again`, title: "Roll again" }, "↻");
     again.addEventListener("click", async () => { setting[key] = await reroll(); input.value = setting[key]; redraw(); });
     card.appendChild(el("div", { class: "setting-line" },
       el("span", { class: "field-label", text: label }),
@@ -1449,7 +1415,7 @@ export async function startScene(adv, opts = {}) {
       settingEditor(setting),
       el("label", { class: "field" },
         el("span", { text: `What do you expect scene ${adv.scene} to be?` }), input),
-      el("p", { class: "small muted", text:
+      el("p", { class: "small muted explain", text:
         `A d10 over ${adv.chaos} plays it as you expect. At or under, an odd roll alters the scene and an even roll interrupts it with a Random Event.` }));
 
     const go = await confirmModal(body, { title: `Start scene ${adv.scene}`, okLabel: "Test the scene" });

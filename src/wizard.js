@@ -1,7 +1,7 @@
 /* wizard.js — character creation. Legality is validated at every step and the
  * Creation Point budget is always on screen. */
 
-import { el, clear, signed, uid, percent, d100, clamp, statBox, preserveView } from "./core.js";
+import { el, clear, signed, uid, percent, d100, clamp, statBox, preserveView, art } from "./core.js";
 import { givenNames, SURNAMES } from "../data-names.js";
 import { modal, showToast, confirmModal, promptModal, chooseModal } from "./ui.js";
 import * as D from "../data.js";
@@ -637,15 +637,16 @@ export function instantiatePregen(p) {
   return normalize(c);
 }
 
+/* The published agents as a rail of dossier cards (U16), the same faces the recruitment shows. */
 function renderPregens(host) {
-  const sec = el("div", { class: "section", style: "margin-top:20px" },
-    el("div", { class: "section-title", text: "Published sample characters" }));
-  sec.appendChild(el("p", { class: "small muted", text:
-    "The five pre-generated operatives from the Character Sheets supplement. Tap one to open it as a playable dossier — skill ranks come from the sheet, and Base Chances are derived so the sheets' few arithmetic slips are corrected." }));
-
+  const sec = el("div", { class: "section" },
+    el("div", { class: "section-title", text: "A published agent" }));
+  sec.appendChild(el("p", { class: "small muted explain", text:
+    "The five pre-generated operatives from the Character Sheets supplement. Skill ranks come from the sheet, and Base Chances are derived so the sheets' few arithmetic slips are corrected." }));
+  const rail = el("div", { class: "ob-rail is-compact", role: "list" });
   for (const p of PREGENS) {
-    sec.appendChild(el("button", {
-      class: "opt-btn", type: "button",
+    rail.appendChild(el("button", {
+      class: "ob-card is-mini", type: "button", role: "listitem", "aria-label": `${p.name}, ${R.RANK_BY_KEY[p.rank].name}`,
       onclick: async () => {
         const c = instantiatePregen(p);
         const saved = Store.saveCharacter(c);
@@ -655,15 +656,12 @@ function renderPregens(host) {
         navigate("sheet");
       }
     },
-      el("span", { class: "on-name" },
-        el("span", { text: p.name }),
-        el("span", { class: "mono small", text: `${R.RANK_BY_KEY[p.rank].name} · Rep ${p.reputation}` })),
-      el("span", { class: "on-desc", text: p.blurb }),
-      el("span", { class: "on-desc", text:
-        `STR ${p.attributes.str} · DEX ${p.attributes.dex} · WIL ${p.attributes.wil} · PER ${p.attributes.per} · INT ${p.attributes.int}` +
-        ` · Speed ${R.speedValue(p.attributes.per, p.attributes.dex)}` })
-    ));
+      el("span", { class: "stamp ob-rank", text: R.RANK_BY_KEY[p.rank].name }),
+      el("span", { class: "ob-pic" }, art(p.gender === "female" ? "agentF" : "agent")),
+      el("span", { class: "ob-name", text: p.name }),
+      el("span", { class: "ob-prof", text: `Speed ${R.speedValue(p.attributes.per, p.attributes.dex)} · Rep ${p.reputation}` })));
   }
+  sec.appendChild(rail);
   host.appendChild(sec);
 }
 
@@ -677,27 +675,30 @@ export function renderCreate(host) {
 
   appendHelp(host, "create");
 
-  host.appendChild(el("div", { class: "section" },
-    el("div", { class: "section-title", text: "New operative" }),
-    el("p", { class: "small muted", style: "margin-top:8px", text:
-      "Point-buy creation. Pick a rank to set your budget; you can change it later in the wizard." })));
+  renderPregens(host);
 
-  for (const r of D.RANKS) {
-    host.appendChild(el("button", {
-      class: "opt-btn", type: "button",
+  // Build your own: the three ranks as tiles, the budget large (U16).
+  host.appendChild(el("div", { class: "section" },
+    el("div", { class: "section-title", text: "Build your own" }),
+    el("p", { class: "small muted explain", style: "margin-top:8px", text:
+      "Point-buy creation. Pick a rank to set your budget; you can change it later in the wizard." })));
+  const ranks = el("div", { class: "rank-tiles" });
+  D.RANKS.forEach((r, i) => {
+    ranks.appendChild(el("button", {
+      class: "rank-tile", type: "button", "aria-label": `${r.name}: ${r.creationPoints} Creation Points, ${r.heroPoints} Hero Points`,
       onclick: () => { startWizard(r.key); renderWizard(host); }
     },
-      el("span", { class: "on-name" }, el("span", { text: r.name }), el("span", { class: "mono small", text: `${r.creationPoints} CP` })),
-      el("span", { class: "on-desc", text: `${r.heroPoints} Hero Points · recommended for ${r.key === "rookie" ? "new players" : r.key === "agent" ? "experienced players" : "a heroic or cinematic table"}` })
-    ));
-  }
-
-  renderPregens(host);
+      el("span", { class: "rt-stars", "aria-hidden": "true", text: "★".repeat(i + 1) }),
+      el("span", { class: "rt-name", text: r.name }),
+      el("span", { class: "rt-cp", text: String(r.creationPoints) }),
+      el("span", { class: "rt-k", text: `CP · ${r.heroPoints} HP` })));
+  });
+  host.appendChild(ranks);
 
   const existing = Store.allCharacters();
   if (existing.length) {
     host.appendChild(el("div", { class: "section", style: "margin-top:20px" },
-      el("div", { class: "section-title", text: "Existing dossiers" })));
+      el("div", { class: "section-title", text: "Your dossiers" })));
     const card = el("div", { class: "card flush" });
     for (const c of existing) {
       card.appendChild(el("div", { class: "card-row" },

@@ -47,7 +47,12 @@ export function portrait(c, cls = "") {
   const url = c && c.identity.portraitUrl;
   return url
     ? el("img", { class: "mugshot " + cls, src: url, alt: "" })
-    : el("span", { class: "mugshot is-art " + cls, "aria-hidden": "true" }, art("agent"));
+    : el("span", { class: "mugshot is-art " + cls, "aria-hidden": "true" }, art(silhouette(c)));
+}
+
+/** The silhouette for a dossier with no photograph: hers or his, from the gender on file. */
+export function silhouette(c) {
+  return c && c.identity && c.identity.gender === "female" ? "agentF" : "agent";
 }
 
 /* ---------------------------------------------------------------- resource header */
@@ -402,7 +407,7 @@ function portraitEl(c) {
     onclick: () => openPortrait(c)
   });
   if (url) btn.appendChild(el("img", { src: url, alt: "" }));
-  else btn.appendChild(el("span", { class: "ph" }, art("agent")));
+  else btn.appendChild(el("span", { class: "ph" }, art(silhouette(c))));
   return btn;
 }
 
@@ -506,7 +511,9 @@ export function renderSheet(host) {
   const app = R.APPEARANCE_BY_KEY[c.identity.appearance];
   if (app) traits.push(app.name);
   if (traits.length) head.appendChild(el("div", { class: "small muted", text: traits.join(" · ") }));
-  head.appendChild(el("div", { class: "head-wound" },
+  head.appendChild(el("button", { class: "head-wound", type: "button", "aria-label": `${R.woundLevel(c.state.wound).name} — open the wound panel`,
+    onclick: () => openWoundPanel(c) },
+    woundFigure(c.state.wound),
     el("span", { class: "small", text: R.woundLevel(c.state.wound).name }), woundTrack(c.state.wound)));
   if (c.identity.cover) head.appendChild(el("div", { class: "small", style: "margin-top:6px" },
     el("b", { text: "Cover: " }), c.identity.cover));
@@ -710,6 +717,33 @@ export function renderSheet(host) {
   ));
 }
 
+/**
+ * The wound as a body (U17): a figure filled from the feet up by how far down the wound ladder
+ * the agent is, amber for a Stun or a Light Wound, red from Medium to Incapacitated, black at
+ * Killed. A picture of the wound named beside it — the name and the track are what count.
+ */
+let figSeq = 0;
+function woundFigure(key) {
+  const w = R.woundLevel(key);
+  const top = D.WOUND_LEVELS.reduce((m, x) => Math.max(m, x.order), 0);
+  const f = Math.max(0, Math.min(1, w.order / top));
+  const NS = "http://www.w3.org/2000/svg";
+  const svg = document.createElementNS(NS, "svg");
+  svg.setAttribute("viewBox", "0 0 40 64"); svg.setAttribute("class", "wound-figure w-" + w.key); svg.setAttribute("aria-hidden", "true");
+  const id = "wf" + (++figSeq);
+  const body = "M20 2a6 6 0 1 0 0 12 6 6 0 0 0 0-12zM12 16h16l5 20h-5l-2-10v36h-5V44h-2v18h-5V26l-2 10H7z";
+  const clip = document.createElementNS(NS, "clipPath"); clip.setAttribute("id", id);
+  const cp = document.createElementNS(NS, "path"); cp.setAttribute("d", body); clip.appendChild(cp);
+  svg.appendChild(clip);
+  const bg = document.createElementNS(NS, "path"); bg.setAttribute("d", body); bg.setAttribute("class", "wf-body"); svg.appendChild(bg);
+  const fill = document.createElementNS(NS, "rect");
+  fill.setAttribute("x", "0"); fill.setAttribute("width", "40"); fill.setAttribute("y", String(64 * (1 - f))); fill.setAttribute("height", String(64 * f));
+  fill.setAttribute("clip-path", `url(#${id})`); fill.setAttribute("class", "wf-fill");
+  svg.appendChild(fill);
+  svg.dataset.fill = f.toFixed(3);
+  return svg;
+}
+
 /* A characteristic's dial: an arc filled to its share of the maximum. Decoration only. */
 function ring(fraction) {
   const NS = "http://www.w3.org/2000/svg";
@@ -761,12 +795,15 @@ function openNotes(c) {
 
 /* ---------------------------------------------------------------- gear screen */
 
+let gearTab = "carried";
+
 export function renderGear(host) {
   const c = Store.activeCharacter();
   clear(host);
   if (!c) {
     // "No character." was the entire screen — no explanation and nothing to tap (N2).
     appendHelp(host, "gear");
+
     host.appendChild(el("div", { class: "empty" },
       el("div", { class: "big" }, art("briefcase")),
       el("h2", { text: "No dossier open" }),
@@ -778,6 +815,20 @@ export function renderGear(host) {
   const dv = derived(c);
 
   appendHelp(host, "gear");
+
+  // Three drawers rather than one long page (U14): what you carry, what you could draw from
+  // the armoury, and the garage. The drawer you were in is kept across redraws.
+  const drawers = { carried: el("div", { class: "gear-panel" }), armoury: el("div", { class: "gear-panel" }), garage: el("div", { class: "gear-panel" }) };
+  const tabs = el("div", { class: "segctl", role: "tablist", "aria-label": "Gear" });
+  for (const [key, label, ico] of [["carried", "Carried", "gear"], ["armoury", "Armoury", "target"], ["garage", "Garage", "vehicle"]]) {
+    tabs.appendChild(el("button", { class: "segctl-btn" + (gearTab === key ? " on" : ""), type: "button", role: "tab",
+      "aria-selected": String(gearTab === key), dataset: { tab: key },
+      onclick: () => { gearTab = key; for (const [k, p] of Object.entries(drawers)) p.hidden = k !== key;
+        tabs.querySelectorAll(".segctl-btn").forEach(b => { const on = b.dataset.tab === key; b.classList.toggle("on", on); b.setAttribute("aria-selected", String(on)); }); }
+    }, icon(ico), el("span", { text: label })));
+  }
+  host.appendChild(tabs);
+  for (const [k, p] of Object.entries(drawers)) { p.hidden = k !== gearTab; host.appendChild(p); }
 
   const moneyCard = el("div", { class: "card" },
     el("div", { class: "row" },
@@ -793,9 +844,9 @@ export function renderGear(host) {
         }
       } }, "Adjust")
     ),
-    el("p", { class: "small muted", style: "margin-top:8px", text: D.EQUIPMENT_ACCESS.agency })
+    el("p", { class: "small muted explain", style: "margin-top:8px", text: D.EQUIPMENT_ACCESS.agency })
   );
-  host.appendChild(moneyCard);
+  drawers.carried.appendChild(moneyCard);
 
   const loadCard = el("div", { class: "card" },
     el("div", { class: "row" },
@@ -806,10 +857,10 @@ export function renderGear(host) {
         text: dv.carriedWeight > dv.carryMax ? "Over limit" : "Within limit" })
     ),
     meter(dv.carryMax ? dv.carriedWeight / dv.carryMax : 0, "carry" + (dv.carriedWeight > dv.carryMax ? " is-over" : "")),
-    el("p", { class: "small muted", style: "margin-top:8px", text:
+    el("p", { class: "small muted explain", style: "margin-top:8px", text:
       `Strength ${c.attributes.str} allows ${dv.carryRange} carried for ${c.attributes.wil} minutes. Beyond that, ${D.EXHAUSTION_DF_PENALTY} Difficulty Factor on everything until 15 minutes of rest.` })
   );
-  host.appendChild(loadCard);
+  drawers.carried.appendChild(loadCard);
 
   const invSection = section("Inventory");
   invSection.querySelector(".section-head").appendChild(
@@ -856,7 +907,7 @@ export function renderGear(host) {
     }
     invSection.appendChild(card);
   }
-  host.appendChild(invSection);
+  drawers.carried.appendChild(invSection);
 
   // Catalogue
   const catSection = section("Equipment catalogue", "Everything the core book lists. Tap to add to your dossier.");
@@ -908,10 +959,10 @@ export function renderGear(host) {
   }
   search.addEventListener("input", drawCatalogue);
   drawCatalogue();
-  host.appendChild(catSection);
+  drawers.armoury.appendChild(catSection);
 
-  host.appendChild(garageSection(c, host));
-  host.appendChild(bugSection(c, host));
+  drawers.garage.appendChild(garageSection(c, host));
+  drawers.armoury.appendChild(bugSection(c, host));
 
   // Vehicles
   const vSection = section("Vehicles you could own");
@@ -939,7 +990,7 @@ export function renderGear(host) {
   }
   vSearch.addEventListener("input", drawVehicles);
   drawVehicles();
-  host.appendChild(vSection);
+  drawers.garage.appendChild(vSection);
 }
 
 function catLabel(cat) {

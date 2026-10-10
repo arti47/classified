@@ -1500,7 +1500,7 @@ button.chip:disabled { cursor: not-allowed; border-style: dashed; background: tr
 .badge-name { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; min-width: 0; }
 .badge-wound { flex: none; width: 10px; height: 10px; border-radius: 50%; background: var(--ok); box-shadow: 0 0 0 2px var(--paper-2), 0 0 0 3px var(--rule-2); }
 .badge-wound:is(.w-stun, .w-light) { background: var(--warn); }
-.badge-wound:is(.w-medium, .w-heavy, .w-incapacitated) { background: var(--danger); }
+.badge-wound:is(.w-medium, .w-heavy, .w-incap) { background: var(--danger); }
 .badge-wound.w-killed { background: var(--ink); }
 .badge-hp { flex: none; font: 600 10px/1 var(--mono); color: var(--ink-3); display: inline-flex; align-items: baseline; gap: 2px; }
 .badge-hp b { font: 700 14px/1 var(--mono); color: var(--ok); }
@@ -1718,3 +1718,116 @@ body:not([data-folder="agent"]):not([data-route="combat"]) #resourceHeader { dis
 
 /* -------- explanations are opt-in (U4) */
 body:not(.explain-on) .explain { display: none !important; }
+
+/* ================================================================ second redesign (U9–U17) */
+
+/* -------- the roll as one dial (U9) */
+.roll-hero { display: grid; grid-template-columns: 132px 1fr; gap: 14px; align-items: center; padding: 6px 0 10px; }
+.rh-ring { position: relative; width: 132px; height: 132px; display: grid; place-items: center; }
+.chance-ring { position: absolute; inset: 0; width: 100%; height: 100%; transform: rotate(-90deg); }
+.cr-bg { fill: none; stroke: var(--paper-3); stroke-width: 10; }
+.cr-fg { fill: none; stroke: var(--ok); stroke-width: 10; stroke-linecap: round; transition: stroke-dasharray .25s var(--ease); }
+.rh-sc { position: relative; font: 700 40px/1 var(--mono); }
+.rh-k { position: absolute; bottom: 34px; font: 600 10px/1 var(--mono); letter-spacing: .14em; text-transform: uppercase; color: var(--ink-3); }
+.rh-side { display: grid; gap: 6px; justify-items: center; }
+.rh-label { font: 600 11px/1 var(--mono); letter-spacing: .14em; text-transform: uppercase; color: var(--ink-3); }
+.rh-step { display: flex; align-items: center; gap: 10px; }
+.rh-step .icon-btn { width: 46px; height: 46px; font: 700 24px/1 var(--mono); }
+.rh-df { font: 400 40px/1 var(--display); min-width: 44px; text-align: center; }
+.rh-ends { display: flex; justify-content: space-between; width: 100%; max-width: 150px; font: 600 10px/1 var(--mono); letter-spacing: .08em; text-transform: uppercase; color: var(--ink-3); }
+.rh-formula { font: 500 12px/1 var(--mono); color: var(--ink-2); }
+.rh-track { grid-column: 1 / -1; }
+.df-ladder.is-strip { display: grid; grid-template-columns: repeat(11, minmax(0, 1fr)); gap: 3px; }
+.df-ladder.is-strip .df-step { min-height: 34px; padding: 0; font-size: 13px; }
+.df-ladder.is-strip .df-step.eff { outline: 2px dashed var(--stamp); outline-offset: -3px; }
+.mod-tags { display: flex; flex-wrap: wrap; gap: 6px; margin: 10px 0 6px; }
+.mod-tag { display: inline-flex; align-items: center; gap: 6px; padding: 5px 10px; border-radius: 14px; background: var(--paper-3); font: 600 12px/1.2 var(--sans); }
+.mod-tag.is-auto { background: transparent; border: 1px dashed var(--rule-2); }
+.mod-x { border: none; background: none; color: var(--ink-2); cursor: pointer; font-size: 12px; padding: 0 2px; min-width: 24px; min-height: 24px; }
+.sit-btn { margin-top: 4px; }
+.situation { padding-top: 8px; }
+.situation[hidden] { display: none; }
+
+/* -------- the result as a moment (U10) */
+.roll-result.is-cinema { padding: 10px 0 4px; }
+.roll-result.is-cinema .roll-d100 { font-size: 56px; }
+.roll-result.is-cinema .roll-quality { font-size: 30px; padding: 8px 16px 6px; }
+.roll-details { margin-top: 10px; }
+@media (prefers-reduced-motion: reduce) { .cr-fg { transition: none; } }
+
+/* -------- the scene slate (U11) */
+.scene-setting.slate { position: relative; background: var(--ink); color: var(--paper-2); border-radius: var(--r-lg); padding: 30px 14px 10px; margin-bottom: 14px; border: none; }
+.slate-stripes { position: absolute; left: 0; right: 0; top: 0; height: 18px; border-radius: var(--r-lg) var(--r-lg) 0 0;
+  background: repeating-linear-gradient(-45deg, var(--paper-2) 0 14px, var(--ink) 14px 28px); opacity: .9; }
+.slate .scene-caption { font: 400 22px/1.15 var(--display); text-transform: none; background: none; border: none; color: var(--paper-2); padding: 4px 0 10px; }
+.slate .setting-line { display: grid; grid-template-columns: 92px 1fr; align-items: center; gap: 8px; padding: 4px 0; border-top: 1px dashed color-mix(in srgb, var(--paper-2) 30%, transparent); }
+.slate .setting-line .field-label { color: color-mix(in srgb, var(--paper-2) 80%, transparent); margin: 0; }
+.slate .setting-line input { background: transparent; color: var(--paper-2); border: none; border-bottom: 1px solid color-mix(in srgb, var(--paper-2) 35%, transparent); border-radius: 0; padding: 6px 0; }
+.slate .setting-line input:focus { outline: 2px solid var(--paper-2); outline-offset: 2px; }
+.slate .slate-roll, .slate .setting-line .btn { background: transparent; color: var(--paper-2); border-color: color-mix(in srgb, var(--paper-2) 40%, transparent); box-shadow: none; }
+.slate-roll { font-size: 20px; }
+.scene-open {
+  position: fixed; inset: 0; z-index: 90; pointer-events: none; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 10px;
+  background: var(--ink); color: var(--paper-2); text-align: center; padding: 20px;
+  animation: so-life 1.9s var(--ease) both;
+}
+.so-k { font: 600 12px/1 var(--mono); letter-spacing: .3em; text-transform: uppercase; opacity: .75; }
+.so-city { font: 400 46px/1 var(--display); text-transform: uppercase; letter-spacing: .04em; animation: so-type 1.1s steps(18) both; overflow: hidden; white-space: nowrap; max-width: 100%; }
+.so-line { font: 500 16px/1.3 var(--sans); }
+@keyframes so-life { 0% { opacity: 0; } 12% { opacity: 1; } 78% { opacity: 1; } 100% { opacity: 0; } }
+@keyframes so-type { from { clip-path: inset(0 100% 0 0); } to { clip-path: inset(0 0 0 0); } }
+@media (prefers-reduced-motion: reduce) { .scene-open { display: none; } }
+
+/* -------- the case board as a pinboard (U12) */
+.solo-page[data-page="lists"] {
+  background-color: #b48a5a;
+  background-image: radial-gradient(rgba(60,35,10,.22) 1px, transparent 1.4px), radial-gradient(rgba(255,240,210,.18) 1px, transparent 1.4px);
+  background-size: 7px 7px, 11px 11px; background-position: 0 0, 3px 4px;
+  border-radius: var(--r-lg); padding: 12px 10px 16px; box-shadow: inset 0 0 0 6px #6b4a2a, inset 0 2px 10px rgba(0,0,0,.35);
+}
+.solo-page[data-page="lists"] .section-title, .solo-page[data-page="lists"] .section-head { color: #2a1a0a; }
+.solo-page[data-page="lists"] .section-title { background: var(--paper-hi); padding: 4px 10px; border-radius: 2px; box-shadow: 0 2px 4px rgba(0,0,0,.25); transform: rotate(-1deg); display: inline-block; }
+.solo-page[data-page="lists"] .section-head::after { display: none; }
+.solo-page[data-page="lists"] .card { position: relative; transform: rotate(-.6deg); box-shadow: 0 3px 8px rgba(40,20,0,.35); background: var(--paper-hi); }
+.solo-page[data-page="lists"] .card:nth-of-type(even) { transform: rotate(.7deg); }
+.solo-page[data-page="lists"] .card::before {
+  content: ""; position: absolute; top: -6px; left: 50%; width: 14px; height: 14px; margin-left: -7px; border-radius: 50%;
+  background: radial-gradient(circle at 35% 35%, #ff8a7a, var(--stamp) 60%, #5a0d06); box-shadow: 0 2px 3px rgba(0,0,0,.4); pointer-events: none; z-index: 1;
+}
+.solo-page[data-page="lists"] .empty { background: var(--paper-hi); }
+.solo-page[data-page="lists"] .small.muted, .solo-page[data-page="lists"] p.muted { color: var(--ink-2); }
+:root[data-theme="dark"] .solo-page[data-page="lists"] { background-color: #3a2c1e; box-shadow: inset 0 0 0 6px #22180e, inset 0 2px 10px rgba(0,0,0,.5); }
+@media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) .solo-page[data-page="lists"] { background-color: #3a2c1e; box-shadow: inset 0 0 0 6px #22180e, inset 0 2px 10px rgba(0,0,0,.5); } }
+:root[data-theme="dark"] .solo-page[data-page="lists"] .section-title { color: var(--ink); }
+@media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) .solo-page[data-page="lists"] .section-title { color: var(--ink); } }
+
+/* -------- segmented drawers (U14) */
+.segctl { display: grid; grid-auto-flow: column; grid-auto-columns: 1fr; gap: 4px; padding: 4px; margin-bottom: 14px; border-radius: 12px; background: var(--paper-3); border: 1px solid var(--rule); }
+.segctl-btn { display: flex; align-items: center; justify-content: center; gap: 6px; min-height: 44px; border: none; border-radius: 9px; background: transparent; color: var(--ink-2); font: 600 13px/1 var(--sans); cursor: pointer; }
+.segctl-btn svg { width: 18px; height: 18px; }
+.segctl-btn.on { background: var(--paper-2); color: var(--ink); box-shadow: var(--shadow-1); }
+.segctl-btn.on svg { color: var(--stamp); }
+.gear-panel[hidden] { display: none; }
+
+/* -------- Create: rail and rank tiles (U16) */
+.ob-rail.is-compact .ob-card.is-mini { flex: 0 0 150px; padding: 18px 10px 12px; gap: 6px; cursor: pointer; color: var(--ink); font: inherit; }
+.ob-card.is-mini .ob-pic { width: 84px; height: 84px; }
+.ob-card.is-mini .ob-pic .art { width: 68px; height: 68px; }
+.ob-card.is-mini .ob-name { font-size: 17px; }
+.ob-card.is-mini .ob-rank { top: 8px; right: 6px; font-size: 9px; }
+.rank-tiles { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 8px; }
+.rank-tile { display: flex; flex-direction: column; align-items: center; gap: 4px; padding: 14px 6px; border: 1px solid var(--rule-2); border-radius: var(--r-lg); background: var(--paper-2); color: var(--ink); cursor: pointer; box-shadow: var(--shadow-1); }
+.rank-tile:active { transform: translateY(1px); box-shadow: none; }
+.rt-stars { color: var(--stamp); letter-spacing: .1em; font-size: 14px; }
+.rt-name { font: 600 13px/1.2 var(--sans); text-align: center; }
+.rt-cp { font: 700 26px/1 var(--mono); }
+.rt-k { font: 600 10px/1 var(--mono); color: var(--ink-3); letter-spacing: .06em; }
+@media (min-width: 900px) { .ob-rail.is-compact { justify-content: flex-start; flex-wrap: nowrap; overflow-x: auto; } }
+
+/* -------- the wound as a body (U17) */
+button.head-wound { width: 100%; background: none; border: none; padding: 4px 0 0; color: inherit; font: inherit; cursor: pointer; text-align: left; }
+.wound-figure { flex: none; width: 30px; height: 48px; }
+.wf-body { fill: var(--paper-3); stroke: var(--rule-2); stroke-width: 1; }
+.wf-fill { fill: var(--warn); }
+.wound-figure:is(.w-medium, .w-heavy, .w-incap) .wf-fill { fill: var(--danger); }
+.wound-figure.w-killed .wf-fill { fill: var(--ink); }

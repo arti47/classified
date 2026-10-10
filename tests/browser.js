@@ -209,7 +209,7 @@ export async function browserTests(t, { chromium, executablePath, baseURL }) {
       await page.evaluate(() => { location.hash = "#/create"; });
       await page.waitForTimeout(150);
       await page.evaluate(() => {
-        const btns = [...document.querySelectorAll(".opt-btn")];
+        const btns = [...document.querySelectorAll(".rank-tile")];
         btns[0].click();                                  // Rookie
       });
       await page.waitForTimeout(150);
@@ -506,8 +506,8 @@ export async function browserTests(t, { chromium, executablePath, baseURL }) {
         return out;
       });
       t.ok(!dup.setup.coach && dup.setup.primaries === 1, "between scenes Solo carries one Start-scene control, not the coach's copy of it");
-      t.ok(dup.play.coach && !dup.play.coachBoundary && dup.play.primaries === 1,
-        "in a scene the coach offers its three choices and leaves End scene to the primary action");
+      t.ok(!dup.play.coach && dup.play.primaries === 1,
+        "in a scene the case board carries no coach — the Mission's verbs are the in-scene choices (U12) — and one End-scene control");
 
       // Four pages on a phone under one sticky bar; every page at once on a desk (S26).
       const pagesProbe = async () => page.evaluate(async () => {
@@ -543,9 +543,9 @@ export async function browserTests(t, { chromium, executablePath, baseURL }) {
         return out;
       });
       const phone = await pagesProbe();
-      t.deep(phone.pages, ["scene", "oracle", "lists", "journal"], "Solo is four pages: Scene, Oracle, Lists, Journal");
+      t.deep(phone.pages, ["scene", "oracle", "lists", "journal"], "the case board is four pages: Scene, Oracle, Board, Journal");
       if (vp.width < 900) {
-        t.deep(phone.tabs, ["Scene", "Oracle", "Lists", "Journal"], "with a tab for each on a phone");
+        t.deep(phone.tabs, ["Scene", "Oracle", "Board", "Journal"], "with a tab for each on a phone");
         t.deep(phone.before, ["scene"], "and only the current page showing");
         t.deep(phone.afterOracle, ["oracle"], "a tab opens its page and hides the rest");
         t.eq(phone.selected, "oracle", "and is marked selected");
@@ -1933,38 +1933,36 @@ export async function browserTests(t, { chromium, executablePath, baseURL }) {
       t.ok(toCombat.names.length >= 2, "alongside the open dossier");
       t.ok(toCombat.carriesBlock, "carrying its whole stat block, not just a name");
 
-      // Fate answers what is true; what the character attempts is a Classified check.
+      // Fate answers what is true; what the character attempts is a Classified check — one of
+      // the Mission's verbs, which the case board no longer repeats (U12).
       const check = await page.evaluate(async () => {
         const Store = await import("./src/store.js");
         (await import("./src/ui.js")).closeAllModals();
         await new Promise(r => setTimeout(r, 150));
         const c = Store.activeCharacter();
         const adv = Store.createAdventure({ name: "Check test", characterId: c.id });
-        Store.updateAdventure(a => { a.scenePhase = "play"; });
-        location.hash = "#/home"; await new Promise(r => setTimeout(r, 100));
+        Store.updateAdventure(a => { a.scenePhase = "play"; a.briefing = a.briefing || { rows: {}, seededIds: [], writtenAt: Date.now() }; });
         location.hash = "#/solo"; await new Promise(r => setTimeout(r, 250));
-        const labels = [...document.querySelectorAll("#screen .btn")].map(b => b.textContent);
-        const btn = [...document.querySelectorAll("#screen .btn")].find(b => b.textContent === "Roll a skill");
-        btn.click();
-        for (let i = 0; i < 40 && !document.querySelector(".modal"); i++) await new Promise(r => setTimeout(r, 50));
-        const opened = (document.querySelector(".modal") || {}).textContent || "";
+        const board = [...document.querySelectorAll("#screen .btn")].map(b => b.textContent);
+        location.hash = "#/mission"; await new Promise(r => setTimeout(r, 250));
+        document.querySelector(".mission-dock .big-go").click();
+        await new Promise(r => setTimeout(r, 200));
+        const verbs = [...document.querySelectorAll(".modal .verb")];
+        verbs.find(v => /Try something/.test(v.textContent)).click();
+        for (let i = 0; i < 40 && !document.querySelector(".modal .tp-tile"); i++) await new Promise(r => setTimeout(r, 50));
+        const opened = !!document.querySelector(".modal .tp-tile");
         (await import("./src/ui.js")).closeAllModals();
         await new Promise(r => setTimeout(r, 100));
-
-        Store.updateAdventure(a => { a.characterId = null; });
-        location.hash = "#/home"; await new Promise(r => setTimeout(r, 100));
-        location.hash = "#/solo"; await new Promise(r => setTimeout(r, 250));
-        const unlinked = [...document.querySelectorAll("#screen .btn")].map(b => b.textContent);
         Store.deleteAdventure(adv.id);
         return {
-          offered: labels.includes("Roll a skill") && labels.includes("Attack") && labels.includes("Take damage"),
-          opened: opened.length > 0,
-          hiddenWhenUnlinked: !unlinked.includes("Roll a skill")
+          offered: ["Try something", "Fight", "I'm hurt"].every(l => verbs.some(v => v.textContent.includes(l))),
+          opened,
+          notRepeated: !board.includes("Roll a skill")
         };
       });
-      t.ok(check.offered, "a scene in play offers the Classified checks beside the oracle");
-      t.ok(check.opened, "and the roller opens on the linked dossier without leaving the screen");
-      t.ok(check.hiddenWhenUnlinked, "with no dossier linked there is nothing to roll, so it is not offered");
+      t.ok(check.offered, "a scene in play offers the Classified checks beside the oracle, as Mission verbs");
+      t.ok(check.opened, "and the roller opens on the dossier without leaving the screen");
+      t.ok(check.notRepeated, "the case board does not repeat them");
 
       // The briefing can roll whether the mission hides anything at all.
       const hidden = await page.evaluate(async () => {
@@ -3104,7 +3102,7 @@ export async function browserTests(t, { chromium, executablePath, baseURL }) {
         const go = name => [...host.querySelectorAll(".wstep")].find(b => b.textContent.includes(name)).click();
         // Pick a wizard draft rather than the rank menu if one is offered.
         if (!host.querySelector(".wstep")) {
-          [...host.querySelectorAll(".opt-btn")].find(b => /Agent/.test(b.textContent))?.click(); await wait(200);
+          [...host.querySelectorAll(".rank-tile")].find(b => /^Agent/.test(b.getAttribute("aria-label")))?.click(); await wait(200);
         }
         go("Profession"); await wait(200);
         [...host.querySelectorAll(".opt-btn")].find(b => /Military/.test(b.textContent))?.click(); await wait(200);
@@ -3290,6 +3288,129 @@ export async function browserTests(t, { chromium, executablePath, baseURL }) {
       t.eq(v2.veteran, 13, "and veteran mode shows all thirteen at once");
       t.eq(v2.explainOff, 0, "with how-to off, no explanation is on screen");
       t.ok(v2.explainOn > 0, "with it on, they come back");
+      // The second redesign (U9–U17).
+      const v3 = await page.evaluate(async () => {
+        const wait = ms => new Promise(r => setTimeout(r, ms));
+        const ui = await import("./src/ui.js");
+        const Store = await import("./src/store.js");
+        const settings = await import("./src/settings.js");
+        const router = await import("./src/router.js");
+        const R = await import("./src/roller.js");
+        const D = await import("./data.js");
+        const out = {};
+        ui.closeAllModals(); await wait(60);
+        const c = Store.activeCharacter();
+
+        // U9: situation modifiers come from the data and only where they apply.
+        R.openRoll({ character: c, skillKey: "stealth" }); await wait(200);
+        document.querySelector(".modal .sit-btn").click(); await wait(60);
+        out.stealthChips = [...document.querySelectorAll(".modal .situation .chip")].length;
+        out.ring = !!document.querySelector(".modal .rh-ring .chance-ring");
+        out.untrainedPreset = [...document.querySelectorAll(".modal .chip")].some(b => /Untrained/.test(b.textContent));
+        ui.closeAllModals(); await wait(60);
+        R.openRoll({ character: c, skillKey: "firecombat" }); await wait(200);
+        document.querySelector(".modal .sit-btn").click(); await wait(60);
+        const chips = () => [...document.querySelectorAll(".modal .situation .chip")];
+        out.fireChips = chips().map(b => b.textContent);
+        chips().find(b => /close range/i.test(b.textContent)).click(); await wait(40);
+        chips().find(b => /within 10 feet/i.test(b.textContent)).click(); await wait(40);
+        out.rangeTags = [...document.querySelectorAll(".modal .mod-tag")].filter(t => /range|10 feet/i.test(t.textContent)).map(t => t.textContent);
+        // The stepper walks the printed ladder.
+        const before = document.querySelector(".modal .rh-df").textContent;
+        document.querySelector('.modal .rh-step [aria-label="Easier"]').click(); await wait(40);
+        out.stepped = [before, document.querySelector(".modal .rh-df").textContent];
+        ui.closeAllModals(); await wait(60);
+
+        // U10: the result keeps its track on screen and its arithmetic in Details.
+        R.openRoll({ character: c, skillKey: "charisma" }); await wait(200);
+        [...document.querySelectorAll(".modal-foot .btn")].find(b => b.textContent === "Roll").click(); await wait(500);
+        out.resultTrack = !!document.querySelector(".modal .d100-track");
+        out.detailsBands = !!document.querySelector(".modal details.roll-details .bands");
+        out.detailsClosed = !document.querySelector(".modal details.roll-details").open;
+        ui.closeAllModals(); await wait(60);
+
+        // U14: Gear in three drawers.
+        router.navigate("gear"); await wait(250);
+        out.gearTabs = [...document.querySelectorAll("#screen .segctl-btn")].map(b => b.textContent);
+        document.querySelector('#screen .segctl-btn[data-tab="garage"]').click(); await wait(60);
+        out.garageShown = [...document.querySelectorAll("#screen .gear-panel")].filter(p => !p.hidden).length === 1 &&
+          /vehicles/i.test([...document.querySelectorAll("#screen .gear-panel")].find(p => !p.hidden).textContent);
+        document.querySelector('#screen .segctl-btn[data-tab="carried"]').click(); await wait(30);
+
+        // U13: a swipe turns the page along the folder.
+        router.navigate("sheet"); await wait(200);
+        router.swipe(1); await wait(250);
+        out.swipedTo = location.hash;
+        router.swipe(-1); await wait(250);
+        out.swipedBack = location.hash;
+
+        // U17: the wound as a body, filled by the ladder; her silhouette for her dossier.
+        const Sheet = await import("./src/sheet.js");
+        Store.updateActive(x => { x.state.wound = "medium"; });
+        router.navigate("sheet"); await wait(200);
+        const fig = document.querySelector("#screen .wound-figure");
+        const top = Math.max(...D.WOUND_LEVELS.map(w => w.order));
+        out.figure = fig ? Math.abs(Number(fig.dataset.fill) - 3 / top) < 0.002 : false;
+        Store.updateActive(x => { x.state.wound = "none"; });
+        out.hers = Sheet.silhouette({ identity: { gender: "female" } });
+        out.his = Sheet.silhouette({ identity: { gender: "male" } });
+
+        // U15: no fight is one picture and one button; the boundaries are folded beneath.
+        const savedFight = JSON.parse(JSON.stringify(Store.combatState()));
+        Store.clearCombat();
+        router.navigate("combat"); await wait(200);
+        out.combatEmpty = !!document.querySelector("#screen .empty") &&
+          !!document.querySelector("#screen details.combat-tools") &&
+          [...document.querySelectorAll("#screen details.combat-tools button")].some(b => b.textContent === "End Mission");
+        if (savedFight.active) Store.saveCombat(savedFight);
+
+        // U11: a scene going into play opens on its title card.
+        settings.set("solo", true); router.rebuildNav();
+        const adv = Store.createAdventure({ name: "Slate test", characterId: c.id });
+        Store.updateAdventure(a => { a.scenePhase = "play"; a.scene = 7; a.briefing = a.briefing || { rows: {}, seededIds: [], writtenAt: Date.now() };
+          a.sceneSetting = { city: "Lisbon", place: "Quay", time: "Dawn", detail: "" }; });
+        router.navigate("mission"); await wait(150);
+        const so = document.querySelector(".scene-open");
+        out.opening = so ? so.textContent : "";
+        await wait(2100);
+        out.openingGone = !document.querySelector(".scene-open");
+
+        // U12: with explanations off, the case board carries no empty card.
+        settings.set("showHelp", false);
+        Store.updateAdventure(a => { a.scenePhase = "setup"; a.scene = 1; });
+        router.navigate("solo"); await wait(300);
+        const visible = n => getComputedStyle(n).display !== "none";
+        out.emptyCards = [...document.querySelectorAll("#screen .solo-page .card")].filter(n => visible(n) && !n.textContent.trim()).length;
+        settings.set("showHelp", true);
+        Store.deleteAdventure(adv.id);
+
+        // Wrap up offers the book's boundaries and the app's End Scene.
+        settings.set("solo", false); router.rebuildNav();
+        router.navigate("mission"); await wait(200);
+        document.querySelector(".mission-dock .big-go").click(); await wait(150);
+        [...document.querySelectorAll(".modal .verb")].find(v => /Wrap up/.test(v.textContent)).click(); await wait(250);
+        out.wrap = [...document.querySelectorAll(".modal .opt-btn")].map(b => b.textContent.trim());
+        ui.closeAllModals(); await wait(60);
+        settings.set("solo", true); router.rebuildNav();
+        return out;
+      });
+      t.eq(v3.stealthChips, 0, "a Stealth roll offers no Fire Combat modifiers");
+      t.ok(!v3.untrainedPreset, "and no hand-added Untrained chip, which could double the automatic penalty");
+      t.ok(v3.ring, "the roll is one dial: a Success Chance ring");
+      t.eq(v3.fireChips.length, 13, "a Fire Combat roll offers the book's thirteen Fire Combat modifiers, from the data table");
+      t.eq(v3.rangeTags.length, 1, "and range modifiers do not stack: a second replaces the first");
+      t.ok(v3.stepped[0] !== v3.stepped[1], `the stepper moves one rung along the printed ladder (${v3.stepped.join(" → ")})`);
+      t.ok(v3.resultTrack && v3.detailsBands && v3.detailsClosed, "a result keeps its d100 track on screen and its band table folded in Details");
+      t.deep(v3.gearTabs, ["Carried", "Armoury", "Garage"], "Gear is three drawers");
+      t.ok(v3.garageShown, "and one drawer shows at a time");
+      t.ok(v3.swipedTo === "#/gear" && v3.swipedBack === "#/sheet", "a swipe turns to the next page in the folder and back");
+      t.ok(v3.figure, "the wound figure is filled to the wound's place on the ladder");
+      t.ok(v3.hers === "agentF" && v3.his === "agent", "a dossier with no photograph gets her silhouette or his");
+      t.ok(v3.combatEmpty, "no fight is one picture and one button, with the boundaries folded beneath");
+      t.ok(/Scene 7/.test(v3.opening) && /Lisbon/.test(v3.opening), "a scene in play opens on its title card");
+      t.ok(v3.openingGone, "which is gone within two seconds");
+      t.eq(v3.emptyCards, 0, "with explanations off, the case board carries no empty card");
+      t.deep(v3.wrap, ["End Scene", "End Session", "End Mission"], "Wrap up offers End Scene, End Session and End Mission");
       t.ok(links.npcIsLink, "an NPC in the encounter is named as a link");
       t.eq(links.npcBlock, "Test Sentry", "and the link opens their stat block");
       t.ok(!!links.skillName && links.skillModal === links.skillName, `an Advancement skill name opens what the skill does (${links.skillName})`);

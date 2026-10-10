@@ -119,11 +119,15 @@ export function presentResult(res, { character, onDone, extra, title } = {}) {
   const qEl = el("div", { class: "roll-quality q" + res.quality, text: D.QUALITY_NAMES[res.quality] });
   const formula = el("div", { class: "roll-formula", text: formulaText(res) });
 
-  body.appendChild(el("div", { class: "roll-result" }, diceFaces(d100Faces(res.roll), { tens: true }), rollEl, qEl, formula));
+  // The result as a moment (U10): the dice, the number and the stamp, with the d100 track as
+  // the one picture under them. The arithmetic and the band table are a tap away in Details.
+  body.appendChild(el("div", { class: "roll-result is-cinema" }, diceFaces(d100Faces(res.roll), { tens: true }), rollEl, qEl));
   landFeedback(res.quality === 1 || res.quality === 5);
-  const bandsEl = bandsRow(res);
-  body.appendChild(bandsEl);
   body.appendChild(d100Track(res.bands, res.roll));
+  let bandsEl = bandsRow(res);
+  body.appendChild(el("details", { class: "acc roll-details" },
+    el("summary", {}, el("span", { text: "Details" }), el("span", { class: "small muted", text: `SC ${res.successChance}` })),
+    el("div", { class: "acc-body" }, formula, bandsEl)));
 
   if (res.roll >= 100) {
     body.appendChild(el("div", { class: "banner warn", text: "A d100 of 100 is always a failure, whatever the Success Chance." }));
@@ -147,7 +151,7 @@ export function presentResult(res, { character, onDone, extra, title } = {}) {
     qEl.className = "roll-quality q" + res.quality;
     const fresh = bandsRow(res);
     bandsEl.replaceWith(fresh);
-    Object.assign(bandsEl, fresh);
+    bandsEl = fresh;
     clear(extraSlot);
     drawExtra();
     drawHero();
@@ -188,7 +192,7 @@ export function presentResult(res, { character, onDone, extra, title } = {}) {
       }, "Refund 1"));
     }
     heroSlot.appendChild(row);
-    heroSlot.appendChild(el("p", { class: "small muted", style: "margin-top:6px",
+    heroSlot.appendChild(el("p", { class: "small muted explain", style: "margin-top:6px",
       text: "One Hero Point shifts the result one Success Quality step. For checks a GM rolls in secret, the spend must be committed before the result is revealed." }));
   }
 
@@ -229,23 +233,18 @@ export function presentResult(res, { character, onDone, extra, title } = {}) {
 
 /* ---------------------------------------------------------------- roll dialog */
 
-const MOD_PRESETS = [
-  { name: "Untrained skill", value: -3 },
-  { name: "Surprised target", value: 4 },
-  { name: "Taking aim", value: 3 },
-  { name: "Target within 10 feet", value: 2 },
-  { name: "Close range", value: 1 },
-  { name: "Long range", value: -1 },
-  { name: "Firer moved", value: -2 },
-  { name: "Target moved", value: -2 },
-  { name: "One-third cover / kneeling", value: -2 },
-  { name: "Two-thirds cover / prone", value: -4 },
-  { name: "Defensive movement", value: -4 },
-  { name: "Specific Fire", value: -2 }
-];
+/* Fire Combat's range modifiers do not stack (FIRE_COMBAT_NOTES): choosing one replaces the
+ * other. The keys are the data table's own. */
+const RANGE_GROUP = ["within10", "close", "long"];
 
 /**
- * Open the full roll dialog for a skill or characteristic.
+ * Open the roll dialog for a skill or characteristic (U9): one dial. The Success Chance is a
+ * ring, the Difficulty Factor a −/+ beside it with the whole printed ladder drawn underneath,
+ * and the situation folded behind one button. Situation modifiers come from the data layer and
+ * only where they apply — the Fire Combat table on a Fire Combat roll, a modifier of your own
+ * anywhere else. Standing conditions and the untrained penalty are applied automatically and
+ * shown as tags, so they can never be added a second time by hand.
+ *
  * @param {object} opts { character, skillKey, attrKey, label, df, modifiers, isCombat, weapon, onResult }
  */
 export function openRoll(opts = {}) {
@@ -277,71 +276,101 @@ export function openRoll(opts = {}) {
       if (cond.dfMod) mods.push({ name: cond.name, value: cond.dfMod, locked: true });
     }
   }
+  const situational = skillKey === "firecombat" ? D.FIRE_COMBAT_MODS : [];
 
   let df = opts.df ?? D.BASE_DIFFICULTY_FACTOR;
+  const steps = D.DIFFICULTY_FACTORS;
 
-  const body = el("div", {});
-  const preview = el("div", { class: "card roll-preview", style: "margin-bottom:12px" });
-  body.appendChild(preview);
-
-  body.appendChild(el("div", { class: "field-label", text: "Difficulty Factor" }));
-  const ladder = el("div", { class: "df-ladder" });
+  const body = el("div", { class: "roll-setup" });
+  const hero = el("div", { class: "roll-hero" });
+  const ladder = el("div", { class: "df-ladder is-strip", "aria-label": "Difficulty Factor ladder" });
+  const tags = el("div", { class: "mod-tags" });
+  const situation = el("div", { class: "situation", hidden: true });
+  const sitBtn = el("button", { class: "btn ghost block sit-btn", type: "button",
+    onclick: () => { situation.hidden = !situation.hidden; sitBtn.setAttribute("aria-expanded", String(!situation.hidden)); } }, "Situation ▸");
+  sitBtn.setAttribute("aria-expanded", "false");
+  body.appendChild(hero);
   body.appendChild(ladder);
-  body.appendChild(el("p", { class: "small muted", style: "margin:6px 0 12px",
+  body.appendChild(el("p", { class: "small muted explain", style: "margin:6px 0 0",
     text: "Base 5. Higher is easier. Modifiers move the Difficulty Factor one step at a time along the ladder." }));
+  body.appendChild(tags);
+  body.appendChild(sitBtn);
+  body.appendChild(situation);
 
-  body.appendChild(el("div", { class: "field-label", text: "Modifiers" }));
-  const modList = el("div", {});
-  body.appendChild(modList);
-
-  const presetWrap = el("div", { class: "chip-wrap", style: "margin-top:8px" });
-  for (const p of MOD_PRESETS) {
-    presetWrap.appendChild(el("button", {
-      class: "chip", type: "button",
-      onclick: () => { mods.push({ ...p }); render(); }
-    }, `${p.name} ${signed(p.value)}`));
-  }
-  body.appendChild(presetWrap);
+  const stepIdx = () => steps.indexOf(df);
+  const setDF = v => { df = v; render(); };
 
   function render() {
-    clear(preview);
-    const effective = D.stepDF(df, mods.reduce((t, m) => t + Number(m.value || 0), 0));
+    const total = mods.reduce((t, m) => t + Number(m.value || 0), 0);
+    const effective = D.stepDF(df, total);
     const sc = D.successChance(base, effective);
     const b = D.qualityBands(sc);
-    preview.appendChild(el("div", { class: "row" },
-      el("div", { class: "stat-box", style: "flex:1" },
-        el("div", { class: "k", text: "Base Chance" }), el("div", { class: "v", text: String(base) })),
-      el("div", { class: "stat-box", style: "flex:1" },
-        el("div", { class: "k", text: "Difficulty" }), el("div", { class: "v", text: dfLabel(effective) })),
-      el("div", { class: "stat-box is-key", style: "flex:1" },
-        el("div", { class: "k", text: "Success Chance" }), el("div", { class: "v", text: String(sc) }))
-    ));
-    preview.appendChild(d100Track(b, null));
-    preview.appendChild(el("div", { class: "roll-formula", style: "text-align:center",
-      text: `Superb 1-${b.superb[1]} · Great ${b.great[0]}-${b.great[1]}` +
-        (b.good ? ` · Good ${b.good[0]}-${b.good[1]}` : "") +
-        (b.fair ? ` · Fair ${b.fair[0]}-${b.fair[1]}` : "") }));
+
+    clear(hero);
+    hero.appendChild(el("div", { class: "rh-ring", role: "img", "aria-label": `Success Chance ${sc}` },
+      chanceRing(Math.min(sc, 100) / 100),
+      el("span", { class: "rh-sc", text: String(sc) }),
+      el("span", { class: "rh-k", text: "chance" })));
+    hero.appendChild(el("div", { class: "rh-side" },
+      el("span", { class: "rh-label", text: "Difficulty" }),
+      el("div", { class: "rh-step" },
+        el("button", { class: "icon-btn", type: "button", "aria-label": "Harder", disabled: stepIdx() <= 0,
+          onclick: () => setDF(steps[Math.max(0, stepIdx() - 1)]) }, "−"),
+        el("span", { class: "rh-df", text: dfLabel(effective) }),
+        el("button", { class: "icon-btn", type: "button", "aria-label": "Easier", disabled: stepIdx() >= steps.length - 1,
+          onclick: () => setDF(steps[Math.min(steps.length - 1, stepIdx() + 1)]) }, "+")),
+      el("span", { class: "rh-ends" }, el("span", { text: "harder" }), el("span", { text: "easier" })),
+      el("span", { class: "rh-formula", text: `Base ${base} × DF ${dfLabel(effective)}` })));
+    hero.appendChild(el("div", { class: "rh-track" }, d100Track(b, null)));
 
     clear(ladder);
-    for (const step of D.DIFFICULTY_FACTORS) {
+    for (const step of steps) {
       ladder.appendChild(el("button", {
-        class: "df-step" + (step === df ? " on" : ""), type: "button",
-        onclick: () => { df = step; render(); }
+        class: "df-step" + (step === df ? " on" : "") + (step === effective && step !== df ? " eff" : ""), type: "button",
+        "aria-label": `Difficulty Factor ${dfLabel(step)}`,
+        onclick: () => setDF(step)
       }, dfLabel(step)));
     }
 
-    clear(modList);
-    if (!mods.length) modList.appendChild(el("p", { class: "small muted", text: "None." }));
+    clear(tags);
     for (let i = 0; i < mods.length; i++) {
       const m = mods[i];
-      modList.appendChild(el("div", { class: "card-row", style: "padding-left:0;padding-right:0" },
-        el("span", { class: "grow", text: m.name }),
-        el("span", { class: "mono", text: signed(m.value) }),
-        m.locked
-          ? el("span", { class: "small muted", text: "auto" })
-          : el("button", { class: "btn-x btn sm ghost", "aria-label": "Remove", type: "button", onclick: () => { mods.splice(i, 1); render(); } }, "✕")
-      ));
+      tags.appendChild(el("span", { class: "mod-tag" + (m.locked ? " is-auto" : "") },
+        `${m.name} ${signed(m.value)}`,
+        m.locked ? null : el("button", { class: "mod-x", type: "button", "aria-label": `Remove ${m.name}`,
+          onclick: () => { mods.splice(i, 1); render(); } }, "✕")));
     }
+
+    clear(situation);
+    if (situational.length) {
+      const wrap = el("div", { class: "chip-wrap" });
+      for (const p of situational) {
+        const on = mods.some(m => m.key === p.key);
+        wrap.appendChild(el("button", {
+          class: "chip" + (on ? " on" : ""), type: "button",
+          onclick: () => {
+            if (on && !p.stacking) { mods.splice(mods.findIndex(m => m.key === p.key), 1); }
+            else {
+              if (RANGE_GROUP.includes(p.key)) {
+                for (let j = mods.length - 1; j >= 0; j--) if (RANGE_GROUP.includes(mods[j].key)) mods.splice(j, 1);
+              }
+              mods.push({ key: p.key, name: p.name, value: p.value });
+            }
+            render();
+          }
+        }, `${p.name} ${signed(p.value)}`));
+      }
+      situation.appendChild(wrap);
+    }
+    situation.appendChild(el("button", { class: "btn sm", type: "button", style: "margin-top:8px",
+      onclick: async () => {
+        const name = await promptModal("What makes it easier or harder?", { title: "Your own modifier", value: "" });
+        if (!name) return;
+        const v = parseInt(await promptModal("Steps along the ladder (+ easier, − harder)", { title: name, type: "number", value: "1" }), 10);
+        if (!Number.isFinite(v) || v === 0) return;
+        mods.push({ name, value: v });
+        render();
+      } }, "+ Your own"));
   }
   render();
 
@@ -373,6 +402,23 @@ export function openRoll(opts = {}) {
       }
     ]
   });
+}
+
+/* The Success Chance as a ring: its share of a d100, full at 100 or more. Decoration only. */
+function chanceRing(fraction) {
+  const NS = "http://www.w3.org/2000/svg";
+  const svg = document.createElementNS(NS, "svg");
+  svg.setAttribute("viewBox", "0 0 100 100"); svg.setAttribute("class", "chance-ring"); svg.setAttribute("aria-hidden", "true");
+  const C = 2 * Math.PI * 42;
+  const f = Math.max(0, Math.min(1, fraction));
+  for (const [cls, dash] of [["cr-bg", C], ["cr-fg", f * C]]) {
+    const c = document.createElementNS(NS, "circle");
+    c.setAttribute("cx", "50"); c.setAttribute("cy", "50"); c.setAttribute("r", "42"); c.setAttribute("class", cls);
+    c.setAttribute("stroke-dasharray", `${dash.toFixed(2)} ${C.toFixed(2)}`);
+    svg.appendChild(c);
+  }
+  svg.dataset.fill = f.toFixed(3);
+  return svg;
 }
 
 /* ---------------------------------------------------------------- combat */

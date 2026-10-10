@@ -146,7 +146,57 @@ function updateNavState() {
   }
 }
 
+/**
+ * Swipe sideways to turn the page (U13): on the Case board between its four pages on a phone,
+ * anywhere else to the neighbouring page in the folder's strip. A swipe that starts in a field
+ * or on something that scrolls sideways of its own is that thing's, not the page's.
+ */
+function folderNeighbour(route, dir) {
+  const f = folderOf(route);
+  if (!f) return null;
+  const list = f.routes.filter(k => !ROUTES[k].gated || ROUTES[k].gated());
+  const i = list.indexOf(route);
+  if (i < 0) return null;
+  return list[i + dir] || null;
+}
+
+function sideScroller(node) {
+  for (let n = node; n && n.id !== "screen"; n = n.parentElement) {
+    if (n.matches && n.matches("input, textarea, select, .ob-rail, .range-track, [data-noswipe]")) return true;
+    const ox = getComputedStyle(n).overflowX;
+    if ((ox === "auto" || ox === "scroll") && n.scrollWidth > n.clientWidth + 2) return true;
+  }
+  return false;
+}
+
+function initSwipe() {
+  const host = document.getElementById("screen");
+  let start = null;
+  host.addEventListener("touchstart", e => {
+    if (e.touches.length !== 1 || document.querySelector(".modal") || sideScroller(e.target)) { start = null; return; }
+    start = { x: e.touches[0].clientX, y: e.touches[0].clientY, t: Date.now() };
+  }, { passive: true });
+  host.addEventListener("touchend", e => {
+    if (!start) return;
+    const t = e.changedTouches[0];
+    const dx = t.clientX - start.x, dy = t.clientY - start.y, dt = Date.now() - start.t;
+    start = null;
+    if (Math.abs(dx) < 70 || Math.abs(dy) > 45 || dt > 700) return;
+    swipe(dx < 0 ? 1 : -1);
+  }, { passive: true });
+}
+
+/** Turn one page in a direction: +1 forward, −1 back. Exported so it can be driven directly. */
+export function swipe(dir) {
+  if (current === "solo" && window.innerWidth < 900) {
+    return import("./solo.js").then(m => m.stepSoloPage(dir));
+  }
+  const next = folderNeighbour(current, dir);
+  if (next) navigate(next);
+}
+
 export function initRouter() {
+  initSwipe();
   rebuildNav();
   window.addEventListener("hashchange", () => {
     const route = (location.hash || "#/home").replace("#/", "");

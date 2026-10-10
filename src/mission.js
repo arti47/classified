@@ -11,7 +11,7 @@
  * Solo mode reads the adventure's journal; table mode reads this dossier's rolls.
  */
 
-import { el, clear, art, icon, fmtDate } from "./core.js";
+import { el, clear, art, icon, fmtDate, announce } from "./core.js";
 import { modal, showToast, chooseModal } from "./ui.js";
 import * as Store from "./store.js";
 import { Settings } from "./settings.js";
@@ -75,6 +75,7 @@ function renderSoloMission(host, c) {
   }
 
   host.appendChild(sceneCard(adv));
+  openingCard(adv);
   if (adv.briefing) host.appendChild(briefSlip(adv));
   host.appendChild(soloFeed(adv));
 
@@ -95,6 +96,29 @@ function newMission(c) {
 
 function withSolo(fn) { return import("./solo.js").then(fn); }
 function withRoller(fn) { return import("./roller.js").then(fn); }
+
+/**
+ * The opening title (U11): the first time the mission shows a scene in play, the city fills
+ * the screen for a moment, the way a spy film puts the place on screen, then gets out of the
+ * way. Purely visual — it takes no tap and is gone in under two seconds — and announced to a
+ * screen reader as one line.
+ */
+let openedScene = null;
+function openingCard(adv) {
+  if ((adv.scenePhase || "") !== "play" || !adv.sceneSetting) return;
+  const key = `${adv.id}:${adv.scene}`;
+  if (openedScene === key) return;
+  openedScene = key;
+  const st = adv.sceneSetting;
+  document.querySelectorAll(".scene-open").forEach(n => n.remove());
+  const card = el("div", { class: "scene-open", "aria-hidden": "true" },
+    el("span", { class: "so-k", text: `Scene ${adv.scene}` }),
+    el("span", { class: "so-city", text: st.city || adv.city || "" }),
+    el("span", { class: "so-line", text: [st.place, st.time].filter(Boolean).join(" · ") }));
+  document.body.appendChild(card);
+  announce(`Scene ${adv.scene}: ${[st.city, st.place, st.time].filter(Boolean).join(", ")}`);
+  setTimeout(() => card.remove(), 1900);
+}
 
 /** The scene as a film would open it: a codename, a city in capitals, the place and the hour. */
 function sceneCard(adv, over = {}) {
@@ -328,10 +352,9 @@ function tableVerbs(c) {
 }
 
 async function wrapUp() {
-  const key = await chooseModal("Wrap up", [
-    { key: "session", label: "End the session" },
-    { key: "mission", label: "End the mission" }
-  ]);
+  // The book's boundaries, and End Scene, the app's own aid for clearing combat flags (R9).
+  const { LIFECYCLE_EVENTS } = await import("../data.js");
+  const key = await chooseModal("Wrap up", LIFECYCLE_EVENTS.map(e => ({ key: e.key, label: e.name })));
   if (key) import("./combat.js").then(m => m.runLifecycle(key, null));
 }
 

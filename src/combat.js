@@ -45,15 +45,15 @@ export function renderCombat(host) {
   watchRemoteCombat(host);
 
   if (!state.active) {
-    host.appendChild(el("div", { class: "section" },
-      el("div", { class: "section-title", text: "Combat" }),
-      el("p", { class: "small muted", style: "margin-top:8px", text:
-        "Declaration runs slowest-first so the fastest characters declare last and act first. Actions resolve in reverse." })));
-    host.appendChild(el("button", {
-      class: "btn primary block", type: "button", onclick: () => startCombat(host)
-    }, "Start an encounter"));
-    renderTasks(host);
-    renderLifecycle(host);
+    // No fight: one picture and one button (U15). The trackers and the session boundaries
+    // are folded underneath — the Mission's Wrap up is where a game ends.
+    host.appendChild(el("div", { class: "empty" },
+      el("div", { class: "big" }, art("target")),
+      el("h2", { text: "No fight running" }),
+      el("p", { class: "muted explain", text:
+        "Declaration runs slowest-first so the fastest characters declare last and act first. Actions resolve in reverse." }),
+      el("button", { class: "btn primary", type: "button", onclick: () => startCombat(host) }, "Start an encounter")));
+    appendTools(host);
     return;
   }
 
@@ -69,7 +69,7 @@ export function renderCombat(host) {
       el("button", { class: "btn sm primary", type: "button", onclick: () => advancePhase(host) },
         state.phase === "declaration" ? "To Action" : "Next round")
     ),
-    el("p", { class: "small muted", style: "margin-top:8px", text:
+    el("p", { class: "small muted explain", style: "margin-top:8px", text:
       state.phase === "declaration" ? D.COMBAT_ROUND.declaration : D.COMBAT_ROUND.action })
   ));
 
@@ -93,8 +93,17 @@ export function renderCombat(host) {
     } }, "End encounter")
   ));
 
-  renderTasks(host);
-  renderLifecycle(host);
+  appendTools(host);
+}
+
+/** Progress tasks and the session boundaries, folded under the fight rather than beside it. */
+function appendTools(host) {
+  const body = el("div", { class: "acc-body" });
+  renderTasks(body);
+  renderLifecycle(body, host);
+  host.appendChild(el("details", { class: "acc combat-tools" },
+    el("summary", {}, el("span", { text: "Trackers & boundaries" }), el("span", { class: "small muted", text: "Tasks · End scene · session · mission" })),
+    body));
 }
 
 /**
@@ -496,7 +505,7 @@ export function renderTasks(host) {
       el("div", { class: "section-title", text: "Progress tasks" }),
       el("button", { class: "btn sm", type: "button", onclick: () => openNewTask(host) }, "+ New")));
 
-  sec.appendChild(el("p", { class: "small muted", text:
+  sec.appendChild(el("p", { class: "small muted explain", text:
     "One tracker for every multi-roll effort in the game: healing over weeks, a long interrogation, data scrubbing, an extended chase, or a mission timetable." }));
 
   if (!list.length) {
@@ -542,15 +551,15 @@ async function openNewTask(host) {
 
 /* ---------------------------------------------------------------- lifecycle */
 
-export function renderLifecycle(host) {
+export function renderLifecycle(host, screenHost = host) {
   const sec = el("div", { class: "section" },
     el("div", { class: "section-title", text: "Mission lifecycle" }));
-  sec.appendChild(el("p", { class: "small muted", text:
+  sec.appendChild(el("p", { class: "small muted explain", text:
     "The app owns these boundaries. Each fires its whole bundle at once, shows you exactly what changed, and can be undone in one step." }));
 
   const row = el("div", { class: "btn-row", style: "margin-top:10px" });
   for (const ev of D.LIFECYCLE_EVENTS) {
-    row.appendChild(el("button", { class: "btn", type: "button", onclick: () => runLifecycle(ev.key, host) }, ev.name));
+    row.appendChild(el("button", { class: "btn", type: "button", onclick: () => runLifecycle(ev.key, screenHost) }, ev.name));
   }
   sec.appendChild(row);
 

@@ -46,7 +46,7 @@ function renderAgents(host) {
       .filter(s => !s.gmRolled).sort((a, b) => b.base - a.base).slice(0, 3);
     rail.appendChild(el("div", { class: "ob-card", role: "listitem" },
       el("span", { class: "stamp ob-rank", text: R.RANK_BY_KEY[p.rank].name }),
-      el("div", { class: "ob-pic" }, art("agent")),
+      el("div", { class: "ob-pic" }, art(p.gender === "female" ? "agentF" : "agent")),
       el("div", { class: "ob-name", text: p.name }),
       el("div", { class: "ob-prof", text: profName(p.profession) }),
       el("div", { class: "ob-skills" }, best.map(s =>
