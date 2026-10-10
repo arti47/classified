@@ -254,7 +254,7 @@ export const SCENE_ADJUSTMENTS = [
   { max: 4,  name: "Increase An Activity",      desc: "Something happening here is bigger, busier or further along than you expected." },
   { max: 5,  name: "Remove An Object",          desc: "Something you counted on being here is gone." },
   { max: 6,  name: "Add An Object",             desc: "Something unexpected is here to be used, taken or noticed." },
-  { max: 10, name: "Make 2 Adjustments",        desc: "Roll twice more on this table and apply both.", double: true }
+  { max: 10, name: "Make 2 Adjustments",        desc: "Roll twice more on this table and apply both, re-rolling a 7-10 or a repeat.", double: true }
 ];
 
 export const SCENE_ADJUSTMENT_DOUBLE_COUNT = 2;
@@ -263,6 +263,24 @@ export function sceneAdjustment(roll) {
   const n = Number(roll);
   for (const row of SCENE_ADJUSTMENTS) if (n <= row.max) return row;
   return SCENE_ADJUSTMENTS[SCENE_ADJUSTMENTS.length - 1];
+}
+
+/* Reads a run of d10s the way the printed table means them. A 1-6 is the one adjustment. A
+ * 7-10 is exactly SCENE_ADJUSTMENT_DOUBLE_COUNT adjustments, never more: a further 7-10 while
+ * resolving them is re-rolled rather than doubling again, and so is a repeat, since the same
+ * change made twice is one change. Returns the rows found and whether another die is owed. */
+export function resolveSceneAdjustment(rolls) {
+  const resolved = [];
+  if (!rolls.length) return { resolved, double: false, more: true };
+  const first = sceneAdjustment(rolls[0]);
+  if (!first.double) return { resolved: [first], double: false, more: false };
+  for (const r of rolls.slice(1)) {
+    if (resolved.length >= SCENE_ADJUSTMENT_DOUBLE_COUNT) break;
+    const row = sceneAdjustment(r);
+    if (row.double || resolved.includes(row)) continue;
+    resolved.push(row);
+  }
+  return { resolved, double: true, more: resolved.length < SCENE_ADJUSTMENT_DOUBLE_COUNT };
 }
 
 /* ================================================================ T68 events */

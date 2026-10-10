@@ -1079,6 +1079,26 @@ function soloTests(t) {
     "7-10 is flagged as sending you back to the table twice");
   t.ok(!SOLO.sceneAdjustment(6).double, "1-6 are single adjustments");
   t.eq(SOLO.SCENE_ADJUSTMENT_DOUBLE_COUNT, 2, "Make 2 Adjustments means two");
+  {
+    const names = rs => SOLO.resolveSceneAdjustment(rs).resolved.map(r => r.name);
+    t.deep(names([4]), ["Increase An Activity"], "a 1-6 is that one adjustment and nothing else");
+    t.ok(!SOLO.resolveSceneAdjustment([4]).more, "and asks for no further die");
+    // The reported run: 9, 2, 9, 9, 8, 3, 6, 9, 10, 7, 6, 5 had become five changes with a repeat.
+    const run = [9, 2, 9, 9, 8, 3, 6, 9, 10, 7, 6, 5];
+    t.deep(names(run), ["Add A Character", "Reduce/Remove An Activity"],
+      "a 7-10 is exactly two adjustments: a later 7-10 does not double again");
+    t.deep(names([9, 6, 9, 6, 2]), ["Add An Object", "Add A Character"],
+      "a 7-10 or a repeat while resolving the two is re-rolled");
+    t.ok(SOLO.resolveSceneAdjustment([9, 6, 6, 10]).more, "and another die is owed until two different ones land");
+    let worst = 0;
+    for (let i = 0; i < 2000; i++) {
+      const rs = []; let r;
+      do { rs.push(1 + Math.floor(Math.random() * 10)); r = SOLO.resolveSceneAdjustment(rs); } while (r.more);
+      worst = Math.max(worst, r.resolved.length);
+      if (new Set(r.resolved).size !== r.resolved.length) { worst = 99; break; }
+    }
+    t.ok(worst <= 2, "two thousand random runs never give more than two adjustments, nor a repeat");
+  }
 
   t.eq(SOLO.EVENT_FOCUS[SOLO.EVENT_FOCUS.length - 1].max, 100, "the Event Focus table covers the whole d100");
   let focusMiss = null;

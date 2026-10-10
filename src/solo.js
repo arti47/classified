@@ -1548,19 +1548,13 @@ function playSceneAction(replacementScene) {
  */
 export async function rollSceneAdjustment(adv, opts = {}) {
   const rolls = [];
-  const resolved = [];
-  let pending = 1;
-  let guard = 0;
-
-  while (pending > 0 && guard < 12) {
-    guard += 1;
-    pending -= 1;
-    const roll = await soloD10(`Scene Adjustment d10 (${rolls.length + 1})`);
-    const row = S.sceneAdjustment(roll);
-    rolls.push({ roll, name: row.name });
-    if (row.double) pending += S.SCENE_ADJUSTMENT_DOUBLE_COUNT;
-    else resolved.push(row);
+  let res = S.resolveSceneAdjustment(rolls);
+  // The guard only stops a run of manual entries that never lands; random dice finish in a few.
+  while (res.more && rolls.length < 60) {
+    rolls.push(await soloD10(`Scene Adjustment d10 (${rolls.length + 1})`));
+    res = S.resolveSceneAdjustment(rolls);
   }
+  const resolved = res.resolved;
 
   const body = el("div", {});
   for (const row of resolved) {
@@ -1569,18 +1563,19 @@ export async function rollSceneAdjustment(adv, opts = {}) {
       el("div", { class: "small", text: row.desc })));
   }
   body.appendChild(el("p", { class: "small muted", text:
-    `Rolled ${rolls.map(r => r.roll).join(", ")}. ` +
+    `Rolled ${rolls.join(", ")}. ` +
     (resolved.length > 1
       ? `Make all ${resolved.length} changes and play the scene.`
       : "Change that one thing and play the scene.") }));
-  if (rolls.some(r => r.name === "Make 2 Adjustments")) {
+  if (res.double) {
     body.appendChild(el("p", { class: "small muted", text:
-      "A 7-10 is not itself an adjustment — it sends you back to the table twice, which is why there is more than one result here." }));
+      "A 7-10 means make two adjustments: the table is rolled again until two different ones come up. " +
+      "Another 7-10 or a repeat on the way is re-rolled, never doubled again." }));
   }
 
   const names = resolved.map(r => r.name).join(" + ");
-  save(a => { journal(a, "scene", `Scene adjustment — ${names}`, `d10 ${rolls.map(r => r.roll).join("/")}`); });
-  logSolo(adv, "Scene adjustment", rolls[0].roll, names, resolved.map(r => r.desc).join(" "));
+  save(a => { journal(a, "scene", `Scene adjustment — ${names}`, `d10 ${rolls.join("/")}`); });
+  logSolo(adv, "Scene adjustment", rolls[0], names, resolved.map(r => r.desc).join(" "));
 
   modal({
     title: "Altered scene", body, locked: !!opts.chain,
