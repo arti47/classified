@@ -788,7 +788,9 @@ export function renderAdvance(host) {
       el("div", { class: "stat-box" }, el("div", { class: "k", text: "Available" }), el("div", { class: "v", text: String(available) })),
       el("div", { class: "stat-box" }, el("div", { class: "k", text: "Earned" }), el("div", { class: "v", text: String(c.xp.total || 0) })),
       el("div", { class: "stat-box" }, el("div", { class: "k", text: "Missions" }), el("div", { class: "v", text: String(c.missions || 0) }))),
-    el("p", { class: "small muted", style: "margin-top:10px", text: D.XP_ADVANCE_GATE })
+    el("p", { class: "small muted", style: "margin-top:10px" }, D.XP_ADVANCE_GATE + " ",
+      // The costs and the gate are a rule; the rule is one tap away (L18).
+      el("button", { class: "link-btn", type: "button", onclick: () => openRulesTopic("advancement") }, "Experience rule →"))
   ));
 
   host.appendChild(el("div", { class: "btn-row" },
@@ -844,7 +846,10 @@ export function renderAdvance(host) {
 
     skSec.appendChild(el("div", { class: "card-row" },
       el("div", { class: "grow" },
-        el("div", { text: `${s.name} ${s.rank} → ${next}` }),
+        // The name says what the skill does, which is the question before spending on it (L18).
+        el("div", {},
+          el("button", { class: "link-btn", type: "button", onclick: () => showSkill(R.SKILL_BY_KEY[s.key]) }, s.name),
+          ` ${s.rank} → ${next}`),
         el("div", { class: "small muted", text:
           atCap ? `At the cap of ${s.maxRank} — raise the underlying characteristic first`
             : gated ? "Already raised this mission"
@@ -888,7 +893,10 @@ export function renderAdvance(host) {
   host.appendChild(skSec);
 
   // Reputation
-  const repSec = el("div", { class: "section" }, el("div", { class: "section-title", text: "Reputation" }));
+  const repSec = el("div", { class: "section" },
+    el("div", { class: "section-head" },
+      el("div", { class: "section-title", text: "Reputation" }),
+      el("button", { class: "link-btn small", type: "button", onclick: () => openRulesTopic("reputation") }, "Reputation rule →")));
   repSec.appendChild(el("div", { class: "card" },
     el("div", { class: "row" },
       el("div", { class: "grow" },

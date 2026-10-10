@@ -3162,8 +3162,40 @@ export async function browserTests(t, { chromium, executablePath, baseURL }) {
         [...document.querySelectorAll("#screen button")].find(b => /Hero Points rule/.test(b.textContent))?.click(); await wait(200);
         out.styleTopic = (document.querySelector(".modal h2, .modal .modal-title") || {}).textContent || "";
         ui.closeAllModals(); await wait(60);
+
+        // L17, L18: a stat block behind a combatant's name; skills and rules behind Advancement.
+        const Store = await import("./src/store.js");
+        const Cb = await import("./src/combat.js");
+        Cb.addNpcToEncounter({ name: "Test Sentry", speed: 1, attrs: { str: 7, dex: 7, wil: 7, per: 7, int: 7 },
+          skills: {}, points: 2, hthDamage: "A" });
+        router.navigate("combat"); await wait(250);
+        const npcBtn = [...document.querySelectorAll(".combatant .c-name")].find(b => b.textContent === "Test Sentry");
+        out.npcIsLink = !!npcBtn && npcBtn.tagName === "BUTTON";
+        npcBtn && npcBtn.click(); await wait(200);
+        out.npcBlock = (document.querySelector(".modal h2") || {}).textContent || "";
+        ui.closeAllModals(); await wait(60);
+        Store.saveCombat({ ...Store.combatState(), combatants: Store.combatState().combatants.filter(x => x.name !== "Test Sentry") });
+
+        router.navigate("advance"); await wait(250);
+        const skillBtn = [...document.querySelectorAll("#screen .card-row .link-btn")][0];
+        out.skillName = skillBtn ? skillBtn.textContent : "";
+        skillBtn && skillBtn.click(); await wait(200);
+        out.skillModal = (document.querySelector(".modal h2") || {}).textContent || "";
+        ui.closeAllModals(); await wait(60);
+        const ruleLink = label => [...document.querySelectorAll("#screen .link-btn")].find(b => b.textContent === label);
+        ruleLink("Reputation rule →")?.click(); await wait(200);
+        out.repTopic = (document.querySelector(".modal h2") || {}).textContent || "";
+        ui.closeAllModals(); await wait(60);
+        ruleLink("Experience rule →")?.click(); await wait(200);
+        out.xpTopic = (document.querySelector(".modal h2") || {}).textContent || "";
+        ui.closeAllModals(); await wait(60);
         return out;
       });
+      t.ok(links.npcIsLink, "an NPC in the encounter is named as a link");
+      t.eq(links.npcBlock, "Test Sentry", "and the link opens their stat block");
+      t.ok(!!links.skillName && links.skillModal === links.skillName, `an Advancement skill name opens what the skill does (${links.skillName})`);
+      t.eq(links.repTopic, "Reputation", "Advancement's Reputation links its rule");
+      t.eq(links.xpTopic, "Experience and Advancement", "and the experience gate links its rule");
       t.ok(links.glossLink, "a glossary term with a rule behind it offers that rule");
       t.ok(/Difficulty Factor Modifiers/.test(links.glossTopic), "Difficulty Factor opens its rules topic");
       t.ok(/The Chaos Factor/.test(links.glossSolo), "a Mythic term opens its solo topic");

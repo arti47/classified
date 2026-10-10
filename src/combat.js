@@ -135,7 +135,13 @@ function combatantCard(cb, state, host) {
           Store.setActive(cb.characterId);
           import("./router.js").then(m => m.navigate("sheet"));
         } }, cb.name)
-      : el("span", { class: "c-name", text: cb.name }),
+      // Anyone carrying a stat block — a generated NPC, an OSIRIS antagonist, an animal, the
+      // briefing's opponent — names it as a link to that block: its skills, Villain Points and
+      // Interaction Modifiers are what the fight needs, and the card shows none of them (L17).
+      : cb.npc
+        ? el("button", { class: "c-name c-link", type: "button", "aria-label": `${cb.name} — stat block`,
+            onclick: () => showNPC(cb.npc) }, cb.name)
+        : el("span", { class: "c-name", text: cb.name }),
     el("span", { class: "pill neutral", text: "Speed " + cb.speed }),
     wound.key !== "none" ? el("span", { class: "pill q5", text: wound.name }) : null
   ));
