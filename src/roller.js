@@ -5,7 +5,7 @@
  */
 
 import { el, clear, d100, d10, die, announce, clamp, dfLabel, signed, percent, diceFaces, d100Faces } from "./core.js";
-import { modal, showToast, promptModal, chooseModal, confirmModal } from "./ui.js";
+import { modal, showToast, promptModal, chooseModal, confirmModal, tileModal, landFeedback } from "./ui.js";
 import * as D from "../data.js";
 import * as R from "./rules.js";
 import * as Store from "./store.js";
@@ -120,6 +120,7 @@ export function presentResult(res, { character, onDone, extra, title } = {}) {
   const formula = el("div", { class: "roll-formula", text: formulaText(res) });
 
   body.appendChild(el("div", { class: "roll-result" }, diceFaces(d100Faces(res.roll), { tens: true }), rollEl, qEl, formula));
+  landFeedback(res.quality === 1 || res.quality === 5);
   const bandsEl = bandsRow(res);
   body.appendChild(bandsEl);
   body.appendChild(d100Track(res.bands, res.roll));
@@ -1596,23 +1597,32 @@ export function openTailing(character) {
 
 /* ---------------------------------------------------------------- quick tools */
 
+/* Every procedure the book defines, as tiles (U6). The common six come first; the rest fold
+ * behind More until veteran mode puts them all on one picker. Nothing is removed — a folded
+ * procedure is one tap further, never gone. */
+const PROCEDURES = [
+  { key: "skill", label: "A check", icon: "dice", common: true },
+  { key: "attack", label: "Attack", icon: "skillcombat", common: true },
+  { key: "persuade", label: "Persuade", icon: "talk", common: true },
+  { key: "reaction", label: "First impression", icon: "agent", common: true },
+  { key: "chase", label: "Chase", icon: "vehicle", common: true },
+  { key: "damage", label: "Take damage", icon: "hurt", common: true },
+  { key: "seduce", label: "Seduce", icon: "social" },
+  { key: "interrogate", label: "Interrogate", icon: "oracle" },
+  { key: "torture", label: "Torture", icon: "event" },
+  { key: "reputation", label: "Recognised?", icon: "covert" },
+  { key: "gamble", label: "Gamble", icon: "dice" },
+  { key: "grenade", label: "Grenade", icon: "target" },
+  { key: "tailing", label: "Tail someone", icon: "physical" }
+];
+
 export function openQuickRoll(character) {
-  const items = [
-    { key: "skill", label: "Skill or Characteristic check", desc: "The standard Base Chance × Difficulty Factor roll." },
-    { key: "attack", label: "Attack", desc: "Fire Combat or Hand-to-Hand with automatic damage." },
-    { key: "reaction", label: "NPC Reaction", desc: "Set an NPC's opening attitude from a Charisma check." },
-    { key: "persuade", label: "Persuasion", desc: "Charisma against the NPC's Willpower for Yes, Perhaps or No." },
-    { key: "seduce", label: "Seduction", desc: "The five staged rolls with the target's Willpower resistance." },
-    { key: "interrogate", label: "Interrogation", desc: "Question a subject without physical coercion." },
-    { key: "torture", label: "Torture", desc: "Physical coercion, with the victim's escape into unconsciousness." },
-    { key: "reputation", label: "Reputation check", desc: "Can that professional place your face?" },
-    { key: "gamble", label: "Gambling", desc: "Baccarat, Blackjack, Chemin de Fer or Poker." },
-    { key: "chase", label: "Chase manoeuvre", desc: "Bid, manoeuvre, and resolve any accident." },
-    { key: "grenade", label: "Throw a grenade", desc: "Range by Strength, scatter by Quality, and the blast." },
-    { key: "tailing", label: "Tail someone", desc: "A movement skill at Difficulty Factor 5, and their Sixth Sense against it." },
-    { key: "damage", label: "Take damage", desc: "Apply a wound with the full consequence chain." }
-  ];
-  chooseModal("Roll", items).then(key => {
+  const veteran = Settings.veteran();
+  const common = PROCEDURES.filter(p => veteran || p.common);
+  const rest = veteran ? [] : PROCEDURES.filter(p => !p.common);
+  const sections = [{ items: common }];
+  if (rest.length) sections.push({ items: rest, folded: true, foldLabel: "More moves" });
+  tileModal("Make a move", sections).then(key => {
     if (!key) return;
     switch (key) {
       case "skill": openSkillPicker(character); break;
@@ -1632,16 +1642,33 @@ export function openQuickRoll(character) {
   });
 }
 
+/* A skill group's pictogram. Decoration beside the group's printed name. */
+export const GROUP_ICON = { Vehicle: "vehicle", Social: "social", Technical: "technical", Covert: "covert",
+  Physical: "physical", Combat: "skillcombat", Knowledge: "rules" };
+
+/**
+ * The check picker as tiles: the five characteristics across the top, then each skill group
+ * with its Base Chance in large type. Trained skills lead; untrained ones follow, dashed, and
+ * only when the sheet is set to show them. The numbers are the engine's own.
+ */
 export function openSkillPicker(character) {
-  const items = D.CHARACTERISTICS.map(c => ({
-    key: "attr:" + c.key, label: c.name + " check", right: String(character.attributes[c.key]), desc: c.desc
-  })).concat(D.SKILLS.filter(s => !s.multi).map(s => ({
-    key: "skill:" + s.key,
-    label: s.name,
-    right: String(baseChanceFor(character, s.key)),
-    desc: isTrained(character, s.key) ? s.desc : "Untrained — characteristic only, at -3 Difficulty Factor."
-  })));
-  chooseModal("Choose a check", items).then(key => {
+  const sections = [{ title: "Characteristics", icon: "agent", compact: true,
+    items: D.CHARACTERISTICS.map(c => ({ key: "attr:" + c.key, label: c.abbr, value: character.attributes[c.key],
+      aria: `${c.name} check, ${character.attributes[c.key]}` })) }];
+  const groups = [...new Set(D.SKILLS.map(s => s.group))];
+  for (const g of groups) {
+    const skills = D.SKILLS.filter(s => !s.multi && s.group === g)
+      .filter(s => isTrained(character, s.key) || Settings.showUntrained())
+      .sort((a, b) => Number(isTrained(character, b.key)) - Number(isTrained(character, a.key)));
+    if (!skills.length) continue;
+    sections.push({ title: g, icon: GROUP_ICON[g], items: skills.map(s => {
+      const trained = isTrained(character, s.key);
+      const bc = baseChanceFor(character, s.key);
+      return { key: "skill:" + s.key, label: s.name, value: bc, dim: !trained,
+        aria: `${s.name}, Base Chance ${bc}${trained ? "" : ", untrained"}` };
+    }) });
+  }
+  tileModal("Try something", sections).then(key => {
     if (!key) return;
     const [kind, id] = key.split(":");
     if (kind === "attr") openRoll({ character, attrKey: id });

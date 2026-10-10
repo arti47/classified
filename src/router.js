@@ -1,40 +1,32 @@
 /* router.js — bottom-nav routing and conditional tab gating. */
 
-import { el, clear, $, icon, hasIcon, art, preserveView } from "./core.js";
+import { el, clear, icon, hasIcon, preserveView } from "./core.js";
 import { Settings } from "./settings.js";
 import * as Store from "./store.js";
 
 const ROUTES = {
-  home: { label: "Home", icon: "◉", title: "Classified", render: h => imp("./screens.js", m => m.renderHome(h)) },
-  create: { label: "Create", icon: "✎", title: "Create", render: h => imp("./wizard.js", m => m.renderCreate(h)) },
-  sheet: { label: "Sheet", icon: "🗂", title: "Dossier", render: h => imp("./sheet.js", m => m.renderSheet(h)) },
-  gear: { label: "Gear", icon: "⚙", title: "Equipment", render: h => imp("./sheet.js", m => m.renderGear(h)) },
+  home: { label: "Home", icon: "◉", title: "Classified", render: h => imp("./onboard.js", m => m.renderHome(h)) },
+  mission: { label: "Mission", nav: "Mission", icon: "◈", title: "Mission", render: h => imp("./mission.js", m => m.renderMission(h)) },
+  files: { label: "Files", nav: "Files", icon: "≡", title: "Files", render: h => imp("./screens.js", m => m.renderFiles(h)) },
+  create: { label: "Create", icon: "✎", title: "Recruit", render: h => imp("./wizard.js", m => m.renderCreate(h)) },
+  sheet: { label: "Dossier", nav: "Agent", navIcon: "agent", icon: "🗂", title: "Agent", render: h => imp("./sheet.js", m => m.renderSheet(h)) },
+  gear: { label: "Gear", icon: "⚙", title: "Gear", render: h => imp("./sheet.js", m => m.renderGear(h)) },
   combat: { label: "Combat", icon: "⚔", title: "Combat", render: h => imp("./combat.js", m => m.renderCombat(h)) },
-  advance: { label: "Advance", icon: "▲", title: "Advancement", render: h => imp("./screens.js", m => m.renderAdvance(h)) },
+  advance: { label: "Advance", icon: "▲", title: "Advance", render: h => imp("./screens.js", m => m.renderAdvance(h)) },
   rules: { label: "Rules", icon: "❋", title: "Rules", render: h => imp("./screens.js", m => m.renderRules(h)) },
   log: { label: "Log", icon: "≡", title: "Roll log", render: h => imp("./screens.js", m => m.renderLog(h)) },
-  gm: { label: "GM", icon: "★", title: "GM Screen", gated: () => Settings.gmScreen(), render: h => imp("./gm.js", m => m.renderGM(h)) },
-  solo: { label: "Solo", icon: "◈", title: "Solo", gated: () => Settings.solo(), render: h => imp("./solo.js", m => m.renderSolo(h)) },
+  gm: { label: "GM", nav: "GM", icon: "★", title: "GM Screen", gated: () => Settings.gmScreen(), render: h => imp("./gm.js", m => m.renderGM(h)) },
+  solo: { label: "Case board", icon: "◈", navIcon: "board", title: "Case board", gated: () => Settings.solo(), render: h => imp("./solo.js", m => m.renderSolo(h)) },
   settings: { label: "Settings", icon: "⚑", title: "Settings", render: h => imp("./screens.js", m => m.renderSettings(h)) },
   tutorial: { label: "Tutorial", icon: "◎", title: "Tutorial", render: h => imp("./help.js", m => m.renderTutorial(h)) },
-  play: { label: "How to play", icon: "▶", title: "How to play", render: h => imp("./help.js", m => m.renderPlayGuide(h)) }
+  play: { label: "Guide", icon: "▶", title: "How to play", render: h => imp("./help.js", m => m.renderPlayGuide(h)) }
 };
 
-/* Each screen's prop on the header's folder label, from the same line-art set as the empty
- * states. Decoration only: the title beside it is the screen's name. */
-const HEADER_ART = {
-  home: "folder", create: "typewriter", sheet: "idcard", gear: "briefcase", combat: "target",
-  advance: "ladder", rules: "book", log: "reel", gm: "phone", solo: "map", settings: "cipher",
-  tutorial: "cards", play: "keyhole"
-};
-
-/* Primary tabs shown in the bottom navigation. The rest are reachable from Home
- * and Settings; a small screen cannot carry ten tabs. Six is the limit at 360px, so Solo
- * takes the Rules slot rather than adding a seventh — Rules keeps its Home tile. */
+/* Three places (CLAUDE.md §1.3, U1): the Agent, the Mission, the Files. Everything else is a
+ * page inside one of them, reached from its divider strip. The GM screen is a fourth tab only
+ * for a player who has asked for it. */
 function primaryTabs() {
-  const base = ["home", "sheet", "combat", "rules", "gm", "settings"];
-  if (!Settings.solo()) return base;
-  return base.map(k => (k === "rules" ? "solo" : k));
+  return ["sheet", "mission", "files", "gm"];
 }
 
 /* Folders: screens that belong together share a divider strip under the header, so a screen
@@ -42,13 +34,18 @@ function primaryTabs() {
  * the folder stays lit on every screen in it. Glossary is a dialog rather than a route, so it
  * rides in the Library strip as an action. */
 const FOLDERS = {
-  dossier: { tab: "sheet", routes: ["sheet", "gear", "advance", "log"] },
-  library: { tab: "rules", routes: ["rules", "play", "tutorial"],
+  agent: { tab: "sheet", routes: ["sheet", "gear", "advance"] },
+  mission: { tab: "mission", routes: ["mission", "solo", "combat"] },
+  files: { tab: "files", routes: ["rules", "play", "tutorial", "log", "settings"], also: ["files"], hideOn: ["files"],
     actions: [{ key: "glossary", label: "Glossary", run: () => import("./help.js").then(m => m.openGlossary()) }] }
 };
 
 export function folderOf(route) {
-  return Object.values(FOLDERS).find(f => f.routes.includes(route)) || null;
+  return Object.values(FOLDERS).find(f => f.routes.includes(route) || (f.also || []).includes(route)) || null;
+}
+
+function folderKey(route) {
+  return Object.keys(FOLDERS).find(k => FOLDERS[k] === folderOf(route)) || "";
 }
 
 function renderSubNav(route) {
@@ -56,15 +53,17 @@ function renderSubNav(route) {
   if (!bar) return;
   clear(bar);
   const folder = folderOf(route);
-  bar.hidden = !folder;
-  if (!folder) return;
+  // A hub is its own navigation: the Files tiles are the strip, drawn larger.
+  bar.hidden = !folder || (folder.hideOn || []).includes(route);
+  if (bar.hidden) return;
   const strip = el("div", { class: "sub-nav-strip" });
   for (const key of folder.routes) {
+    if (ROUTES[key].gated && !ROUTES[key].gated()) continue;
     strip.appendChild(el("button", {
       class: "sub-tab", type: "button", dataset: { route: key },
       "aria-current": key === route ? "page" : null,
       onclick: () => { if (key !== current) navigate(key); }
-    }, hasIcon(key) ? icon(key) : null, el("span", { text: ROUTES[key].label })));
+    }, icon(ROUTES[key].navIcon || (hasIcon(key) ? key : "files")), el("span", { text: ROUTES[key].label })));
   }
   for (const a of folder.actions || []) {
     strip.appendChild(el("button", { class: "sub-tab is-action", type: "button", onclick: a.run },
@@ -109,8 +108,9 @@ export function navigate(route, { replace = false, keepFocus = false } = {}) {
   // A screen may widen itself (the sheet's two columns); a new route starts plain.
   host.className = "screen";
   document.getElementById("headerTitle").textContent = ROUTES[route].title;
-  const ha = document.getElementById("headerArt");
-  if (ha) { clear(ha); ha.appendChild(art(HEADER_ART[route] || "folder")); }
+  // The stylesheet reads where you are: the resource strip belongs to the Agent and the fight.
+  document.body.dataset.route = route;
+  document.body.dataset.folder = folderKey(route);
   renderSubNav(route);
   ROUTES[route].render(host);
   window.scrollTo(0, 0);
@@ -128,8 +128,8 @@ export function rebuildNav() {
       class: "nav-btn", type: "button", dataset: { route: key },
       onclick: () => navigate(key)
     },
-      el("span", { class: "ico", "aria-hidden": "true" }, hasIcon(key) ? icon(key) : r.icon),
-      el("span", { class: "lbl", text: r.label })
+      el("span", { class: "ico", "aria-hidden": "true" }, icon(r.navIcon || (hasIcon(key) ? key : "files"))),
+      el("span", { class: "lbl", text: r.nav || r.label })
     ));
   }
   updateNavState();

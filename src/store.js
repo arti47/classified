@@ -194,7 +194,7 @@ function journalCheck(row) {
     `scene ${adv.scene}`
   ].filter(Boolean).join(" · ");
   adv.journal = adv.journal || [];
-  adv.journal.unshift({ id: uid("j"), ts: row.ts, kind: "check",
+  adv.journal.unshift({ id: uid("j"), ts: row.ts, kind: "check", quality: row.quality ?? null, roll: row.roll ?? null,
     text: `${row.by ? row.by + " — " : ""}${row.label}${quality ? ": " + quality : ""}`, detail });
   if (adv.journal.length > 200) adv.journal.length = 200;
   saveAdventure(adv);

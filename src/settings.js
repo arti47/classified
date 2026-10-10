@@ -16,7 +16,9 @@ const DEFAULTS = {
   seatbelts: true,
   airbags: true,
   solo: false,                  // the Mythic solo layer, a second system (CLAUDE.md §3.20)
-  showHelp: true,               // the only toggle that starts ON: help is for new players
+  showHelp: false,              // inline how-to bars; the header's ? carries the same copy (U4)
+  veteran: false,               // shows every procedure at once instead of the common ones first (U7)
+  sfx: false,                   // a click and a buzz when the dice land (U8)
   startHere: true               // the first-run card on Home; hidden by its own Hide this, not by a toggle row
 };
 
@@ -62,6 +64,8 @@ export const Settings = {
   airbags: () => !!get("airbags"),
   solo: () => !!get("solo"),
   showHelp: () => !!get("showHelp"),
+  veteran: () => !!get("veteran"),
+  sfx: () => !!get("sfx"),
   startHere: () => !!get("startHere")
 };
 
@@ -104,6 +108,8 @@ export const TOGGLE_ROWS = [
   { key: "heroPointPrompt", name: "Offer Hero Point spends", desc: "After each roll, offer to shift the Success Quality with Hero Points." },
   { key: "seatbelts", name: "Assume seat belts worn", desc: "Reduces accident damage to occupants by one further Wound Rank." },
   { key: "airbags", name: "Assume airbags fitted", desc: "Reduces a single three-rank accident hit by one further Wound Rank." },
-  { key: "showHelp", name: "Show how-to panels", desc: "A collapsed \"How to use\" accordion at the top of every screen and every Solo panel. Turn it off once you know your way around." },
-  { key: "solo", name: "Solo play (Mythic)", desc: "Adds a Solo tab running the Mythic Game Master Emulator: Fate questions, the Chaos Factor, scene tests, Random Events and 37 Meaning Tables. A second system, not part of Classified. Takes the Rules tab's place in the bottom bar; Rules stays on Home." }
+  { key: "showHelp", name: "Show how-to panels", desc: "A collapsed how-to bar on every screen. The ? in the header always has the same help." },
+  { key: "veteran", name: "Veteran mode", desc: "Every procedure the book defines on one picker, instead of the common ones first." },
+  { key: "sfx", name: "Sound and vibration", desc: "A click and a buzz when the dice land." },
+  { key: "solo", name: "Solo play (Mythic)", desc: "The Mythic Game Master Emulator runs the world: Fate questions, the Chaos Factor, scenes, Random Events and 37 Meaning Tables. A second system, not part of Classified." }
 ];

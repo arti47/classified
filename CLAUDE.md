@@ -54,6 +54,24 @@ own answers, not template defaults.
 | Meaning roller | Rolls a word pair by default | Doubles reported as amplification, per the report |
 | Missing GME tables | Reconstructed and flagged, then **replaced by the printed originals** | The Fate Chart, Fate Check, Event Focus and Scene Adjustment tables were all supplied as images afterwards. Nothing in the solo layer is unsourced — ruling S1 |
 
+### 1.3 UX Decisions — the redesign
+
+Recorded at the request to rethink the whole experience: *too wordy, not enough graphics, too
+much at once, intimidating for a first-time player*. The user answered the first question
+with **"follow all your recommendations"**, so every choice below is the recommended one.
+All of it is presentation: no rule, table, number or procedure changed (§10 rule 11).
+
+| # | Decision | Consequence |
+|---|---|---|
+| U1 | **Three places**: Agent · Mission · Files, plus GM when it is on | The bottom bar is three tabs. Every other screen is a page in one of them, on that folder's strip: Agent = Dossier · Gear · Advance; Mission = Mission · Case board (the old Solo screen) · Combat; Files = Rules · Guide · Tutorial · Log · Settings + Glossary, with the Files hub as drawers |
+| U2 | **Slim header**: the screen's name, the agent badge, ? and dice | The badge is the photograph or silhouette, a wound pip and Hero Points, and opens the dossier. The six-cell resource strip shows only on the Agent pages and in Combat. The theme button moved to Settings |
+| U3 | **Recruitment, not a menu**: a first launch is two full screens | Swipe the five published agents (or Build my own) → Alone or With a group → the mission. Home is that while there is no dossier, and the Mission once there is (`onboard.js`) |
+| U4 | **Words are opt-in** | `showHelp` now starts **off**. The header's **?** always opens the screen's how-to; the line under a heading and every "How it works" button carry `.explain` and show only with how-to on |
+| U5 | **One mission feed** (`mission.js`) | A scene card (codename, city in capitals, place and hour, a Chaos dial), the briefing as a slip, and every journal row or roll as a pictogram card with a stamp, newest first. One big button: **Brief me** → **Start scene N** → **What do you do?**, which opens eight verbs as pictures. Every verb is a call into the existing engine |
+| U6 | **Pictures before words** | Fate is a slider across the nine printed odds with the chance of a Yes as a bar; checks and moves are tile pickers (`tileModal()`) with the Base Chance large; characteristics are dials; skills are tiles filled to their share of 30; the background folds away |
+| U7 | **Beginner first, veteran on request** | The move picker leads with six common procedures and folds the other seven behind **More moves**; `veteran` shows all thirteen. Nothing is removed |
+| U8 | **Sound and vibration**, off by default | `sfx`: a click and a buzz when the dice land (`landFeedback()`); never carries a result |
+
 ---
 
 ## 2. Source
@@ -803,12 +821,10 @@ layer carries the flag rather than the UI.
   stamped tag per kind. Home tiles carry an icon from the same set as the nav. A dialog whose
   only action closes it uses an ink button, not the red stamp, which is kept for actions that
   commit something. Wide tables pin their row label while the columns scroll. Styling never changes a rule, a number or a word on screen.
-- **Home is a briefing desk.** Whatever is live sits on it as a card you open: the agent
-  (photograph, name, rank, wound, Hero Points and the wound track) into the Sheet; the
-  adventure under way (name, scene, Chaos Factor and gauge) into Solo when solo is on; the
-  encounter in progress (round, phase, combatants) into Combat. The whole card takes the tap
-  and its Open button is the keyboard's way in. `woundTrack()` in `screens.js` draws the
-  Stun-to-Incapacitated ladder from `WOUND_LEVELS`, beside the wound's printed name.
+- **Home is the way in** (U3). With no dossier it is the recruitment; with one it is the
+  Mission. The old briefing desk of cards and tiles is gone: the agent lives in the header
+  badge, the adventure in the Mission's scene card, the fight on the Mission strip.
+  `woundTrack()` in `screens.js` still draws the Stun-to-Incapacitated ladder on the dossier.
 - **Numbers drawn to scale.** Each meter is a picture of a number printed beside it, never a
   second source for it, and `aria-hidden`: a characteristic's bar is its share of
   `CHARACTERISTIC_MAX`; a Base Chance box fills from the bottom to its share of
@@ -855,8 +871,9 @@ layer carries the flag rather than the UI.
   same order the cards use (§3.17). The chase dialog draws the five `CHASE_RANGES` as a track
   with the ones the chosen manoeuvre is legal at lit, read from that manoeuvre's own list.
 - **Folders.** Screens that belong together share a divider strip under the header
-  (`#subNav`): the **Dossier** folder is Sheet · Gear · Advance · Log, the **Library** folder is
-  Rules · How to play · Tutorial plus a Glossary action. The bottom tab that owns a folder is
+  (`#subNav`), one per place (U1): **Agent** is Dossier · Gear · Advance, **Mission** is
+  Mission · Case board · Combat, **Files** is Rules · Guide · Tutorial · Log · Settings plus a
+  Glossary action — the Files hub itself carries no strip, since its drawers are the navigation. The bottom tab that owns a folder is
   marked `aria-current="location"` on every screen in it, so it stays lit without claiming to
   be the page. Gear, Advancement and the log had no tab and were reachable only by the $ and
   XP chips and a Home tile; How to play and the Tutorial only from Home.
@@ -899,7 +916,7 @@ No `data-<expansion>.js` — no expansions were supplied.
 | Module | Responsibility |
 |---|---|
 | `core.js` | Constants, DOM helpers, raw dice, formatting, the stroke-icon set (`icon()`), the line-art props (`art()`), the dice faces (`diceFaces()`, `d100Faces()`), the decorative `meter()`, and the shared screen pieces every module builds with — `section()`, `statBox()`, `rerender()` (L1) and `preserveView()`. **No imports.** |
-| `ui.js` | Themed modal, toast, confirm, prompt, chooser, and the one clipboard path (`copyText()`, with its textarea and dialog fallbacks) |
+| `ui.js` | Themed modal, toast, confirm, prompt, chooser, the tile chooser (`tileModal()`), the dice feedback (`landFeedback()`), and the one clipboard path (`copyText()`, with its textarea and dialog fallbacks) |
 | `rules.js` | Pure rules lookups over the data libraries. No DOM, no state. |
 | `derived.js` | Character-derived calculation, normalization, migration, validation |
 | `settings.js` | Feature and content toggles, theme |
@@ -912,6 +929,8 @@ No `data-<expansion>.js` — no expansions were supplied.
 | `gm.js` | GM dashboard: party panel, generators, reference tables |
 | `help.js` | The how-to accordions, the glossary, the tutorial, and the **play guide** — the screen that says what to do next in your own game. Renders `data-help.js`; imports core, ui, settings and store, all of which `solo.js` may import, so it stays usable from there |
 | `solo.js` | The Mythic engine and the Solo screen: Fate, Chaos, scene test, Random Events, Adventure Lists, Meaning-table roller, journal, guided End Scene |
+| `mission.js` | **The mission feed** (U5) — scene card, Chaos dial, briefing slip, the feed, the one big button, the eight verbs, the Fate dial. A conductor like the coach: it owns no rule and calls the roller and `solo.js` |
+| `onboard.js` | **The recruitment** (U3) — Home while there is no dossier: pick a published agent, choose solo or table, land on the mission |
 | `coach.js` | **The guided player** — the app running the game for you, one instruction and one button at a time. A conductor, not an engine: it owns no rule and reaches both engines by dynamic import |
 | `screens.js` | Home, rules library, roll log, advancement, settings |
 | `router.js` | Bottom-nav routing, conditional tab gating, the folder divider strips (`FOLDERS`, `folderOf()`) and each screen's header prop (`HEADER_ART`) |
@@ -1001,7 +1020,7 @@ classified.soloAdventures: [ {
   characters: [ { id, text, weight } ],         // Adventure List, 25 slots
   completedAt: number | null,                    // the mission's own end (§3.20.4)
   outcome: "success" | "partial" | "failure" | null,
-  journal:    [ { id, ts, kind, text, detail } ]  // kind: scene|fate|event|meaning|note|check
+  journal:    [ { id, ts, kind, text, detail, quality?, roll? } ]  // kind: scene|fate|event|meaning|note|check; a check row carries its Quality and d100 for the feed's stamp
 } ]
 classified.soloActive: <adventureId>
 classified.soloUndo:   <one-step snapshot: { ts, label, adventures, active } >
@@ -1028,16 +1047,16 @@ one-line description, every related UI checks the flag, and gated nav tabs are h
 router.
 
 `gmScreen` · `multiplayer` · `manualDice` · `showUntrained` · `autoConditions` ·
-`heroPointPrompt` · `seatbelts` · `airbags` · `solo` · `showHelp`. Plus `theme` and
-`campaignStyle`, which are choices rather than toggles.
+`heroPointPrompt` · `seatbelts` · `airbags` · `solo` · `showHelp` · `veteran` · `sfx`. Plus
+`theme` and `campaignStyle`, which are choices rather than toggles.
 
-`solo` is the only toggle that **swaps** a nav tab rather than adding one: six tabs is the
-limit at 360px, so when solo is on the Solo tab takes the Rules slot and Rules stays
-reachable from its Home tile. `manualDice` applies to Mythic rolls too — `getD100()` is
+`solo` adds no tab (U1): it turns the Mission into a solo mission and puts the Case board on
+the Mission strip. `manualDice` applies to Mythic rolls too — `getD100()` is
 still the single entry point, and the Fate Check's 2d10 gets the same treatment.
 
-**How-to panels.** `showHelp` is the one toggle that starts **on**: a collapsed
-"How to use" accordion at the top of every screen — on Solo, a **?** on each panel's heading
+**How-to panels.** `showHelp` starts **off** since the redesign (U4) — the header's **?** opens
+the same copy on any screen. Turned on, it adds a collapsed
+"How to use" accordion at the top of every screen and the explanations marked `.explain` — on Solo, a **?** on each panel's heading
 opening the same entry (S26) — holding what
 the panel is for and the taps that use it. `src/help.js` renders them from `data-help.js`, so
 no screen authors help text of its own and turning the flag off removes them everywhere in
@@ -1078,7 +1097,7 @@ well as titles. It lives in `help.js` rather than `screens.js` because `solo.js`
 may not import the Classified modules (§5.1); the player meeting *Difficulty Factor* on the
 Solo screen is exactly the one who needs it.
 
-**Start here.** `startHere` is the only flag with no toggle row: a first-run card on Home
+**Start here** *(retired by U3; the recruitment replaced the card)*. `startHere` was the only flag with no toggle row: a first-run card on Home
 naming the three things to do in order — a dossier, the walkthrough, solo play — ticking the
 ones already done. It goes away on **Hide this**, and on its own once there is a dossier with
 a roll behind it, so it can never become furniture. Solo play is offered from Home whether or
@@ -1260,7 +1279,7 @@ are flagged rather than presented as extracted (S1).
       - [x] Roll-log integration through `Store.addRoll()`.
       - [x] Regression checks: chart monotonicity, derived thresholds, event trigger,
             chaos clamping, list weighting, and every table exactly 100 entries.
-- [x] **Hardening.** Committed regression harness (1550 checks); accessibility pass;
+- [x] **Hardening.** Committed regression harness (1588 checks); accessibility pass;
       rules-accuracy audit with every finding closed (§11).
 
 ---
@@ -1558,3 +1577,4 @@ tables are this app's own work and are marked as such (S6).
 | 2026-10-03 | Hidden truth audit (S28, `SCHEMA_VERSION` 13): the row is a choice of element that the roll picks and the player may change; its mystery points at the element's own thread or character and takes that line as its title; a revised Hidden truth withdraws an untouched mystery and opens the new one; deleting the mission with what it seeded takes it; events drawing a character are clues; an Exceptional Fate answer offers the clue instead of filing it | Asked whether the Hidden truth makes sense. Root causes: the row was text the commit never read (it read the roll); the mystery was opened with no link to the list entry it was about, so the event clue source could never reach it; the revise and delete paths had never been taught about it; and the Exceptional-answer clue was automatic, which turned a mystery open from scene one into a sink for every lucky roll. The dialog and the coach's `autoBriefing()` each carried their own copy of the opening code, now one | 1493 checks green, including the five chips with the rolled one chosen, a mystery linked to the objective's thread under its worded line, a revision swapping objective for opponent, the opponent's mystery linked to its Characters line and taking a clue from an NPC Action event, deletion taking the mystery, and an Exceptional answer closed without marking leaving the mystery untouched | `classified-v60` |
 | 2026-10-07 | Second link audit (L13–L16): glossary terms lead to the rules or solo topic behind them, solo topics lead to the Solo page that runs them, a mystery's tell opens the opponent's stat block, and the campaign style links to the Hero Points rule | Asked again whether every part that should be linked is. Re-ran the L-audit over what S25–S28 added and the two libraries: the glossary and the solo reference were one-way stops, the tell reveal gave a written instruction instead of a control, and Settings changed a rule it did not show. Rules fidelity: no `data.js`, `data-solo.js`, `rules.js` or fixture changed; the new glossary fields are routing keys only | 1540 checks green, including every glossary key resolving, each new link driven in the browser to its destination, and the solo page tools withheld with solo off. Zero console errors | `classified-v61` |
 | 2026-10-10 | Third link audit, by crawler (L17, L18): NPC names in the encounter open their stat blocks; Advancement's skill names open what each skill does, and its Reputation and experience gate link their rules | Asked again whether every part that should be linked is. This pass was run by machine rather than by reading: a script populated every surface, walked all thirteen routes at 390 and 1280px, and listed every on-screen name with a home of its own sitting in plain text. Two real gaps survived the earlier passes; everything else it found is a heading, a card that takes the tap as a whole, or a picture of something linked beside it. Rules fidelity: no `data*.js`, `rules.js`, `derived.js`, `store.js` or fixture changed | 1550 checks green, including each new link driven in the browser to its destination. Zero console errors | `classified-v62` |
+| 2026-10-10 | The redesign (U1–U8): three places (Agent · Mission · Files), a slim header with an agent badge and ?, a two-screen recruitment in place of Home's menu, one mission feed with a scene card, Chaos dial, stamped cards and a single phase-driven button opening eight pictured verbs, a Fate slider, tile pickers for checks and moves with a beginner fold, characteristic dials and skill tiles, explanations opt-in, and optional sound and vibration. New `src/mission.js` and `src/onboard.js` | Asked for a radical rethink: too wordy, too little graphics, too much at once, intimidating for a first-time player. The user chose to follow every recommendation. Root causes found in screenshots: four rows of chrome before any content, four competing ways to start on Home, a sentence and a "How it works" button and a ? saying the same thing on every panel, and every procedure offered as a list of names. Rules fidelity: `git diff` shows no change to any rules data file, `rules.js`, `derived.js` or fixture; the store's only change adds a check's Quality and d100 to its journal row; every verb calls the engine that already ran it | 1588 checks green, including the recruitment, the three-place bar and its strips, the feed's phases from Brief me to What do you do?, the eight verbs, the Fate slider across the nine printed odds into the engine's own answer, the tile pickers (5 characteristics, a tile per skill, 6 common moves and all 13 behind More or in veteran mode), and explanations following the setting. axe-core clean on every route and the new dialogs in both themes bar `meta-viewport`; zero overflow at 320, 360, 390 and 1280px; zero console errors | `classified-v63` |

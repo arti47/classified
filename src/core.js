@@ -56,7 +56,28 @@ const ICON_PATHS = {
   log: "M8 6h12M8 12h12M8 18h12M4 6h.01M4 12h.01M4 18h.01",
   play: "M12 3.5a8.5 8.5 0 1 0 0 17 8.5 8.5 0 0 0 0-17zM10 8.5v7l5.5-3.5z",
   tutorial: "M2.5 9 12 4.5 21.5 9 12 13.5zM6.5 11v5c3 2.3 8 2.3 11 0v-5M21.5 9v5",
-  glossary: "M4 19.5 8.5 5h1l4.5 14.5M5.6 14.5h6.8M15 13.5c.5-1.3 1.6-2 3-2 1.8 0 2.5 1 2.5 2.6v5.4M20.5 16c-3.5 0-5.5.6-5.5 2s1 1.8 2.2 1.8c1.6 0 3.3-1.1 3.3-3.8"
+  glossary: "M4 19.5 8.5 5h1l4.5 14.5M5.6 14.5h6.8M15 13.5c.5-1.3 1.6-2 3-2 1.8 0 2.5 1 2.5 2.6v5.4M20.5 16c-3.5 0-5.5.6-5.5 2s1 1.8 2.2 1.8c1.6 0 3.3-1.1 3.3-3.8",
+  /* The redesign's three places and the mission's verbs. */
+  agent: "M12 4a3.5 3.5 0 1 0 0 7 3.5 3.5 0 0 0 0-7zM5 20.5c.8-4.5 3.6-6.5 7-6.5s6.2 2 7 6.5M7.5 6.5h9",
+  mission: "M12 3.5a8.5 8.5 0 1 0 0 17 8.5 8.5 0 0 0 0-17zM15.5 8.5l-2 5-5 2 2-5zM12 3.5v2M12 18.5v2M3.5 12h2M18.5 12h2",
+  files: "M3.5 7.5h17v12h-17zM6 7.5V5h12v2.5M3.5 12h17M10 12v2h4v-2",
+  help: "M12 3.5a8.5 8.5 0 1 0 0 17 8.5 8.5 0 0 0 0-17zM9.6 9.5a2.5 2.5 0 1 1 3.4 2.3c-.6.3-1 .8-1 1.5v.7M12 16.6h.01",
+  oracle: "M2.5 12s3.5-6.5 9.5-6.5 9.5 6.5 9.5 6.5-3.5 6.5-9.5 6.5S2.5 12 2.5 12zM12 9a3 3 0 1 0 0 6 3 3 0 0 0 0-6z",
+  event: "M13.5 2.5 5 13.5h6l-1 8 8.5-11h-6z",
+  words: "M5 4.5h11l3 3v12H5zM8 9.5h8M8 13h8M8 16.5h5",
+  hurt: "M12 20s-7.5-4.6-7.5-10A4.3 4.3 0 0 1 12 7.4 4.3 4.3 0 0 1 19.5 10c0 5.4-7.5 10-7.5 10zM12 10.5v5M9.5 13h5",
+  flag: "M5.5 21V4M5.5 4.5h11l-2 3.5 2 3.5h-11",
+  more: "M5 12h.01M12 12h.01M19 12h.01",
+  board: "M3.5 4.5h17v15h-17zM7 8.5h4v4H7zM14 8.5h3M14 11.5h3M7 15.5h10",
+  talk: "M4 5.5h16v10H10l-4 3.5v-3.5H4z",
+  vehicle: "M4 15.5h16v3H4zM6.5 15.5l2-4.5h7l2.5 4.5M7.5 18.5v1M16.5 18.5v1",
+  social: "M4 5.5h16v10H10l-4 3.5v-3.5H4z",
+  technical: "M14.5 4.5a4 4 0 0 0-5 5L4 15l2.5 2.5L12 12a4 4 0 0 0 5-5l-2.5 2.5-2-2z",
+  covert: "M3 12s3.5-5 9-5 9 5 9 5-3.5 5-9 5-9-5-9-5zM4 20 20 4",
+  physical: "M13.5 4.5a1.5 1.5 0 1 0 0 3 1.5 1.5 0 0 0 0-3zM9 21l2.5-6 3 2.5V21M7 12l3-3.5h4l2.5 3.5M11.5 15l1-6.5",
+  skillcombat: "M12 3v4M12 17v4M3 12h4M17 12h4M12 7a5 5 0 1 0 0 10 5 5 0 0 0 0-10zM12 11.2v1.6",
+  ability: "M12 3.5l2.4 5 5.4.6-4 3.7 1.1 5.4L12 15.5l-4.9 2.7 1.1-5.4-4-3.7 5.4-.6z",
+  travel: "M3 13.5l18-7-7 18-2.5-8.5z"
 };
 
 export function hasIcon(key) { return Object.prototype.hasOwnProperty.call(ICON_PATHS, key); }
@@ -106,7 +127,12 @@ const ART = {
   book: [["p", "M12 24c12-4 24-3 36 4 12-7 24-8 36-4v50c-12-4-24-3-36 4-12-7-24-8-36-4z"], ["p", "M48 28v50"],
     ["p", "M20 38h20M20 46h16M56 38h20M56 46h16", "accent"]],
   cipher: [["c", 48, 48, 32], ["c", 48, 48, 20], ["c", 48, 48, 4, "accent"],
-    ["p", "M48 16v8M48 72v8M16 48h8M72 48h8M25 25l6 6M65 65l6 6M71 25l-6 6M31 65l-6 6"]]
+    ["p", "M48 16v8M48 72v8M16 48h8M72 48h8M25 25l6 6M65 65l6 6M71 25l-6 6M31 65l-6 6"]],
+  /* The agent in silhouette: a fedora, a turned-up collar, a trench coat. The portrait every
+   * dossier carries until a photograph is added. */
+  agent: [["p", "M26 34c0-3 6-6 22-6s22 3 22 6-8 3-22 3-22 0-22-3z"], ["p", "M34 30c0-9 6-14 14-14s14 5 14 14", "accent"],
+    ["p", "M36 38c0 10 5 17 12 17s12-7 12-17"], ["p", "M30 58l18 12 18-12"],
+    ["p", "M18 88c2-16 10-26 22-30l8 14 8-14c12 4 20 14 22 30"], ["p", "M48 72v16"]]
 };
 
 export function art(key) {
@@ -250,7 +276,8 @@ export function rerender() {
 export function section(title, sub, ...headExtras) {
   const s = el("div", { class: "section" });
   s.appendChild(el("div", { class: "section-head" }, el("div", { class: "section-title", text: title }), ...headExtras));
-  if (sub) s.appendChild(el("p", { class: "small muted", style: "margin-top:-2px", text: sub }));
+  // The line under a heading explains; it shows only with the how-to setting on (U4).
+  if (sub) s.appendChild(el("p", { class: "small muted explain section-sub", style: "margin-top:-2px", text: sub }));
   return s;
 }
 

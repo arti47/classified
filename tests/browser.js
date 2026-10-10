@@ -50,15 +50,16 @@ export async function browserTests(t, { chromium, executablePath, baseURL }) {
       }
       t.pass("every route renders content");
 
-      // Every screen puts its prop on the header's folder label, and the label still says its name.
-      const headerArt = [];
-      for (const r of ["home", "sheet", "gear", "advance", "log", "combat", "rules", "settings", "gm", "solo", "play", "tutorial", "create"]) {
+      // The slim header (U2): every screen names itself, and every screen carries the ? that
+      // opens its how-to, whatever the showHelp flag says.
+      const headerMiss = [];
+      for (const r of ["home", "mission", "files", "sheet", "gear", "advance", "log", "combat", "rules", "settings", "gm", "solo", "play", "tutorial", "create"]) {
         await page.evaluate(x => { location.hash = "#/" + x; }, r);
         await page.waitForTimeout(100);
-        if (!(await page.evaluate(() => !!document.querySelector("#headerArt svg.art") &&
-          document.getElementById("headerTitle").textContent.trim().length > 0))) headerArt.push(r);
+        if (!(await page.evaluate(() => !!document.querySelector("#helpBtn svg") &&
+          document.getElementById("headerTitle").textContent.trim().length > 0))) headerMiss.push(r);
       }
-      t.ok(!headerArt.length, "every screen's header label carries its line-art prop beside its name" + (headerArt.length ? ` (missing: ${headerArt.join(", ")})` : ""));
+      t.ok(!headerMiss.length, "every screen names itself in the header beside the help button" + (headerMiss.length ? ` (missing: ${headerMiss.join(", ")})` : ""));
 
       // The tutorial's tap lines are the way there: each is a button that leaves the tutorial.
       await page.evaluate(() => { location.hash = "#/tutorial"; });
@@ -73,10 +74,10 @@ export async function browserTests(t, { chromium, executablePath, baseURL }) {
       });
       t.ok(taps.n >= 8 && taps.toCreate, `every tutorial tap line is a link, and the Create one opens Create (${taps.n} links)`);
 
-      // Folders: the dossier's four screens and the library's three share a divider strip,
-      // and the bottom tab that owns the folder stays lit on each of them.
+      // Folders (U1): the Agent's three pages, the Mission's three and the Files' five share a
+      // strip each, and the bottom tab that owns the folder stays lit on every page in it.
       const folders = {};
-      for (const r of ["sheet", "gear", "advance", "log", "rules", "play", "tutorial", "home", "combat"]) {
+      for (const r of ["sheet", "gear", "advance", "mission", "solo", "combat", "files", "log", "rules", "play", "tutorial", "settings", "create"]) {
         await page.evaluate(x => { location.hash = "#/" + x; }, r);
         await page.waitForTimeout(140);
         folders[r] = await page.evaluate(() => {
@@ -85,57 +86,58 @@ export async function browserTests(t, { chromium, executablePath, baseURL }) {
             shown: !bar.hidden,
             tabs: [...bar.querySelectorAll(".sub-tab[data-route]")].map(b => b.dataset.route),
             current: (bar.querySelector('.sub-tab[aria-current="page"]') || {}).dataset?.route || null,
-            lit: (document.querySelector('.nav-btn[aria-current="location"]') || {}).dataset?.route || null,
+            lit: (document.querySelector('.nav-btn[aria-current="location"], .nav-btn[aria-current="page"]') || {}).dataset?.route || null,
             glossary: [...bar.querySelectorAll(".sub-tab.is-action")].some(b => /Glossary/.test(b.textContent)),
             whole: (() => {
               const on = bar.querySelector('.sub-tab[aria-current="page"]');
-              if (!on) return true;
+              if (!on || bar.hidden) return true;
               const a = on.getBoundingClientRect(), b = bar.querySelector(".sub-nav-strip").getBoundingClientRect();
               return a.left >= b.left - 1 && a.right <= b.right + 1;
             })()
           };
         });
       }
-      t.ok(["sheet", "gear", "advance", "log"].every(r => folders[r].shown && folders[r].current === r &&
-        folders[r].tabs.join() === "sheet,gear,advance,log"), "Sheet, Gear, Advancement and the log share one divider strip, each marked current in turn");
-      t.ok(["gear", "advance", "log"].every(r => folders[r].lit === "sheet"), "and the Sheet tab stays lit on the three that have no tab of their own");
-      t.ok(["rules", "play", "tutorial"].every(r => folders[r].shown && folders[r].tabs.join() === "rules,play,tutorial" && folders[r].glossary),
-        "Rules, How to play and the Tutorial share a Library strip that also opens the Glossary");
-      t.ok(!folders.home.shown && !folders.combat.shown, "screens outside a folder carry no strip");
+      t.ok(["sheet", "gear", "advance"].every(r => folders[r].shown && folders[r].current === r &&
+        folders[r].tabs.join() === "sheet,gear,advance" && folders[r].lit === "sheet"),
+        "the Agent's dossier, gear and advancement share one strip under the Agent tab");
+      t.ok(["mission", "solo", "combat"].every(r => folders[r].shown && folders[r].current === r &&
+        folders[r].tabs.join() === "mission,solo,combat" && folders[r].lit === "mission"),
+        "the Mission's feed, case board and combat share one strip under the Mission tab");
+      t.ok(["log", "rules", "play", "tutorial", "settings"].every(r => folders[r].shown &&
+        folders[r].tabs.join() === "rules,play,tutorial,log,settings" && folders[r].glossary && folders[r].lit === "files"),
+        "the Files pages share a strip that also opens the Glossary, under the Files tab");
+      t.ok(!folders.files.shown && folders.files.lit === "files", "the Files hub is its own navigation and carries no strip");
+      t.ok(!folders.create.shown, "screens outside a folder carry no strip");
+      const navTabs = await page.evaluate(() => [...document.querySelectorAll(".nav-btn")].map(b => b.dataset.route).join());
+      t.eq(navTabs, "sheet,mission,files,gm", "the bottom bar is the three places, and GM when it is on");
       await page.waitForTimeout(50);
       t.ok(Object.values(folders).every(f => f.whole), "the current divider tab is always shown whole, never cut at the strip's edge");
 
-      // The briefing desk: the agent card opens the sheet, and a running encounter puts a card
-      // on the desk that opens Combat.
+      // Home with a dossier is the mission; the header's agent badge opens the dossier; the
+      // sheet's dials and tiles are pictures of the numbers printed in them.
       const desk = await page.evaluate(async () => {
         const Store = await import("./src/store.js");
         const created = Store.activeCharacter() ? null : Store.createCharacter("agent");
         if (created) Store.setActive(created.id);
-        const hadFight = Store.combatState().active;
+        location.hash = "#/files"; await new Promise(r => setTimeout(r, 150));
         location.hash = "#/home";
-        await new Promise(r => setTimeout(r, 200));
-        const out = { agent: !!document.querySelector(".desk .agent-card .wound-track"),
-          open: !!document.querySelector(".desk .agent-card button.desk-open") };
-        document.querySelector(".desk .agent-card .desk-open").click();
-        await new Promise(r => setTimeout(r, 200));
-        out.toSheet = location.hash === "#/sheet";
-        out.combatCard = hadFight === !!document.querySelector(".desk .combat-card");
-        location.hash = "#/home";
-        await new Promise(r => setTimeout(r, 150));
-        out.combatCard = hadFight === !!document.querySelector(".desk .combat-card");
-        // The sheet's meters are pictures of the printed numbers, so each must agree with its
-        // number: a characteristic's bar is its share of 15, a Base Chance box its share of 30.
-        location.hash = "#/sheet";
         await new Promise(r => setTimeout(r, 250));
-        out.meters = [...document.querySelectorAll(".grid-5 .stat-box")].every(b => {
-          const v = Number(b.querySelector(".v").textContent);
-          const w = parseFloat(b.querySelector(".meter-fill").style.width);
-          return Math.abs(w - v / 15 * 100) < 0.2;
+        const out = { homeIsMission: location.hash === "#/mission",
+          badge: !document.getElementById("agentBadge").hidden && !!document.querySelector("#agentBadge .badge-wound") };
+        document.getElementById("agentBadge").click();
+        await new Promise(r => setTimeout(r, 250));
+        out.toSheet = location.hash === "#/sheet";
+        out.combatCard = true;
+        out.open = true;
+        out.agent = out.badge;
+        out.meters = [...document.querySelectorAll(".rings .ring-btn")].length === 5 && [...document.querySelectorAll(".rings .ring-btn")].every(b => {
+          const v = Number(b.querySelector(".ring-v").textContent);
+          return Math.abs(Number(b.querySelector(".ring").dataset.fill) - v / 15) < 0.002;
         });
-        const boxes = [...document.querySelectorAll(".skill-row .b")].filter(b => /^\d+$/.test(b.textContent));
+        const boxes = [...document.querySelectorAll(".skill-tile")];
         out.fills = boxes.length > 0 && boxes.every(b => {
           const f = parseFloat(b.style.getPropertyValue("--fill"));
-          return Math.abs(f - Math.round(Math.min(1, Number(b.textContent) / 30) * 100)) < 1;
+          return Math.abs(f - Math.round(Math.min(1, Number(b.querySelector(".st-v").textContent) / 30) * 100)) < 1;
         });
         out.track = !!document.querySelector(".dossier-head .wound-track");
         // The GM's party peek opens the dossier it summarises.
@@ -173,11 +175,11 @@ export async function browserTests(t, { chromium, executablePath, baseURL }) {
         if (created) Store.deleteCharacter(created.id);
         return out;
       });
-      t.ok(desk.agent && desk.open, "Home's agent card carries the wound track and a real Open button");
-      t.ok(desk.toSheet, "and opening it lands on the sheet");
-      t.ok(desk.combatCard, "a combat card is on the desk exactly when an encounter is running");
-      t.ok(desk.meters, "every characteristic's bar is its value's share of 15");
-      t.ok(desk.fills, "every Base Chance box is filled to its share of the cap of 30");
+      t.ok(desk.homeIsMission, "with a dossier open, Home is the mission");
+      t.ok(desk.badge, "the header's agent badge carries the wound");
+      t.ok(desk.toSheet, "and opening it lands on the dossier");
+      t.ok(desk.meters, "every characteristic's dial is its value's share of 15");
+      t.ok(desk.fills, "every skill tile is filled to its Base Chance's share of the cap of 30");
       t.ok(desk.track, "the dossier head carries the wound track");
       t.ok(desk.peekOpens, "the GM party peek opens the dossier it summarises");
       t.ok(desk.rail, "the initiative rail puts each combatant on its Speed lane, marks the acted, and runs the declaration way");
@@ -186,10 +188,12 @@ export async function browserTests(t, { chromium, executablePath, baseURL }) {
       // Every Home tile carries an icon, and the icon adds no text to the tile's name.
       await page.evaluate(() => { location.hash = "#/home"; });
       await page.waitForTimeout(200);
-      const tiles = await page.evaluate(() => [...document.querySelectorAll(".tile-grid .opt-btn")].map(b => ({
-        svg: !!b.querySelector(".tile-ico svg"), name: b.querySelector(".on-name").textContent
+      await page.evaluate(() => { location.hash = "#/files"; });
+      await page.waitForTimeout(200);
+      const tiles = await page.evaluate(() => [...document.querySelectorAll(".drawers .drawer")].map(b => ({
+        svg: !!b.querySelector(".drawer-art svg"), name: b.querySelector(".drawer-label").textContent
       })));
-      t.ok(tiles.length >= 8 && tiles.every(x => x.svg && x.name.trim().length), "every Home tile draws an icon beside its name");
+      t.ok(tiles.length >= 6 && tiles.every(x => x.svg && x.name.trim().length), "every Files drawer draws a picture above its name");
 
       // No horizontal overflow anywhere.
       for (const tab of TABS) {
@@ -237,12 +241,12 @@ export async function browserTests(t, { chromium, executablePath, baseURL }) {
       // Sheet renders skills with base chances.
       await page.evaluate(() => { location.hash = "#/sheet"; });
       await page.waitForTimeout(200);
-      const skillRows = await page.evaluate(() => document.querySelectorAll(".skill-row").length);
-      t.ok(skillRows > 20, `the sheet lists the whole skill list (${skillRows} rows)`);
+      const skillRows = await page.evaluate(() => document.querySelectorAll(".skill-tile").length);
+      t.ok(skillRows > 20, `the sheet lists the whole skill list (${skillRows} tiles)`);
 
       // A roll opens the dialog and writes to the log.
       await page.evaluate(() => {
-        const row = [...document.querySelectorAll(".skill-row")].find(r => r.textContent.includes("Charisma"));
+        const row = [...document.querySelectorAll(".skill-tile")].find(r => r.textContent.includes("Charisma"));
         if (row) row.click();
       });
       await page.waitForSelector(".modal", { timeout: 4000 });
@@ -377,14 +381,14 @@ export async function browserTests(t, { chromium, executablePath, baseURL }) {
 
       /* ---------------- the Mythic solo layer ---------------- */
 
-      // Solo takes the Rules slot in the bottom bar rather than adding a seventh tab.
+      // Solo play changes what the Mission is, not how many places there are (U1).
       const navState = await page.evaluate(() => {
         const routes = [...document.querySelectorAll(".nav-btn")].map(b => b.dataset.route);
         return { routes, count: routes.length };
       });
-      t.ok(navState.routes.includes("solo") && !navState.routes.includes("rules"),
-        "the Solo tab takes the Rules slot when solo play is on");
-      t.eq(navState.count, 6, "the bottom bar still carries six tabs with solo play on");
+      t.ok(!navState.routes.includes("solo") && navState.routes.includes("mission"),
+        "with solo play on, the Mission tab holds it — no tab of its own");
+      t.eq(navState.count, 4, "the bottom bar carries the three places and the GM screen");
 
       await page.evaluate(() => { location.hash = "#/solo"; });
       await page.waitForTimeout(160);
@@ -520,6 +524,7 @@ export async function browserTests(t, { chromium, executablePath, baseURL }) {
           primaries: document.querySelectorAll("#screen .solo-primary").length,
           before: shown(), helpBars: document.querySelectorAll("#screen details.help-acc").length,
           marks: document.querySelectorAll("#screen .section-head .help-q").length,
+          helpOn: !!JSON.parse(localStorage.getItem("classified.settings") || "{}").showHelp,
           // One row: every reading and the button share a line, however long the label.
           rows: new Set([...document.querySelectorAll("#screen .solo-status > *")]
             .map(n => { const r = n.getBoundingClientRect(); return Math.round((r.top + r.bottom) / 2 / 16); })).size,
@@ -552,7 +557,7 @@ export async function browserTests(t, { chromium, executablePath, baseURL }) {
       t.eq(phone.rows, 1, "the bar's readings and primary action sit on one row");
       t.ok(!phone.clockWords, "nothing on Solo still describes a mystery as a clock (S21)");
       t.eq(phone.helpBars, 0, "no how-to bars on Solo");
-      t.ok(phone.marks >= 6, `the how-to copy is a ? on each heading instead (${phone.marks})`);
+      t.ok(phone.helpOn ? phone.marks >= 6 : phone.marks === 0, `the headings' ? marks follow the how-to setting (${phone.marks}, ${phone.helpOn ? "on" : "off"})`);
       await page.setViewportSize({ width: 1280, height: 900 });
       const wide = await pagesProbe();
       t.ok(!wide.tabsShown && wide.before.length === 4, "on a desk the tabs go and all four pages show");
@@ -2243,8 +2248,9 @@ export async function browserTests(t, { chromium, executablePath, baseURL }) {
 
       // How-to panels: on every screen, closed, and gone when the toggle is off.
       const help = await page.evaluate(async () => {
+        (await import("./src/settings.js")).set("showHelp", true);
         const out = { screens: {}, soloPanels: 0, openByDefault: 0 };
-        for (const route of ["home", "create", "sheet", "gear", "combat", "advance", "rules", "log", "gm", "solo", "settings"]) {
+        for (const route of ["mission", "files", "create", "sheet", "gear", "combat", "advance", "rules", "log", "gm", "solo", "settings"]) {
           location.hash = "#/" + route;
           await new Promise(r => setTimeout(r, 200));
           const accs = [...document.querySelectorAll("details.help-acc")];
@@ -2281,15 +2287,19 @@ export async function browserTests(t, { chromium, executablePath, baseURL }) {
         const S = await import("./src/settings.js");
         S.set("showHelp", false);
         const counts = {};
-        for (const route of ["home", "sheet", "solo"]) {
+        for (const route of ["mission", "sheet", "solo"]) {
           location.hash = "#/" + route;
           await new Promise(r => setTimeout(r, 200));
           counts[route] = document.querySelectorAll("details.help-acc, #screen .help-q").length;
         }
-        S.set("showHelp", true);
+        // The header's ? is the same copy, and it stays when the panels go (U4).
+        location.hash = "#/sheet"; await new Promise(r => setTimeout(r, 150));
+        document.getElementById("helpBtn").click(); await new Promise(r => setTimeout(r, 150));
+        counts.headerHelp = (document.querySelector(".modal h2") || {}).textContent || "";
+        (await import("./src/ui.js")).closeAllModals();
         return counts;
       });
-      t.deep(helpOff, { home: 0, sheet: 0, solo: 0 }, "the Settings toggle removes them everywhere");
+      t.deep(helpOff, { mission: 0, sheet: 0, solo: 0, headerHelp: "How to use the Sheet" }, "the Settings toggle removes them everywhere, and the header's ? still opens the screen's how-to");
 
       // The tutorial: a screen of its own, reachable without a nav tab.
       const tutorial = await page.evaluate(async () => {
@@ -2312,11 +2322,11 @@ export async function browserTests(t, { chromium, executablePath, baseURL }) {
       t.ok(tutorial.overflow <= 1, "the tutorial does not overflow at this width");
 
       const homeTile = await page.evaluate(async () => {
-        location.hash = "#/home";
+        location.hash = "#/files";
         await new Promise(r => setTimeout(r, 220));
-        return [...document.querySelectorAll(".opt-btn")].some(b => /Tutorial/.test(b.textContent));
+        return [...document.querySelectorAll(".drawer")].some(b => /Tutorial/.test(b.textContent));
       });
-      t.ok(homeTile, "Home carries a tile that opens it");
+      t.ok(homeTile, "Files carries a drawer that opens it");
 
       // Every accordion starts closed, on every screen that has one.
       const accordions = await page.evaluate(async () => {
@@ -2338,7 +2348,7 @@ export async function browserTests(t, { chromium, executablePath, baseURL }) {
 
       // A closed accordion still holds its rows, so searching and counting keep working.
       const closedRows = await page.evaluate(async () => {
-        location.hash = "#/sheet";
+        location.hash = "#/solo";
         await new Promise(r => setTimeout(r, 220));
         return document.querySelectorAll("details.acc .skill-row").length;
       });
@@ -2489,6 +2499,7 @@ export async function browserTests(t, { chromium, executablePath, baseURL }) {
 
         const Store = await import("./src/store.js");
         const out = { screens: {} };
+        SettingsMod.set("showHelp", true);
 
         // 1. No screen is a dead end with a dossier missing. The log is cleared first so its
         // own empty state is the one under test.
@@ -2503,42 +2514,40 @@ export async function browserTests(t, { chromium, executablePath, baseURL }) {
           };
         }
 
-        // 2. The first-run card, and Hide this.
+        // 2. The way in (U3): a fresh device opens on the recruitment, not a menu.
         await go("home");
-        const start = document.querySelector(".start-here");
-        out.startHere = {
-          shown: !!start,
-          steps: start ? start.querySelectorAll(".card-row").length : 0,
-          solo: start ? /solo/i.test(start.textContent) : false,
-          guide: start ? /how to play/i.test(start.textContent) : false
+        out.onboard = {
+          cards: document.querySelectorAll("#screen .ob-card").length,
+          own: buttons().some(b => /Build my own/.test(b)),
+          title: (document.querySelector("#screen .ob-title") || {}).textContent || ""
         };
-        [...document.querySelectorAll("#screen .start-here button")].find(b => /Hide this/.test(b.textContent)).click();
-        await new Promise(r => setTimeout(r, 160));
-        out.startHere.hidden = !document.querySelector(".start-here");
-        await go("home");
-        out.startHere.staysHidden = !document.querySelector(".start-here");
-        SettingsMod.set("startHere", true);
+        document.querySelector("#screen .ob-card .btn.primary").click();
+        await new Promise(r => setTimeout(r, 250));
+        out.onboard.recruited = !!Store.activeCharacter();
+        out.onboard.modes = [...document.querySelectorAll("#screen .ob-mode-name")].map(x => x.textContent);
 
-        // 3. Solo is offered on Home even with the toggle off, and turning it on lands there.
+        // 3. Solo is offered from a table mission, and turning it on lands on the mission it runs.
         SettingsMod.set("solo", false);
         router.rebuildNav();
-        await go("home");
+        await go("mission");
         out.soloOff = {
-          navHasSolo: [...document.querySelectorAll(".nav-btn .lbl")].some(x => x.textContent === "Solo"),
-          tile: buttons().some(b => /Play solo/.test(b)),
-          glossaryTile: buttons().some(b => /Glossary/.test(b))
+          navHasSolo: [...document.querySelectorAll(".nav-btn")].some(x => x.dataset.route === "solo"),
+          tile: buttons().some(b => /Playing alone/.test(b)),
+          glossaryTile: true
         };
-        [...document.querySelectorAll("#screen button")].find(b => /Play solo/.test(b.textContent)).click();
+        [...document.querySelectorAll("#screen button")].find(b => /Playing alone/.test(b.textContent)).click();
         await new Promise(r => setTimeout(r, 200));
         out.soloOffer = (document.querySelector(".modal") || {}).textContent || "";
         [...document.querySelectorAll(".modal button")].find(b => /Turn on solo play/.test(b.textContent)).click();
         await new Promise(r => setTimeout(r, 400));
         out.soloOn = {
-          navHasSolo: [...document.querySelectorAll(".nav-btn .lbl")].some(x => x.textContent === "Solo"),
+          navHasSolo: !![...document.querySelectorAll('#subNav .sub-tab[data-route="solo"]')].length,
           route: location.hash,
           on: SettingsMod.get("solo")
         };
         await clearModals();
+        Store.wipeCharacters();
+        Store.wipeAdventures();
 
         // 4. The glossary, from the Rules library and from Solo.
         await go("rules");
@@ -2624,17 +2633,15 @@ export async function browserTests(t, { chromium, executablePath, baseURL }) {
         t.ok(r.way, `${route} offers the way out of its empty state`);
         t.ok(r.help, `${route} keeps its how-to panel when nothing is open`);
       }
-      t.ok(newcomer.startHere.shown, "a fresh device opens on a first-run card");
-      t.ok(newcomer.startHere.steps >= 3, "with a step for the dossier, learning the loop and solo play");
-      t.ok(newcomer.startHere.solo && newcomer.startHere.guide,
-        "and it points at solo play and the play guide by name");
-      t.ok(newcomer.startHere.hidden && newcomer.startHere.staysHidden, "Hide this removes it, and it stays removed");
-      t.ok(!newcomer.soloOff.navHasSolo, "with solo off there is no Solo tab, as before");
-      t.ok(newcomer.soloOff.tile, "but Home still carries a Play solo tile, so it can be found at all");
-      t.ok(newcomer.soloOff.glossaryTile, "and a Glossary tile beside it");
-      t.ok(/Mythic Game Master Emulator/.test(newcomer.soloOffer), "the tile explains what solo play is before switching anything on");
-      t.ok(newcomer.soloOn.on && newcomer.soloOn.navHasSolo, "Turn on solo play adds the tab");
-      t.eq(newcomer.soloOn.route, "#/solo", "and lands on the screen it just created");
+      t.ok(newcomer.onboard.cards >= 6 && newcomer.onboard.own, "a fresh device opens on the recruitment: the published agents and Build my own");
+      t.eq(newcomer.onboard.title, "Choose your agent", "under one instruction");
+      t.ok(newcomer.onboard.recruited, "Recruit makes the dossier in one tap");
+      t.deep(newcomer.onboard.modes, ["Alone", "With a group"], "and the next question is only how you will play");
+      t.ok(!newcomer.soloOff.navHasSolo, "with solo off there is no case board");
+      t.ok(newcomer.soloOff.tile, "but a table mission offers solo play, so it can be found at all");
+      t.ok(/Mythic Game Master Emulator/.test(newcomer.soloOffer), "the offer explains what solo play is before switching anything on");
+      t.ok(newcomer.soloOn.on && newcomer.soloOn.navHasSolo, "Turn on solo play adds the case board to the Mission");
+      t.eq(newcomer.soloOn.route, "#/mission", "and lands on the mission it now runs");
       t.ok(newcomer.glossary.opened, "the Rules library opens a glossary");
       t.ok(newcomer.glossary.terms >= 30, `covering every term on screen (${newcomer.glossary.terms})`);
       t.ok(newcomer.glossary.hasDF && newcomer.glossary.hasChaos, "including both systems' central jargon");
@@ -2693,6 +2700,8 @@ export async function browserTests(t, { chromium, executablePath, baseURL }) {
         if (c) {
           Store.setActive(c.id);
           Store.updateActive(x => { x.state.wound = "medium"; x.state.exhausted = true; x.inventory.money = 1250000; });
+          // The strip lives on the Agent's pages and in the fight (U2).
+          location.hash = "#/sheet"; await wait(200);
           Sheet.renderResourceHeader();
           await wait(120);
           out.clipped = [...document.querySelectorAll(".res-chip b")].filter(b => b.scrollWidth > b.clientWidth + 1).map(b => b.textContent);
@@ -2789,14 +2798,17 @@ export async function browserTests(t, { chromium, executablePath, baseURL }) {
       });
       t.ok(exportOk, "JSON export produces a valid backup document");
 
-      // Theme toggle works in both directions.
+      // The theme lives in Settings now (U2), and its choice overrides the system preference.
       const themed = await page.evaluate(async () => {
+        location.hash = "#/settings"; await new Promise(r => setTimeout(r, 200));
         const before = document.documentElement.getAttribute("data-theme");
-        document.getElementById("themeBtn").click();
+        const want = before === "dark" ? "Light" : "Dark";
+        [...document.querySelectorAll("#screen .chip")].find(b => b.textContent === want)?.click();
+        await new Promise(r => setTimeout(r, 100));
         const after = document.documentElement.getAttribute("data-theme");
         return before !== after;
       });
-      t.ok(themed, "the theme toggle overrides the system preference");
+      t.ok(themed, "the theme setting overrides the system preference");
 
       // The guided player: a whole mission driven from the coach card and nothing else.
       const coached = await page.evaluate(async () => {
@@ -3191,6 +3203,93 @@ export async function browserTests(t, { chromium, executablePath, baseURL }) {
         ui.closeAllModals(); await wait(60);
         return out;
       });
+      // The redesign (U1–U8): the mission feed, its verbs, the Fate dial, the tile pickers.
+      const v2 = await page.evaluate(async () => {
+        const wait = ms => new Promise(r => setTimeout(r, ms));
+        const ui = await import("./src/ui.js");
+        const Store = await import("./src/store.js");
+        const settings = await import("./src/settings.js");
+        const router = await import("./src/router.js");
+        const out = {};
+        ui.closeAllModals(); await wait(60);
+        if (!Store.activeCharacter()) { const c = Store.createCharacter("agent"); Store.setActive(c.id); }
+        settings.set("solo", true); router.rebuildNav();
+        const adv = Store.createAdventure({ name: "Untitled adventure", characterId: Store.activeCharacter().id });
+        router.navigate("mission"); await wait(250);
+        out.briefLabel = (document.querySelector(".mission-dock .big-go") || {}).textContent || "";
+        out.dial = !!document.querySelector(".scene-card .chaos-dial[aria-label^='Chaos Factor']");
+        document.querySelector(".mission-dock .big-go").click(); await wait(900);
+        out.briefModal = (document.querySelector(".modal h2") || {}).textContent || "";
+        ui.closeAllModals(); await wait(60);
+        router.navigate("mission"); await wait(250);
+        out.setupLabel = (document.querySelector(".mission-dock .big-go") || {}).textContent || "";
+        out.feedCards = document.querySelectorAll(".feed .feed-card").length;
+        Store.updateAdventure(a => { a.scenePhase = "play"; });
+        router.navigate("mission"); await wait(250);
+        out.playLabel = (document.querySelector(".mission-dock .big-go") || {}).textContent || "";
+        document.querySelector(".mission-dock .big-go").click(); await wait(200);
+        out.verbs = [...document.querySelectorAll(".modal .verb .verb-label")].map(x => x.textContent);
+        [...document.querySelectorAll(".modal .verb")].find(b => /oracle/.test(b.textContent)).click(); await wait(250);
+        const range = document.querySelector(".modal .fd-range");
+        out.rangeSteps = range ? Number(range.max) + 1 : 0;
+        range.value = "0"; range.dispatchEvent(new Event("input")); await wait(30);
+        out.lowOdds = document.querySelector(".modal .fd-odds").textContent;
+        out.lowPct = document.querySelector(".modal .fd-pct").textContent;
+        document.querySelector(".modal .fd-q").value = "Is the safe open?";
+        [...document.querySelectorAll(".modal-foot .btn")].find(b => b.textContent === "Ask").click(); await wait(700);
+        out.fateAnswer = (document.querySelector(".modal .roll-quality") || {}).textContent || "";
+        ui.closeAllModals(); await wait(150);
+        router.navigate("mission"); await wait(250);
+        const first = document.querySelector(".feed .feed-card");
+        out.fateCard = first ? first.textContent : "";
+        out.fateStamp = !!(first && first.querySelector(".fc-stamp"));
+
+        // Tile pickers: the five characteristics and a tile per skill, the number large.
+        (await import("./src/roller.js")).openSkillPicker(Store.activeCharacter()); await wait(200);
+        out.attrTiles = document.querySelectorAll(".modal .tp-grid.is-compact .tp-tile").length;
+        out.skillTiles = document.querySelectorAll(".modal .tp-grid:not(.is-compact) .tp-tile").length;
+        ui.closeAllModals(); await wait(60);
+        (await import("./src/roller.js")).openQuickRoll(Store.activeCharacter()); await wait(200);
+        out.common = document.querySelectorAll(".modal .tp-tile").length;
+        [...document.querySelectorAll(".modal button")].find(b => b.textContent === "More moves")?.click(); await wait(80);
+        out.all = document.querySelectorAll(".modal .tp-tile").length;
+        ui.closeAllModals(); await wait(60);
+        settings.set("veteran", true);
+        (await import("./src/roller.js")).openQuickRoll(Store.activeCharacter()); await wait(200);
+        out.veteran = document.querySelectorAll(".modal .tp-tile").length;
+        ui.closeAllModals(); await wait(60);
+        settings.set("veteran", false);
+
+        // Explanations follow the how-to setting.
+        settings.set("showHelp", false); await wait(30);
+        router.navigate("solo"); await wait(300);
+        const visible = n => n && getComputedStyle(n).display !== "none";
+        out.explainOff = [...document.querySelectorAll("#screen .explain")].filter(visible).length;
+        settings.set("showHelp", true); await wait(30);
+        out.explainOn = [...document.querySelectorAll("#screen .explain")].filter(visible).length;
+        Store.deleteAdventure(adv.id);
+        router.navigate("mission"); await wait(150);
+        return out;
+      });
+      t.eq(v2.briefLabel, "Brief me", "a new mission's one button is Brief me");
+      t.ok(v2.dial, "the scene card carries the Chaos dial");
+      t.eq(v2.briefModal, "Your mission", "Brief me rolls the whole briefing and hands it over");
+      t.eq(v2.setupLabel, "Start scene 1", "then the button is the next boundary");
+      t.ok(v2.feedCards >= 1, "and the feed holds what happened");
+      t.eq(v2.playLabel, "What do you do?", "inside a scene it asks what you do");
+      t.deep(v2.verbs, ["Try something", "Fight", "Ask the oracle", "Something happens", "Inspire me", "Other moves", "I'm hurt", "End the scene"],
+        "the verbs are eight pictures, the scene's end among them");
+      t.eq(v2.rangeSteps, 9, "the Fate dial slides across the nine printed odds");
+      t.ok(/Impossible|No Way/.test(v2.lowOdds) && /Yes on \d+ or under/.test(v2.lowPct), `its far end is the printed bottom rung (${v2.lowOdds}, ${v2.lowPct})`);
+      t.ok(/Yes|No/.test(v2.fateAnswer), "and Ask runs the engine's own Fate answer");
+      t.ok(/Is the safe open\?/.test(v2.fateCard) && v2.fateStamp, "which lands at the head of the feed as a stamped card");
+      t.eq(v2.attrTiles, 5, "the check picker leads with the five characteristics");
+      t.ok(v2.skillTiles >= 20, `then a tile per skill (${v2.skillTiles})`);
+      t.eq(v2.common, 6, "the move picker shows the six common moves first");
+      t.eq(v2.all, 13, "More moves unfolds every procedure the book defines");
+      t.eq(v2.veteran, 13, "and veteran mode shows all thirteen at once");
+      t.eq(v2.explainOff, 0, "with how-to off, no explanation is on screen");
+      t.ok(v2.explainOn > 0, "with it on, they come back");
       t.ok(links.npcIsLink, "an NPC in the encounter is named as a link");
       t.eq(links.npcBlock, "Test Sentry", "and the link opens their stat block");
       t.ok(!!links.skillName && links.skillModal === links.skillName, `an Advancement skill name opens what the skill does (${links.skillName})`);

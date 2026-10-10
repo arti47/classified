@@ -11,7 +11,7 @@
  */
 
 import { el, clear, uid, d100, d10, die, announce, clamp, fmtDate, signed, art, diceFaces, d100Faces, rerender, section as coreSection } from "./core.js";
-import { modal, showToast, confirmModal, promptModal, chooseModal, copyText } from "./ui.js";
+import { modal, showToast, confirmModal, promptModal, chooseModal, copyText, landFeedback } from "./ui.js";
 import * as S from "../data-solo.js";
 import * as Store from "./store.js";
 import { Settings } from "./settings.js";
@@ -80,7 +80,7 @@ export function renderSolo(host) {
   if (!adv) {
     host.appendChild(el("div", { class: "card" },
       el("h1", { text: "Solo" }),
-      el("p", { class: "small muted", text:
+      el("p", { class: "small muted explain", text:
         "The Mythic Game Master Emulator, standing in for a game master. Ask Fate a question, test each scene against the Chaos Factor, and read the answers off the Meaning Tables." })));
     host.appendChild(el("div", { class: "empty" },
       el("div", { class: "big" }, art("map")),
@@ -289,7 +289,7 @@ function appendHeader(host, adv) {
     el("span", { class: "pill " + (adv.completedAt ? "q1" : "neutral"),
       text: adv.completedAt ? "Mission closed" : phaseOf(adv).label }),
     el("span", { class: "spacer" }),
-    el("button", { class: "btn sm ghost", type: "button", onclick: () => openTopic("chaos") }, "What Chaos does"),
+    el("button", { class: "btn sm ghost explain", type: "button", onclick: () => openTopic("chaos") }, "What Chaos does"),
     helpButton("solo", {
       actions: [{ label: "Open the tutorial", onClick: () => import("./router.js").then(m => m.navigate("tutorial")) }]
     })));
@@ -467,7 +467,7 @@ function appendPrimary(host, adv) {
     card.appendChild(el("div", { class: "banner ok" },
       el("b", { text: `Mission ${(S.MISSION_OUTCOMES[adv.outcome] || { name: "closed" }).name.toLowerCase()}` }),
       el("div", { class: "small", text: `Closed ${fmtDate(adv.completedAt)} after ${adv.scene - 1} scene${adv.scene === 2 ? "" : "s"}.` })));
-    card.appendChild(el("p", { class: "small muted", style: "margin-top:8px", text:
+    card.appendChild(el("p", { class: "small muted explain", style: "margin-top:8px", text:
       "The journal, the lists and the mysteries are all still here to read. Starting a new adventure leaves this one filed." }));
     card.appendChild(el("button", {
       class: "btn ghost block", style: "margin-top:6px", type: "button",
@@ -483,7 +483,7 @@ function appendPrimary(host, adv) {
   }
 
   if (phase.key === "briefing") {
-    card.appendChild(el("p", { class: "small muted", text:
+    card.appendChild(el("p", { class: "small muted explain", text:
       "Before scene one there is a mission. Roll the briefing and write it in your own words — the objective and the complication become your first threads, and the opponent your first character, so the oracle has something to point at." }));
     card.appendChild(el("button", {
       class: "btn ghost block", style: "margin-top:6px", type: "button",
@@ -503,7 +503,7 @@ function appendPrimary(host, adv) {
   }
 
   if (phase.key === "setup") {
-    card.appendChild(el("p", { class: "small muted", text:
+    card.appendChild(el("p", { class: "small muted explain", text:
       "Say what you expect to happen next, then test it against the Chaos Factor. Over it, you get the scene you planned; at or under, it is altered or interrupted." }));
     // Between scenes is when a mission ends, so the exit sits beside the next scene rather
     // than buried in settings.
@@ -527,12 +527,12 @@ function appendPrimary(host, adv) {
       card.appendChild(el("p", { class: "small", style: "margin-top:6px" },
         el("b", { text: "This scene: " }), adv.sceneExpected));
     }
-    card.appendChild(el("p", { class: "small muted", style: "margin-top:6px", text:
+    card.appendChild(el("p", { class: "small muted explain", style: "margin-top:6px", text:
       "Play it out with the tools below. Ending the scene steps the Chaos Factor and takes you through your lists." }));
   }
 
   card.appendChild(el("button", {
-    class: "btn ghost block", style: "margin-top:6px", type: "button",
+    class: "explain btn ghost block", style: "margin-top:6px", type: "button",
     onclick: () => openTopic("scenes")
   }, "How scenes work"));
   const q = helpButton("solo.scene");
@@ -1154,7 +1154,7 @@ function appendInPlay(sceneHost, oracleHost, adv) {
 
   const wrap = el("div", { class: quiet });
   if (!open) {
-    wrap.appendChild(el("p", { class: "small muted", text:
+    wrap.appendChild(el("p", { class: "small muted explain", text:
       `The in-scene tools. They still work between scenes, but scene ${adv.scene} has not started yet.` }));
   }
   appendFate(wrap, adv);
@@ -1192,7 +1192,7 @@ function appendEvents(host, adv) {
     class: "btn block", type: "button", onclick: () => rollRandomEvent(adv)
   }, "Roll a Random Event"));
   sec.appendChild(el("button", {
-    class: "btn ghost block", style: "margin-top:6px", type: "button", onclick: () => openTopic("events")
+    class: "explain btn ghost block", style: "margin-top:6px", type: "button", onclick: () => openTopic("events")
   }, "How events work"));
   host.appendChild(sec);
 }
@@ -1246,7 +1246,7 @@ function appendFate(host, adv) {
   }, "Ask"));
 
   sec.appendChild(el("button", {
-    class: "btn ghost block", type: "button", style: "margin-top:6px",
+    class: "explain btn ghost block", type: "button", style: "margin-top:6px",
     onclick: () => openTopic("fate")
   }, "How Fate works"));
 
@@ -1267,6 +1267,7 @@ export async function askFate(adv, oddsKey, question) {
     res = S.fateChartAnswer(roll, oddsKey, adv.chaos);
   }
 
+  landFeedback(/exceptional/i.test(res.key || ""));
   const body = el("div", {});
   body.appendChild(el("div", { class: "roll-result" },
     res.mechanic === "check" ? diceFaces([res.die1, res.die2]) : diceFaces(d100Faces(res.roll), { tens: true }),
@@ -1803,14 +1804,14 @@ function appendMysteries(host, adv) {
   if (!list.length) {
     sec.appendChild(el("div", { class: "empty is-small" }, art("keyhole"),
       el("p", { class: "muted", text: "Nothing open. Start one on the objective, the complication, the opponent or a thread." })));
-    sec.appendChild(el("p", { class: "small muted", text: S.MYSTERY_NOTE }));
+    sec.appendChild(el("p", { class: "small muted explain", text: S.MYSTERY_NOTE }));
     host.appendChild(sec);
     return;
   }
 
   for (const m of open) sec.appendChild(mysteryCard(adv, m));
   for (const m of done) sec.appendChild(mysteryCard(adv, m));
-  sec.appendChild(el("p", { class: "small muted", style: "margin-top:8px", text: S.MYSTERY_NOTE }));
+  sec.appendChild(el("p", { class: "small muted explain", style: "margin-top:8px", text: S.MYSTERY_NOTE }));
   host.appendChild(sec);
 }
 
@@ -2327,7 +2328,7 @@ function appendMeaning(host, adv) {
     sec.appendChild(acc);
   }
 
-  sec.appendChild(el("p", { class: "small muted", style: "margin-top:8px", text:
+  sec.appendChild(el("p", { class: "small muted explain", style: "margin-top:8px", text:
     "Baseline covers any scene; the rest are pointed at what the game actually asks you to narrate — the run of play, the mission, the world around it, and the shape of the story." }));
   host.appendChild(sec);
 }

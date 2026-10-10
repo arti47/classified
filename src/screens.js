@@ -41,164 +41,30 @@ function repBands(rep) {
       el("span", { class: "rb-bar" }), el("span", { class: "rb-l", text: r.label }))));
 }
 
-export function renderHome(host) {
-  clear(host);
-  const c = Store.activeCharacter();
-
-  host.appendChild(el("div", { class: "card cover-card" },
-    el("span", { class: "watermark" }, art("cipher")),
-    el("h1", { text: "Classified" }),
-    el("p", { class: "small muted", text: "The role-playing game of covert operations. Player companion." })
-  ));
-
-  appendHelp(host, "home");
-  // The first-run card already carries Create a character as its first step, so the empty
-  // state under it would be the same button twice.
-  const started = appendStartHere(host, c);
-
-  if (!c) {
-    if (!started) host.appendChild(el("div", { class: "empty" },
-      el("div", { class: "big" }, art("folder")),
-      el("h2", { text: "No dossier open" }),
-      el("p", { class: "muted", text: "Create an operative and the sheet, roller and trackers come alive." }),
-      el("button", { class: "btn primary", type: "button", onclick: () => navigate("create") }, "Create a character")
-    ));
-  } else {
-    // The briefing desk: whatever is live laid out as cards you open — the agent, the mission
-    // under way, the fight in progress. The whole card takes the tap; its Open button is the
-    // keyboard's way in, and needs no handler of its own because the click bubbles to the card.
-    const desk = el("div", { class: "desk" });
-    const wound = R.woundLevel(c.state.wound);
-    const url = c.identity.portraitUrl;
-    desk.appendChild(el("div", { class: "card agent-card desk-card", onclick: () => navigate("sheet") },
-      el("span", { class: "id-photo" + (url ? " has-photo" : "") }, url ? el("img", { src: url, alt: "" }) : icon("sheet")),
-      el("div", { class: "desk-body" },
-        el("span", { class: "desk-kicker", text: "Dossier" }),
-        el("h2", { text: c.identity.name || "Unnamed operative" }),
-        el("span", { class: "small muted", text:
-          `${R.RANK_BY_KEY[c.identity.rank]?.name || ""} · ${wound.name} · ${c.state.heroPoints} Hero Points` }),
-        woundTrack(c.state.wound)),
-      el("button", { class: "btn sm primary desk-open", type: "button" }, "Open")));
-
-    const adv = Settings.solo() ? Store.activeAdventure() : null;
-    if (adv) {
-      desk.appendChild(el("div", { class: "card desk-card mission-card", onclick: () => navigate("solo") },
-        el("span", { class: "id-photo" }, icon("solo")),
-        el("div", { class: "desk-body" },
-          el("span", { class: "desk-kicker", text: "Solo" }),
-          el("h2", { text: adv.name || "Untitled adventure" }),
-          adv.city ? el("span", { class: "city-tag" }, adv.city) : null,
-          el("span", { class: "desk-stats" },
-            el("span", {}, el("span", { class: "k", text: "Scene" }), el("b", { text: String(adv.scene) })),
-            el("span", {}, el("span", { class: "k", text: "Chaos Factor" }), el("b", { text: String(adv.chaos) }))),
-          el("span", { class: "chaos-gauge", "aria-hidden": "true" },
-            Array.from({ length: 9 }, (_, i) => el("span", { class: i < adv.chaos ? "on" + (i >= 6 ? " hot" : "") : "" })))),
-        el("button", { class: "btn sm desk-open", type: "button" }, "Open")));
-    }
-
-    const fight = Store.combatState();
-    if (fight && fight.active) {
-      desk.appendChild(el("div", { class: "card desk-card combat-card", onclick: () => navigate("combat") },
-        el("span", { class: "id-photo" }, icon("combat")),
-        el("div", { class: "desk-body" },
-          el("span", { class: "desk-kicker", text: "Combat" }),
-          el("span", { class: "desk-stats" },
-            el("span", {}, el("span", { class: "k", text: "Round" }), el("b", { text: String(fight.round) })),
-            el("span", {}, el("span", { class: "k", text: "Phase" }), el("b", { text: fight.phase === "declaration" ? "Declaration" : "Action" }))),
-          el("span", { class: "chip-wrap" }, (fight.combatants || []).slice(0, 6).map(cb =>
-            el("span", { class: "chip static" + (cb.acted ? " is-acted" : ""), text: cb.name })))),
-        el("button", { class: "btn sm desk-open", type: "button" }, "Open")));
-    }
-    host.appendChild(desk);
-
-    const conds = conditionSummary(c);
-    if (conds.length) {
-      // The standing conditions open their own breakdown, as the DF chip does (F3).
-      host.appendChild(el("button", { class: "banner warn banner-btn", type: "button",
-        onclick: () => import("./sheet.js").then(m => m.openConditions(Store.activeCharacter())) },
-        conds.map(x => x.name + (x.dfMod ? ` (${signed(x.dfMod)} DF)` : "")).join(" · ")));
-    }
-  }
-
-  const quick = el("div", { class: "grid grid-2 tile-grid", style: "margin-top:6px" });
-  const tile = (label, sub, go, ico) => el("button", {
-    class: "opt-btn", type: "button", onclick: go
-  }, ico ? el("span", { class: "tile-ico" }, icon(ico)) : null,
-    el("span", { class: "on-name" }, el("span", { text: label })), el("span", { class: "on-desc", text: sub }));
-
-  quick.appendChild(tile("Roll", "Every check the book defines", () => {
-    const ch = Store.activeCharacter();
-    if (!ch) { showToast("Create a character first", "err"); return; }
-    import("./roller.js").then(m => m.openQuickRoll(ch));
-  }, "dice"));
-  quick.appendChild(tile("Combat", "Declaration and action order", () => navigate("combat"), "combat"));
-  quick.appendChild(tile("Rules", "Searchable reference", () => navigate("rules"), "rules"));
-  quick.appendChild(tile("Roll log", "Re-derive any roll", () => navigate("log"), "log"));
-  quick.appendChild(tile("Play", "The app walks you through it, one step at a time", () => navigate("play"), "play"));
-  quick.appendChild(tile("Tutorial", "One mission played, start to finish", () => navigate("tutorial"), "tutorial"));
-  // The Solo tile is here whether or not the toggle is on: a screen you have to know about
-  // before you can find it is a screen a new player never finds (N1).
-  quick.appendChild(Settings.solo()
-    ? tile("Solo", "Mythic: Fate, chaos, scenes, tables", () => navigate("solo"), "solo")
-    : tile("Play solo", "No group? Mythic runs the game", () => offerSolo(), "solo"));
-  quick.appendChild(tile("Glossary", "What the words on screen mean", () => openGlossary(), "glossary"));
-  host.appendChild(quick);
-
-  const log = Store.rollLog().slice(0, 5);
-  if (log.length) {
-    host.appendChild(el("div", { class: "section-title", style: "margin-top:16px", text: "Recent rolls" }));
-    const card = el("div", { class: "card flush" });
-    for (const r of log) card.appendChild(logRow(r));
-    host.appendChild(card);
-  }
-
-  host.appendChild(el("p", { class: "small muted", style: "margin-top:20px", text: D.OGL_NOTICE }));
-}
-
 /**
- * The first-run card: what to do, in order, for someone who has opened the app knowing
- * nothing about it (N9). It ticks the steps it can see are done, and it goes away on its own
- * once there is a dossier with a roll behind it — or on Hide this, whichever comes first.
+ * Files (U1): everything you look up rather than play, as drawers. Big pictures, one word
+ * each — the old Home said what every tile was for in a sentence under it, eight times.
  */
-function appendStartHere(host, c) {
-  if (!Settings.startHere()) return false;
-  if (c && Store.rollLog().length) return false;
-
-  const steps = [
-    { done: !!c, label: "Create an operative",
-      sub: "Point-buy your own, or tap a published sample character to start immediately.",
-      action: "Create a character", go: () => navigate("create") },
-    { done: Store.rollLog().length > 0, label: "Learn how a game runs",
-      sub: "Start a game, keep it going, end it well — the guide ticks itself off as you play.",
-      action: "How to play", go: () => navigate("play") },
-    { done: Settings.solo(), label: "Play solo, without a group",
-      sub: "Mythic answers the questions a referee would, so nobody has to run the game.",
-      action: "Turn on solo play", go: () => offerSolo() }
+export function renderFiles(host) {
+  clear(host);
+  appendHelp(host, "files");
+  const drawers = [
+    { label: "Rules", art: "book", go: () => navigate("rules") },
+    { label: "Glossary", art: "cards", go: () => openGlossary() },
+    { label: "How to play", art: "keyhole", go: () => navigate("play") },
+    { label: "Tutorial", art: "typewriter", go: () => navigate("tutorial") },
+    { label: "Roll log", art: "reel", go: () => navigate("log") },
+    { label: "Settings", art: "cipher", go: () => navigate("settings") }
   ];
-
-  const box = el("div", { class: "card start-here" },
-    el("div", { class: "row" },
-      el("h2", { class: "grow", style: "margin:0", text: "New here?" }),
-      el("button", {
-        class: "btn sm ghost", type: "button",
-        onclick: () => { SettingsMod.set("startHere", false); renderHome(host); }
-      }, "Hide this")));
-  box.appendChild(el("p", { class: "small muted", style: "margin:2px 0 0", text: "Three things, in order. Each one is a tap." }));
-
-  for (const st of steps) {
-    const row = el("div", { class: "card-row col" },
-      el("b", { text: (st.done ? "✓ " : "") + st.label }),
-      el("span", { class: "small muted", text: st.sub }));
-    if (!st.done) {
-      row.appendChild(el("button", { class: "btn sm", type: "button", style: "margin-top:6px", onclick: st.go }, st.action));
-    }
-    box.appendChild(row);
+  if (Settings.gmScreen()) drawers.push({ label: "GM screen", art: "phone", go: () => navigate("gm") });
+  const grid = el("div", { class: "drawers" });
+  for (const d of drawers) {
+    grid.appendChild(el("button", { class: "drawer", type: "button", onclick: d.go },
+      el("span", { class: "drawer-art" }, art(d.art)),
+      el("span", { class: "drawer-label", text: d.label })));
   }
-
-  box.appendChild(el("p", { class: "small muted", style: "margin-top:10px", text:
-    "Every screen carries a collapsed “How to use” panel, and the Glossary tile explains any word you meet. Both are in Settings if you want them gone." }));
-  host.appendChild(box);
-  return true;
+  host.appendChild(grid);
+  host.appendChild(el("p", { class: "fine-print", text: D.OGL_NOTICE }));
 }
 
 /* ---------------------------------------------------------------- roll log */

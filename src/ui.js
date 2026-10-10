@@ -1,6 +1,7 @@
 /* ui.js — themed modals, toasts, confirm/prompt. No native alert/confirm/prompt anywhere. */
 
-import { el, clear, $ } from "./core.js";
+import { el, clear, $, icon } from "./core.js";
+import { Settings } from "./settings.js";
 
 let openModals = [];
 let modalSeq = 0;
@@ -191,6 +192,50 @@ export function chooseModal(title, items, opts = {}) {
   });
 }
 
+/**
+ * A chooser drawn as tiles rather than a list (U6): an icon, a short name, and a number in
+ * large type where there is one. Sections carry their own heading; a section may start
+ * folded behind a "More" tile. Resolves with the chosen key, or null.
+ *
+ * @param {string} title
+ * @param {Array<{title?, icon?, folded?, items: Array<{key, label, icon?, value?, dim?}>}>} sections
+ */
+export function tileModal(title, sections, opts = {}) {
+  return new Promise(resolve => {
+    let settled = false;
+    const body = el("div", { class: "tile-picker" });
+    const pick = key => { settled = true; resolve(key); m.close(); };
+    const drawSection = (sec, host) => {
+      if (sec.title) host.appendChild(el("div", { class: "tp-head" }, sec.icon ? icon(sec.icon) : null, el("span", { text: sec.title })));
+      const grid = el("div", { class: "tp-grid" + (sec.compact ? " is-compact" : "") });
+      for (const it of sec.items) {
+        grid.appendChild(el("button", {
+          class: "tp-tile" + (it.dim ? " is-dim" : ""), type: "button", "aria-label": it.aria || it.label,
+          onclick: () => pick(it.key)
+        },
+          it.icon ? el("span", { class: "tp-ico" }, icon(it.icon)) : null,
+          it.value !== undefined ? el("span", { class: "tp-val", text: String(it.value) }) : null,
+          el("span", { class: "tp-label", text: it.label })));
+      }
+      host.appendChild(grid);
+    };
+    for (const sec of sections) {
+      if (sec.folded) {
+        const more = el("div", {});
+        const btn = el("button", { class: "btn ghost block tp-more", type: "button",
+          onclick: () => { btn.remove(); drawSection({ ...sec, folded: false }, more); } }, sec.foldLabel || "More");
+        body.appendChild(btn);
+        body.appendChild(more);
+      } else drawSection(sec, body);
+    }
+    const m = modal({
+      title, body, wide: opts.wide,
+      actions: [],
+      onClose: () => { if (!settled) resolve(null); }
+    });
+  });
+}
+
 export function closeAllModals() {
   [...openModals].forEach(m => m.close());
 }
@@ -229,4 +274,28 @@ export async function copyText(text, okMessage) {
     actions: [{ label: "Close", kind: "primary" }]
   });
   area.select();
+}
+
+/**
+ * A click and a buzz when the dice land (U8). Off unless the player turns it on; silent where
+ * the browser has no audio or no vibration. Decoration only — it never carries a result.
+ */
+let audioCtx = null;
+export function landFeedback(strong = false) {
+  if (!Settings.sfx()) return;
+  try { if (navigator.vibrate) navigator.vibrate(strong ? [30, 40, 30] : 25); } catch { /* unsupported */ }
+  try {
+    const AC = window.AudioContext || window.webkitAudioContext;
+    if (!AC) return;
+    audioCtx = audioCtx || new AC();
+    const t = audioCtx.currentTime;
+    const osc = audioCtx.createOscillator();
+    const gain = audioCtx.createGain();
+    osc.type = "square";
+    osc.frequency.setValueAtTime(strong ? 140 : 220, t);
+    gain.gain.setValueAtTime(0.12, t);
+    gain.gain.exponentialRampToValueAtTime(0.0001, t + 0.09);
+    osc.connect(gain).connect(audioCtx.destination);
+    osc.start(t); osc.stop(t + 0.1);
+  } catch { /* audio blocked */ }
 }

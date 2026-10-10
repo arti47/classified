@@ -77,6 +77,22 @@ export function helpButton(key, opts = {}) {
   }, "?");
 }
 
+/**
+ * The header's ? (U4): the screen's how-to in a dialog, whatever the showHelp flag says — the
+ * flag only decides whether the copy is also printed on the screen. A screen with no entry
+ * opens the glossary, which explains every word on every screen.
+ */
+export function openHelp(key) {
+  const entry = helpFor(key);
+  if (!entry) { openGlossary(); return; }
+  let api = null;
+  api = modal({
+    title: entry.title,
+    body: helpBody(entry, {}, () => api && api.close()),
+    actions: [{ label: "Glossary", kind: "ghost", onClick: () => openGlossary() }, { label: "Close", kind: "primary" }]
+  });
+}
+
 /** Append the accordion to a host if there is one to append. */
 export function appendHelp(host, key, opts) {
   const node = helpAccordion(key, opts);
@@ -170,7 +186,7 @@ export function offerSolo() {
       body: el("div", {},
         el("p", { class: "small", text: "Solo play adds a second system on top of Classified: the Mythic Game Master Emulator. It answers the questions a referee would answer — is anyone here, does the meeting go your way, what happens instead — so you can play with nobody running the game." }),
         el("p", { class: "small", text: "You still roll Classified for everything your operative attempts. Mythic only decides what is true." }),
-        el("p", { class: "small muted", text: "Turning it on adds a Solo tab in place of Rules, which keeps its tile on Home. You can turn it off again in Settings." })),
+        el("p", { class: "small muted", text: "The Mission becomes a solo mission, with a case board beside it. You can turn it off again in Settings." })),
       actions: [
         { label: "Not now", kind: "ghost", onClick: () => resolve(false) },
         { label: "Turn on solo play", kind: "primary", onClick: () => { enableSolo(); resolve(true); } }
@@ -179,10 +195,10 @@ export function offerSolo() {
   });
 }
 
-/** Switch solo play on, rebuild the bottom bar, and land on the Solo screen. */
+/** Switch solo play on, rebuild the bottom bar, and land on the Mission, which it now runs. */
 export function enableSolo(go = true) {
   setSetting("solo", true);
-  import("./router.js").then(m => { m.rebuildNav(); if (go) m.navigate("solo"); });
+  import("./router.js").then(m => { m.rebuildNav(); if (go) m.navigate("mission"); });
 }
 
 /* ---------------------------------------------------------------- tutorial */

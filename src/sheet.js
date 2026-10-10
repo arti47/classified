@@ -1,7 +1,7 @@
 /* sheet.js — the live character sheet, in-play tracking, and the persistent
  * resource header shown on every in-play screen. */
 
-import { el, clear, $, money, signed, dfLabel, uid, percent, d100, meter, art, section, rerender } from "./core.js";
+import { el, clear, $, money, signed, dfLabel, uid, percent, d100, meter, art, icon, section, rerender } from "./core.js";
 import { modal, showToast, confirmModal, promptModal, chooseModal } from "./ui.js";
 import * as D from "../data.js";
 import * as R from "./rules.js";
@@ -13,11 +13,42 @@ import {
 } from "./derived.js";
 import {
   openRoll, openAttack, openWeaponPicker, openSkillPicker, openQuickRoll,
-  applyDamageToCharacter, openTakeDamage, getD100, resolve, presentResult
+  applyDamageToCharacter, openTakeDamage, getD100, resolve, presentResult, GROUP_ICON
 } from "./roller.js";
 import { openRulesTopic, woundTrack } from "./screens.js";
 import { navigate } from "./router.js";
 import { appendHelp } from "./help.js";
+
+/* ---------------------------------------------------------------- agent badge */
+
+/**
+ * Who you are playing, in the header on every screen: the photograph (or the silhouette), a
+ * first name, the wound as a coloured pip and the Hero Points. One tap opens the dossier. This
+ * replaces the six-cell strip everywhere but the Agent folder and the fight (U2).
+ */
+export function renderAgentBadge() {
+  const host = document.getElementById("agentBadge");
+  if (!host) return;
+  const c = Store.activeCharacter();
+  clear(host);
+  host.hidden = !c;
+  if (!c) return;
+  const wound = R.woundLevel(c.state.wound);
+  const first = String(c.identity.name || "Agent").split(/\s+/)[0];
+  host.setAttribute("aria-label", `${c.identity.name || "Agent"} — ${wound.name}, ${c.state.heroPoints ?? 0} Hero Points. Open the dossier`);
+  host.appendChild(portrait(c, "badge-pic"));
+  host.appendChild(el("span", { class: "badge-name", text: first }));
+  host.appendChild(el("span", { class: "badge-wound w-" + wound.key, title: wound.name, "aria-hidden": "true" }));
+  host.appendChild(el("span", { class: "badge-hp", "aria-hidden": "true" }, el("b", { text: String(c.state.heroPoints ?? 0) }), "HP"));
+}
+
+/** A dossier's face: the photograph when there is one, the agent's silhouette when not. */
+export function portrait(c, cls = "") {
+  const url = c && c.identity.portraitUrl;
+  return url
+    ? el("img", { class: "mugshot " + cls, src: url, alt: "" })
+    : el("span", { class: "mugshot is-art " + cls, "aria-hidden": "true" }, art("agent"));
+}
 
 /* ---------------------------------------------------------------- resource header */
 
@@ -371,7 +402,7 @@ function portraitEl(c) {
     onclick: () => openPortrait(c)
   });
   if (url) btn.appendChild(el("img", { src: url, alt: "" }));
-  else btn.appendChild(el("span", { class: "ph", text: "PHOTO" }));
+  else btn.appendChild(el("span", { class: "ph" }, art("agent")));
   return btn;
 }
 
@@ -501,16 +532,17 @@ export function renderSheet(host) {
 
   // Characteristics
   const attrSection = section("Characteristics");
-  const attrGrid = el("div", { class: "grid grid-5" });
+  const attrGrid = el("div", { class: "rings" });
   for (const ch of D.CHARACTERISTICS) {
+    // Each characteristic as a dial filled to its share of 15 (U6) — a picture of the number
+    // printed inside it. Tap to roll a straight check, as before.
     attrGrid.appendChild(el("button", {
-      class: "stat-box clickable", type: "button",
+      class: "ring-btn", type: "button", "aria-label": `${ch.name} ${c.attributes[ch.key]} — roll a check`,
       onclick: () => openRoll({ character: c, attrKey: ch.key })
     },
-      el("div", { class: "k", text: ch.abbr }),
-      el("div", { class: "v", text: String(c.attributes[ch.key]) }),
-      meter(c.attributes[ch.key] / D.CHARACTERISTIC_MAX),
-      el("div", { class: "s", text: ch.name })
+      ring(c.attributes[ch.key] / D.CHARACTERISTIC_MAX),
+      el("span", { class: "ring-v", text: String(c.attributes[ch.key]) }),
+      el("span", { class: "ring-k", text: ch.abbr })
     ));
   }
   attrSection.appendChild(attrGrid);
@@ -521,13 +553,18 @@ export function renderSheet(host) {
   derSection.appendChild(el("div", { class: "grid grid-3" },
     stat("Speed", dv.speed, "PER + DEX", () => openSpeedPanel(c)),
     stat("H-to-H", dv.hthDamage, "Damage Rank"),
-    stat("Carry", dv.carryRange, `for ${c.attributes.wil} min`, () => navigate("gear")),
-    stat("Run/Swim", dv.runSwim + " min", "at maximum"),
-    stat("Stamina", dv.stamina + " hr", "before exhaustion"),
-    stat("Draw", signed(dv.drawBonus), "Draw Situation")
+    stat("Carry", dv.carryRange, `for ${c.attributes.wil} min`, () => navigate("gear"))
   ));
-  derSection.appendChild(el("p", { class: "small muted", style: "margin-top:8px", text:
-    `Carrying ${dv.carriedWeight} lbs of a ${dv.carryMax} lbs maximum. Skills + Characteristics total ${dv.skillTotal} — ${expectedRankFor(dv.skillTotal)}.` }));
+  // The rest of the derived table is one tap further rather than always on screen (U4).
+  derSection.appendChild(el("details", { class: "acc more-derived" },
+    el("summary", {}, el("span", { text: "More derived" }), el("span", { class: "small muted", text: "Run · Stamina · Draw" })),
+    el("div", { class: "acc-body" },
+      el("div", { class: "grid grid-3" },
+        stat("Run/Swim", dv.runSwim + " min", "at maximum"),
+        stat("Stamina", dv.stamina + " hr", "before exhaustion"),
+        stat("Draw", signed(dv.drawBonus), "Draw Situation")),
+      el("p", { class: "small muted", style: "margin-top:8px", text:
+        `Carrying ${dv.carriedWeight} lbs of a ${dv.carryMax} lbs maximum. Skills + Characteristics total ${dv.skillTotal} — ${expectedRankFor(dv.skillTotal)}.` }))));
   if (dv.carriedWeight > dv.carryMax) {
     derSection.appendChild(el("div", { class: "banner warn", text:
       `Overloaded. Carrying more than ${dv.carryMax} lbs is impossible; at maximum load you tire after ${c.attributes.wil} minutes and take ${D.EXHAUSTION_DF_PENALTY} Difficulty Factor until you rest 15 minutes.` }));
@@ -535,17 +572,11 @@ export function renderSheet(host) {
   colA.appendChild(derSection);
 
   // Abilities
-  const abSection = section("Abilities", "Fixed at Base Chance 20 and never improvable.");
-  const abCard = el("div", { class: "card flush" });
+  const abSection = section("Abilities");
+  const abCard = el("div", { class: "skill-tiles" });
   for (const a of abilityList(c)) {
-    abCard.appendChild(el("button", {
-      class: "skill-row", type: "button",
-      onclick: () => openRoll({ character: c, skillKey: a.chosen ? a.key : null, baseChance: D.ABILITY_BASE_CHANCE, label: a.name })
-    },
-      el("span", { class: "n", text: a.name }),
-      el("span", { class: "r", text: "Ability" }),
-      el("span", { class: "b", style: bcFill(a.base), text: String(a.base) })
-    ));
+    abCard.appendChild(skillTile(a.name, a.base, "Ability · fixed", false,
+      () => openRoll({ character: c, skillKey: a.chosen ? a.key : null, baseChance: D.ABILITY_BASE_CHANCE, label: a.name }), "ability"));
   }
   abSection.appendChild(abCard);
   colA.appendChild(abSection);
@@ -564,24 +595,26 @@ export function renderSheet(host) {
   }, showUntrained ? "Hide untrained" : "Show all"));
 
   for (const [group, list] of Object.entries(groups)) {
-    const acc = el("details", { class: "acc" },
-      el("summary", { text: group + ` (${list.filter(r => r.trained).length}/${list.length})` }));
-    const bodyEl = el("div", { class: "acc-body", style: "padding:0" });
-    for (const r of list.sort((a, b) => a.name.localeCompare(b.name))) {
-      bodyEl.appendChild(el("button", {
-        class: "skill-row" + (r.trained ? "" : " untrained"), type: "button",
-        onclick: () => openRoll({ character: c, skillKey: r.key })
-      },
-        el("span", { class: "n", text: r.name + (r.gmRolled ? " ⃰" : "") }),
-        el("span", { class: "r", text: r.trained ? `rank ${r.rank}/${r.maxRank}` : "untrained −3 DF" }),
-        el("span", { class: "b", style: bcFill(r.base), text: String(r.base) })
-      ));
+    // Every skill a tile: the Base Chance large, the name under it, the rank small. Trained
+    // first, untrained dashed after them (U6). Tap to roll, exactly as the rows did.
+    skSection.appendChild(el("div", { class: "tp-head" }, icon(GROUP_ICON[group] || "dice"), el("span", { text: group })));
+    const grid = el("div", { class: "skill-tiles" });
+    for (const r of list.sort((a, b) => Number(b.trained) - Number(a.trained) || a.name.localeCompare(b.name))) {
+      grid.appendChild(skillTile(r.name + (r.gmRolled ? " ⃰" : ""), r.base,
+        r.trained ? `rank ${r.rank}/${r.maxRank}` : "untrained −3 DF", !r.trained,
+        () => openRoll({ character: c, skillKey: r.key })));
     }
-    acc.appendChild(bodyEl);
-    skSection.appendChild(acc);
+    skSection.appendChild(grid);
   }
-  skSection.appendChild(el("p", { class: "small muted", text: "⃰ Sixth Sense is always rolled by the GM; you can never call for it." }));
+  skSection.appendChild(el("p", { class: "small muted", text: "⃰ Sixth Sense is always rolled by the GM." }));
   colB.appendChild(skSection);
+
+  // The background — languages, Fields, Weaknesses, scars — is reference, not play, so it
+  // sits in one closed folder at the foot of the dossier (U4).
+  const bg = el("details", { class: "acc background-acc" },
+    el("summary", {}, el("span", { text: "Background" }), el("span", { class: "small muted", text: "Languages · Fields · Weaknesses" })));
+  const bgBody = el("div", { class: "acc-body" });
+  bg.appendChild(bgBody);
 
   // Languages
   const langSection = section("Languages");
@@ -604,7 +637,7 @@ export function renderSheet(host) {
   }
   if (!(c.languages || []).length) langCard.appendChild(el("div", { class: "card-row muted small", text: "No additional languages." }));
   langSection.appendChild(langCard);
-  colB.appendChild(langSection);
+  bgBody.appendChild(langSection);
 
   // Fields of Experience
   if ((c.foe || []).length) {
@@ -619,7 +652,7 @@ export function renderSheet(host) {
       }, f.name));
     }
     foeSection.appendChild(wrap);
-    colB.appendChild(foeSection);
+    bgBody.appendChild(foeSection);
   }
 
   // Weaknesses
@@ -639,7 +672,7 @@ export function renderSheet(host) {
       ));
     }
     wkSection.appendChild(card);
-    colB.appendChild(wkSection);
+    bgBody.appendChild(wkSection);
   }
 
   // Scars
@@ -654,8 +687,9 @@ export function renderSheet(host) {
         s.note ? el("span", { class: "small muted", text: s.note }) : null));
     }
     scSection.appendChild(card);
-    colB.appendChild(scSection);
+    bgBody.appendChild(scSection);
   }
+  colB.appendChild(bg);
 
   host.appendChild(colA);
   host.appendChild(colB);
@@ -674,6 +708,34 @@ export function renderSheet(host) {
     el("button", { class: "btn", type: "button", onclick: () => openWeaponPicker(c) }, "Attack"),
     el("button", { class: "btn", type: "button", onclick: () => openNotes(c) }, "Notes")
   ));
+}
+
+/* A characteristic's dial: an arc filled to its share of the maximum. Decoration only. */
+function ring(fraction) {
+  const NS = "http://www.w3.org/2000/svg";
+  const svg = document.createElementNS(NS, "svg");
+  svg.setAttribute("viewBox", "0 0 44 44"); svg.setAttribute("class", "ring"); svg.setAttribute("aria-hidden", "true");
+  const C = 2 * Math.PI * 19;
+  const f = Math.max(0, Math.min(1, fraction));
+  for (const [cls, dash] of [["ring-bg", C], ["ring-fg", f * C]]) {
+    const circ = document.createElementNS(NS, "circle");
+    circ.setAttribute("cx", "22"); circ.setAttribute("cy", "22"); circ.setAttribute("r", "19");
+    circ.setAttribute("class", cls);
+    circ.setAttribute("stroke-dasharray", `${dash.toFixed(2)} ${C.toFixed(2)}`);
+    svg.appendChild(circ);
+  }
+  svg.dataset.fill = f.toFixed(3);
+  return svg;
+}
+
+/* A skill as a tile: the Base Chance large, filled from the bottom to its share of the 30 cap. */
+function skillTile(name, base, sub, dim, onclick, ico) {
+  return el("button", { class: "skill-tile" + (dim ? " is-dim" : ""), type: "button", style: bcFill(base),
+    "aria-label": `${name.replace(" ⃰", "")}, Base Chance ${base}, ${sub}`, onclick },
+    ico ? el("span", { class: "st-ico" }, icon(ico)) : null,
+    el("span", { class: "st-v", text: String(base) }),
+    el("span", { class: "st-n", text: name.replace("/", "/\u200b") }),
+    el("span", { class: "st-s", text: sub }));
 }
 
 /* A Base Chance box filled from the bottom to its share of the 30 cap. */

@@ -26,16 +26,35 @@ export const HELP = {
 
   home: {
     title: "How to use Home",
-    what: "The way in: who is open, what just happened, and a tile for everything else.",
+    what: "Pick an agent, say how you will play, and you are in.",
     steps: [
-      "The card at the top is the open dossier. Tap Open to go to the sheet.",
-      "Tap a tile to jump: Roll for any check, Combat for an encounter, Rules to look something up, Roll log to re-read what you rolled.",
-      "Recent rolls list the last five, newest first — tap through to the log for the rest.",
-      "Glossary explains any word on any screen — both systems, in plain English.",
-      "Play solo turns on the Mythic engine, which runs the game when there is nobody to run it.",
-      "A red banner means a wound or a condition is standing against every roll you make."
+      "Swipe through the agents and tap Recruit — or build your own.",
+      "Choose Alone (the app runs the world) or With a group (a referee does).",
+      "Your mission opens. Everything after that is one button: What do you do?"
     ],
-    note: "Create and Gear are reachable from the sheet; the bottom bar carries the screens you use in play, and the GM and Solo tabs join it when you switch them on."
+    note: "Three places hold everything: Agent, Mission and Files, along the bottom."
+  },
+
+  mission: {
+    title: "How to use the Mission",
+    what: "Where you play. Everything that happens lands here as a card, newest first.",
+    steps: [
+      "The big button always says what comes next: brief me, start the scene, or What do you do?",
+      "What do you do? opens the verbs: try something, fight, ask the oracle, something happens, inspire me, hurt, end the scene.",
+      "The card at the top is where you are — the city, the place, the hour — and the Chaos gauge.",
+      "Case board holds the lists, the mysteries and the full journal; Combat holds the encounter."
+    ],
+    note: "Every roll is still the book's: Base Chance × Difficulty Factor for what you try, and Mythic's Fate Chart for what is true."
+  },
+
+  files: {
+    title: "How to use Files",
+    what: "Everything you look up rather than play: rules, words, guides, your rolls, settings.",
+    steps: [
+      "Tap a drawer to open it.",
+      "Rules and Glossary are the book; How to play and Tutorial show the game.",
+      "Settings holds the theme, the toggles and your backups."
+    ]
   },
 
   create: {

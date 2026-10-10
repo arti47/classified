@@ -1,9 +1,9 @@
 /* main.js — entry point. */
 
 import { el, $ } from "./core.js";
-import { applyTheme, cycleTheme, Settings } from "./settings.js";
+import { applyTheme, Settings } from "./settings.js";
 import { initRouter, navigate, currentRoute, rebuildNav } from "./router.js";
-import { renderResourceHeader } from "./sheet.js";
+import { renderResourceHeader, renderAgentBadge } from "./sheet.js";
 import { showToast } from "./ui.js";
 import * as Store from "./store.js";
 import * as Sync from "./sync.js";
@@ -25,10 +25,11 @@ function boot() {
     if (Settings.theme() === "system") applyTheme();
   });
 
-  document.getElementById("themeBtn").addEventListener("click", () => {
-    const next = cycleTheme();
-    showToast(next === "system" ? "Following system theme" : next === "dark" ? "Dark" : "Light");
+  // The theme lives in Settings now; the header carries only what play needs (U2).
+  document.getElementById("helpBtn").addEventListener("click", () => {
+    import("./help.js").then(m => m.openHelp(currentRoute()));
   });
+  document.getElementById("agentBadge").addEventListener("click", () => navigate("sheet"));
 
   document.getElementById("diceBtn").addEventListener("click", () => {
     const c = Store.activeCharacter();
@@ -37,8 +38,13 @@ function boot() {
   });
 
   Store.subscribe(what => {
-    if (what === "character" || what === "active") renderResourceHeader();
+    if (what === "character" || what === "active") { renderResourceHeader(); renderAgentBadge(); }
   });
+  // Explanations — the line under a heading, a "How it works" button — show only when the
+  // player has asked for the how-to panels (U4). One class on the body, read by the stylesheet.
+  const explain = () => document.body.classList.toggle("explain-on", Settings.showHelp());
+  explain();
+  document.addEventListener("settings:changed", e => { if (e.detail.key === "showHelp") explain(); });
   document.addEventListener("settings:changed", e => {
     if (e.detail.key === "gmScreen" || e.detail.key === "multiplayer" || e.detail.key === "solo") rebuildNav();
   });
@@ -55,6 +61,7 @@ function boot() {
 
   blockPinchZoom();
   renderResourceHeader();
+  renderAgentBadge();
   initRouter();
 
   if (Settings.multiplayer()) Sync.init();
