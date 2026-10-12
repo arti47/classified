@@ -1,6 +1,6 @@
 /* solo.js — the Mythic layer and the Solo screen.
  *
- * A SECOND SYSTEM. See CLAUDE.md §3.20. This module may import core, ui, store, settings
+ * A SECOND SYSTEM. See CLAUDE.md §3.20. This module may import core, ui, store, settings, help, beat
  * and data-solo.js, and nothing else: it must never reach into rules.js or data.js, which
  * is what keeps the Mythic engine and the Classified engine from bleeding together. Its one
  * crossing point is Store.addRoll(), so a solo session reads back in the shared roll log.
@@ -9,6 +9,7 @@
  * roller.js — they honour the same manual-dice setting, but roller.js is the Classified
  * engine and importing it would breach the rule.
  */
+import { beatOutcome, openBeatWriter } from "./beat.js";
 
 import { el, clear, uid, d100, d10, die, announce, clamp, fmtDate, signed, art, diceFaces, d100Faces, rerender, section as coreSection } from "./core.js";
 import { modal, showToast, confirmModal, promptModal, chooseModal, copyText, landFeedback } from "./ui.js";
@@ -2756,7 +2757,11 @@ function appendJournal(host, adv) {
     card.appendChild(el("div", { class: "log-entry", dataset: { kind: e.kind } },
       el("span", { class: "lr kind-tag", text: e.kind }),
       el("div", { class: "ld" },
-        el("div", { class: "lt" }, el("b", { text: e.text })),
+        e.story ? el("div", { class: "lt beat-story", text: e.story }) : null,
+        el("div", { class: "lt" }, beatOutcome(e) && !adv.completedAt
+          ? el("button", { class: "link-btn beat-link", type: "button", title: e.story ? "Edit what happened" : "Write what happened",
+              onclick: () => openBeatWriter(e) }, el("b", { text: e.text }))
+          : el("b", { text: e.text })),
         e.detail ? el("div", { class: "lm", text: e.detail }) : null,
         el("div", { class: "lm", text: fmtDate(e.ts) })),
       el("div", { class: "row tight", style: "flex:none" },
@@ -2796,7 +2801,7 @@ function appendJournal(host, adv) {
 
 /** One journal row as plain text: what happened, the dice behind it, and when. */
 function entryText(e) {
-  return [`[${e.kind}] ${e.text}`, e.detail, fmtDate(e.ts)].filter(Boolean).join("\n");
+  return [e.story, `[${e.kind}] ${e.text}`, e.detail, fmtDate(e.ts)].filter(Boolean).join("\n");
 }
 
 /**
@@ -2822,7 +2827,10 @@ export async function caseFileImage(adv, { max = 60 } = {}) {
     return out;
   };
   const textFont = '500 30px "IBM Plex Sans", sans-serif', detFont = '400 22px "IBM Plex Mono", monospace';
-  const frames = rows.map(r => ({ r, t: wrap(r.text, textFont, W - pad * 2 - 170), d: r.detail ? wrap(r.detail, detFont, W - pad * 2 - 170) : [] }));
+  // A beat the player wrote is printed in their words, with the result as the line under it.
+  const frames = rows.map(r => r.story
+    ? { r, t: wrap(r.story, textFont, W - pad * 2 - 170), d: wrap(r.text, detFont, W - pad * 2 - 170) }
+    : { r, t: wrap(r.text, textFont, W - pad * 2 - 170), d: r.detail ? wrap(r.detail, detFont, W - pad * 2 - 170) : [] });
   const H = 330 + frames.reduce((h, f) => h + 40 + f.t.length * 40 + f.d.length * 30 + 24, 0) + 80;
   cv.width = W; cv.height = H;
   cx.fillStyle = "#e9dfc7"; cx.fillRect(0, 0, W, H);

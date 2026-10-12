@@ -1912,3 +1912,32 @@ svg.red-string circle { fill: #c0281b; stroke: #5a0d06; stroke-width: 1.5; }
 .cd-needle { transform-box: view-box; transform-origin: 50px 52px; }
 .chaos-dial.is-moving .cd-needle { transition: transform .9s cubic-bezier(.3,1.6,.5,1); }
 @media (prefers-reduced-motion: reduce) { .chaos-dial.is-moving .cd-needle { transition: none; } }
+
+/* ---------------------------------------------------------------- story beats (§3.20.7) */
+button.feed-card { width: 100%; text-align: left; color: inherit; font: inherit; cursor: pointer; }
+button.feed-card:focus-visible { outline: 3px solid var(--stamp); outline-offset: 2px; }
+.feed-card.has-story { grid-template-columns: 40px 1fr; background: var(--paper); }
+.fc-story { font: 400 18px/1.45 var(--display); overflow-wrap: anywhere; white-space: pre-wrap; }
+.feed-card.has-story .fc-detail { -webkit-line-clamp: 1; }
+.beat-writer {
+  margin: -4px 0 0 50px; padding: 10px 12px; border: 1px dashed var(--stamp); border-radius: var(--r-lg);
+  background: var(--paper); display: grid; gap: 8px;
+}
+.beat-k { font: 600 11px/1 var(--mono); letter-spacing: .1em; text-transform: uppercase; color: var(--stamp); }
+.beat-box {
+  width: 100%; box-sizing: border-box; font: 400 16px/1.45 var(--display); color: var(--ink);
+  background: var(--paper-2); border: 1px solid var(--rule); border-radius: var(--r); padding: 8px 10px; resize: vertical;
+}
+.beat-actions { display: flex; justify-content: flex-end; gap: 8px; }
+.next-moves { margin: -4px 0 0 50px; display: flex; flex-wrap: wrap; gap: 6px; align-items: center; }
+.nm-k { font: 600 11px/1 var(--mono); letter-spacing: .1em; text-transform: uppercase; color: var(--ink-3); margin-right: 2px; }
+.nm-btn {
+  font: 600 14px/1 var(--sans); color: var(--ink); background: var(--paper-2); cursor: pointer;
+  border: 1.5px solid var(--ink); border-radius: 999px; padding: 9px 13px; min-height: 36px;
+}
+.nm-btn:focus-visible { outline: 3px solid var(--stamp); outline-offset: 2px; }
+.beat-modal { display: grid; gap: 8px; }
+.beat-result { font: 600 14px/1.35 var(--sans); }
+.lt.beat-story { font: 400 16px/1.4 var(--display); white-space: pre-wrap; }
+.beat-link { text-align: left; color: inherit; }
+@media (max-width: 380px) { .beat-writer, .next-moves { margin-left: 0; } }

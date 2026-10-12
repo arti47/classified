@@ -766,3 +766,42 @@ export const TUTORIAL = {
     "Two habits carry a solo game further than any table: ask Fate only what a referee would decide, and keep the Threads and Characters lists current. The oracle can only point at what you have written down."
   ]
 };
+
+/* ================================================================ story beats */
+
+/*
+ * The solo journal as the story (CLAUDE.md §3.20.7). After a result the Mission asks
+ * "What happens?" and offers a half-sentence to finish; the next moves are the verbs that fit
+ * the result. UI copy and routing only: every move opens a procedure the app already has, and
+ * none of them is a re-roll — Classified has no re-roll economy (§3.1) and Mythic asks a new
+ * question rather than the same one again, so after a No the offer is to ask *something else*.
+ * A failed check offers no Hero Point spend here because that spend is made in the result
+ * dialog, against the roll, before it is closed (§3.3).
+ */
+export const BEAT_STARTERS = {
+  exyes:   "Yes, and more than that: ",
+  yes:     "Yes. ",
+  no:      "No. ",
+  exno:    "No, and worse than that: ",
+  superb:  "It goes perfectly. ",
+  success: "It works. ",
+  fail:    "It doesn't work. ",
+  event:   "Without warning, ",
+  meaning: "{words}. That means ",
+  scene:   "The scene opens on ",
+  adjust:  "Not quite as planned: "
+};
+
+export const NEXT_MOVES = {
+  exyes:   [{ verb: "act", label: "Act on it" }, { verb: "fate", label: "Ask a follow-up" }, { verb: "end", label: "End the scene" }],
+  yes:     [{ verb: "act", label: "Act on it" }, { verb: "fate", label: "Ask a follow-up" }, { verb: "end", label: "End the scene" }],
+  no:      [{ verb: "act", label: "Try another way" }, { verb: "fate", label: "Ask something else" }, { verb: "words", label: "Inspire me" }],
+  exno:    [{ verb: "act", label: "Try another way" }, { verb: "fate", label: "Ask something else" }, { verb: "words", label: "Inspire me" }],
+  superb:  [{ verb: "act", label: "Keep going" }, { verb: "fate", label: "Ask what you find" }, { verb: "end", label: "End the scene" }],
+  success: [{ verb: "act", label: "Keep going" }, { verb: "fate", label: "Ask what you find" }, { verb: "end", label: "End the scene" }],
+  fail:    [{ verb: "fate", label: "Ask what it costs" }, { verb: "act", label: "Try another way" }, { verb: "hurt", label: "I'm hurt" }],
+  event:   [{ verb: "fate", label: "Ask what it means" }, { verb: "act", label: "Respond" }, { verb: "words", label: "Inspire me" }],
+  meaning: [{ verb: "act", label: "Act on it" }, { verb: "fate", label: "Ask the oracle" }, { verb: "words", label: "Another pair" }],
+  scene:   [{ verb: "act", label: "Try something" }, { verb: "fate", label: "Ask the oracle" }, { verb: "words", label: "Inspire me" }],
+  adjust:  [{ verb: "act", label: "Try something" }, { verb: "fate", label: "Ask the oracle" }, { verb: "words", label: "Inspire me" }]
+};

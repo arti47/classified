@@ -2,7 +2,7 @@
 
 export const APP_NAME = "Classified Player";
 export const STORAGE_PREFIX = "classified.";
-export const SCHEMA_VERSION = 14;  // 9 clue odds, 10 clue lines and reveal tells, 11 the mission end, 12 the city and scene setting, 13 the Hidden truth choice, 14 the agent's silhouette and stamp colour
+export const SCHEMA_VERSION = 15;  // 9 clue odds, 10 clue lines and reveal tells, 11 the mission end, 12 the city and scene setting, 13 the Hidden truth choice, 14 the agent's silhouette and stamp colour, 15 the journal's story beats
 
 /* ---------------------------------------------------------------- DOM */
 

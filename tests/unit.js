@@ -8,7 +8,7 @@ import { ANIMALS } from "../data-monsters.js";
 import { OSIRIS_NPCS, ENCOUNTER_TABLES, ENCOUNTERS, NPC_CHARACTERISTIC_TABLES, NPC_SKILL_TABLES } from "../data-npcs.js";
 import { PREGENS, PREGEN_BUDGET_AUDIT } from "../data-pregens.js";
 import * as SOLO from "../data-solo.js";
-import { HELP, TUTORIAL, helpFor, GLOSSARY, GLOSSARY_SYSTEMS, glossaryFind } from "../data-help.js";
+import { HELP, TUTORIAL, helpFor, GLOSSARY, GLOSSARY_SYSTEMS, glossaryFind, BEAT_STARTERS, NEXT_MOVES } from "../data-help.js";
 import { normalizeAdventure, wipeAdventures as Store_wipeAdventures, wipeCharacters as Store_wipeCharacters } from "../src/store.js";
 import { readFileSync, readdirSync } from "node:fs";
 import { d100Faces } from "../src/core.js";
@@ -1273,7 +1273,20 @@ function soloTests(t) {
   t.eq(fresh.chaos, 5, "a new adventure starts at Chaos Factor 5");
   t.eq(fresh.scene, 1, "a new adventure starts at scene 1");
   t.eq(fresh.fateMode, "chart", "the Fate Chart is the default mechanic");
-  t.eq(fresh.schema, 14, "an adventure records SCHEMA_VERSION 14");
+  t.eq(fresh.schema, 15, "an adventure records SCHEMA_VERSION 15");
+  {
+    const kept = normalizeAdventure({ journal: [
+      { id: "a", kind: "check", text: "Stealth: Failure", quality: 5, roll: 88, story: "Gravel gives me away." },
+      { id: "b", kind: "fate", text: "Q — Yes", skipped: true }, { id: "c", kind: "note", text: "old" }] }).journal;
+    t.ok(kept[0].quality === 5 && kept[0].roll === 88, "a check row keeps its Quality and d100 through normalisation");
+    t.eq(kept[0].story, "Gravel gives me away.", "a beat keeps the player's line (v15)");
+    t.ok(kept[1].skipped && kept[2].story === "" && !kept[2].skipped, "a skip is kept and an older row back-fills to no line");
+    const verbs = new Set(["act", "fate", "words", "end", "hurt"]);
+    t.deep(Object.keys(NEXT_MOVES).sort(), Object.keys(BEAT_STARTERS).sort(), "every kind of beat has a starter and its next moves");
+    t.ok(Object.values(NEXT_MOVES).flat().every(m => verbs.has(m.verb)), "every next move opens a procedure the app already has");
+    t.ok(!Object.values(NEXT_MOVES).flat().some(m => /re-?roll|same|again/i.test(m.label)),
+      "no next move re-rolls a check or re-asks the same question");
+  }
   // The city and the scene setting (ruling S25).
   t.eq(SOLO.CITY_TABLE.entries.length, 100, "the City table has a hundred entries, one per d100");
   t.eq(new Set(SOLO.CITY_TABLE.entries).size, 100, "and no city twice");

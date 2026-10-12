@@ -98,6 +98,22 @@ based on your recommendations"*, so U9–U17 are again the recommended options t
 | U25 | **The Chaos needle swings** | When the Chaos Factor changes, the Mission's dial swings from the old value to the new; cut under reduced motion |
 | U17 | **Faces and wounds drawn** | Her silhouette or his for a dossier with no photograph (`silhouette()`), and the wound as a body filled from the feet up to its place on the ladder, beside the printed name and track; it opens the wound panel |
 
+### 1.4 Story Decisions — the journal is the game
+
+Recorded at the report that the app still did not *run like a game* and that the game and the
+journal were not linked. Asked one question at a time; these are the user's answers.
+
+| # | Question | Answer | Consequence |
+|---|---|---|---|
+| G1 | Which kind of computer game | **Narrative RPG** (Disco Elysium, 80 Days) | The story stream is the main screen; dice sit behind it |
+| G2 | Why the game–journal link is weak | **I am never asked to write** | The journal logged dice and never asked what they meant |
+| G3 | When to ask | **After every result** | The newest Fate answer, check, event, word pair or scene opening asks *What happens?* on the Mission (§3.20.7) |
+| G4 | How a written beat shows | **Your words first** | The line is the card's large text; the result is a footnote under it |
+| G5 | What the box starts from | **A starter line** | A half-sentence built from the result (`BEAT_STARTERS`) to finish or wipe |
+| G6 | What makes it a game | **Result leads to the next step** | Under the newest beat, two or three moves that fit it (`NEXT_MOVES`) |
+| G7 | Where | **Solo only** | At a table the referee narrates; the table feed is unchanged |
+| G8 | Edit later | **Tap a card to write** | Any beat, on the Mission or the Case board journal, opens its box |
+
 ---
 
 ## 2. Source
@@ -695,6 +711,30 @@ Fate decides the moment.
 | **The objective's twist** | A mystery on the objective is the one reveal that can change what the mission is *for*: the modal shows the standing objective and offers to rewrite it, filing the old wording to Threads as unfinished business. |
 | **Afterwards** | It stays on the panel marked Revealed, with its answer readable, and offers to open a thread from what it found. Clearing it is one tap. |
 
+#### 3.20.7 Story beats — the journal is the game (app aid)
+
+Neither book has this; it is presentation and prompting over the existing journal, decided in
+§1.4. A **beat** is a journal row that is a result — a Fate answer, a Classified check, a Random
+Event, a Meaning pair, a scene opening or a Scene Adjustment (`beatOutcome()` in `beat.js`).
+Bookkeeping rows (notes, list changes, clues, scene ends) are not beats.
+
+- **Asked once, right after.** The newest beat on the Mission carries a *What happens?* box
+  opening on a starter line from `BEAT_STARTERS` (*No. *, *It doesn't work. *, *{words}. That
+  means *). **Write it** saves the line as the row's `story`; **Skip** marks it `skipped`. A
+  starter left untouched is not saved as writing.
+- **Your words first.** A beat with a line shows it large, in the display face, with the result
+  and its verdict as a footnote; Copy all and the case-file image print it the same way.
+- **The next step.** Once written or skipped, the newest beat offers the moves in `NEXT_MOVES`
+  for its kind — *Act on it*, *Ask a follow-up*, *Try another way*, *Ask what it costs*,
+  *Inspire me*, *End the scene*. Each opens a procedure that already exists (skill picker, Fate
+  dial, Meaning words, End scene, the wound panel). **Rules fidelity:** none is a re-roll, since
+  Classified has no re-roll economy (§3.1); after a No the offer is to ask *something else*, as
+  Mythic asks a new question rather than the same one again; and a failure offers no Hero Point
+  spend here, because that spend is made in the result dialog against the roll (§3.3).
+- **Later.** Any beat is a button on the Mission and a link on the Case board journal, opening
+  the same box in a dialog, with **Clear** once it has a line.
+- **Solo only.** The table feed is a roll log of the dossier and is untouched.
+
 #### 3.20.5 Scene boundaries, and how they differ from R9
 
 Two things called a scene now exist and they are deliberately separate:
@@ -924,7 +964,7 @@ layer carries the flag rather than the UI.
 | `data-monsters.js` | The book's five animals (there is no monster bestiary — see §3.18) |
 | `data-npcs.js` | NPC stereotypes and generation tables, OSIRIS, the encounter system |
 | `data-pregens.js` | The five published pre-generated characters |
-| `data-help.js` | **How-to copy** — one entry per screen and per Solo panel, the solo tutorial, and the glossary of both systems' terms. UI text, not rules. |
+| `data-help.js` | **How-to copy** — one entry per screen and per Solo panel, the solo tutorial, the glossary of both systems' terms, and the story beats' starter lines and next moves (`BEAT_STARTERS`, `NEXT_MOVES`). UI text, not rules. |
 | `data-names.js` | **Agent-name tables** (house aid) — d100 male and female given names and d100 surnames, authored for the 1960s espionage frame. Not the book's, so not in `data.js` |
 | `data-solo.js` | **Mythic layer** — Fate, Chaos, scenes, events, and all 37 Meaning Tables (§3.20). No Classified rules in this file. |
 | `firebase-config.js` | Placeholder config + `FIREBASE_ENABLED` flag |
@@ -956,6 +996,7 @@ No `data-<expansion>.js` — no expansions were supplied.
 | `help.js` | The how-to accordions, the glossary, the tutorial, and the **play guide** — the screen that says what to do next in your own game. Renders `data-help.js`; imports core, ui, settings and store, all of which `solo.js` may import, so it stays usable from there |
 | `solo.js` | The Mythic engine and the Solo screen: Fate, Chaos, scene test, Random Events, Adventure Lists, Meaning-table roller, journal, guided End Scene |
 | `mission.js` | **The mission feed** (U5) — scene card, Chaos dial, briefing slip, the feed, the one big button, the eight verbs, the Fate dial. A conductor like the coach: it owns no rule and calls the roller and `solo.js` |
+| `beat.js` | **The story beat** (§3.20.7) — which journal rows are results, the starter line, the *What happens?* box inline and in a dialog, and the next moves. Imports core, ui, store and `data-help.js` only, so `solo.js` may use it |
 | `onboard.js` | **The recruitment** (U3) — Home while there is no dossier: pick a published agent, choose solo or table, land on the mission |
 | `coach.js` | **The guided player** — the app running the game for you, one instruction and one button at a time. A conductor, not an engine: it owns no rule and reaches both engines by dynamic import |
 | `screens.js` | Home, rules library, roll log, advancement, settings |
@@ -964,7 +1005,7 @@ No `data-<expansion>.js` — no expansions were supplied.
 
 No `power-automation.js` (§3.14).
 
-`solo.js` may import `core.js`, `ui.js`, `store.js`, `settings.js`, `help.js` and
+`solo.js` may import `core.js`, `ui.js`, `store.js`, `settings.js`, `help.js`, `beat.js` and
 `data-solo.js`. It
 must **not** *statically* import `rules.js` or `data.js`. The one exception is the briefing's
 Primary Opponent, which dynamically imports `combat.js`'s generator at the moment it is asked
@@ -1046,14 +1087,16 @@ classified.soloAdventures: [ {
   characters: [ { id, text, weight } ],         // Adventure List, 25 slots
   completedAt: number | null,                    // the mission's own end (§3.20.4)
   outcome: "success" | "partial" | "failure" | null,
-  journal:    [ { id, ts, kind, text, detail, quality?, roll? } ]  // kind: scene|fate|event|meaning|note|check; a check row carries its Quality and d100 for the feed's stamp
+  journal:    [ { id, ts, kind, text, detail, quality?, roll?, story, skipped } ]  // kind: scene|fate|event|meaning|note|check; a check row carries its Quality and d100 for the feed's stamp; story is the player's line on a beat (v15, §3.20.7)
 } ]
 classified.soloActive: <adventureId>
 classified.soloUndo:   <one-step snapshot: { ts, label, adventures, active } >
 ```
 
 Every schema addition ships with a back-fill in `normalize()` and is documented here in the
-same change. `SCHEMA_VERSION` is 14; version 14 added the agent's `silhouette` and `stamp`,
+same change. `SCHEMA_VERSION` is 15; version 15 added a journal row's `story` and `skipped`,
+back-filled to no line, and stopped normalisation dropping a check row's `quality` and `roll`
+(SA15); version 14 added the agent's `silhouette` and `stamp`,
 back-filled to follow the gender and to red; version 13 made the Hidden truth a stored choice and
 added `briefing.seededBy` and a mystery's `origin` — an older briefing's Hidden truth is read
 off its roll, and its mysteries read as opened by hand. Version 12 added `city` and
@@ -1306,7 +1349,7 @@ are flagged rather than presented as extracted (S1).
       - [x] Roll-log integration through `Store.addRoll()`.
       - [x] Regression checks: chart monotonicity, derived thresholds, event trigger,
             chaos clamping, list weighting, and every table exactly 100 entries.
-- [x] **Hardening.** Committed regression harness (1652 checks); accessibility pass;
+- [x] **Hardening.** Committed regression harness (1688 checks); accessibility pass;
       rules-accuracy audit with every finding closed (§11).
 
 ---
@@ -1392,6 +1435,7 @@ either one.
 | SA12 | The scene test never captured the **expected scene**, so nothing on screen said what the current scene was, and an altered or interrupted result relied on the player remembering to roll the follow-up | `startScene()` asks, rolls, and chains into the Scene Adjustment or the Random Event; the expectation and outcome are stored and shown while the scene runs; an interrupt offers the planned scene as a thread so it is not lost | Starting a scene stores the phase, kind and expectation, journals both, and reports the outcome in the same flow |
 | SA13 | A Random Event that named a list — New NPC, Close A Thread — had **no way to act on it**, and the header carried manual Chaos ±1 buttons directly above the End Scene that steps the Chaos Factor for you, inviting a double step | Contextual actions in the event modal (add the NPC, strike off the drawn thread, add a first thread); the manual override and the Fate mechanic switch moved into the Adventures menu | A New NPC event offers Add to Characters, Close A Thread offers to strike off the thread it drew, and an event that names no list carries no list action |
 | SA14 | Reported with a screenshot: an altered scene asked for **five** adjustments, *Add An Object* among them twice. Root cause: `rollSceneAdjustment()` treated every 7–10 rolled while resolving a *Make 2 Adjustments* as another double, adding two more dice each time until a 12-roll guard stopped it, and kept repeats. The printed row says make **two** | `resolveSceneAdjustment()` in `data-solo.js` reads the run: a 1–6 is the one adjustment; a 7–10 is exactly two different ones, a further 7–10 or a repeat on the way re-rolled. The dialog footnote says so | The reported run 9, 2, 9, 9, 8, 3, 6, 9, 10, 7, 6, 5 reads as two changes; a 7–10 and a repeat are re-rolled; 2,000 random runs never exceed two or repeat |
+| SA15 | Found building the story beats: a solo check row lost its Quality and d100 the moment it was saved — `normalizeAdventure()` rebuilt each journal row from five named fields and `journalCheck()` saves through it — so the Mission feed's check cards never carried their stamp. The same cards read only the agent's name, because the line-trimming regex built for Fate answers (*… — Yes*) also cut a check's *Agent — Skill: Quality* at its dash | Normalisation keeps `quality`, `roll`, `story` and `skipped`; a check card drops the agent and the Quality and reads as the skill, the Quality on its stamp | A check row keeps Quality 5 through the store; the card reads *Stealth* |
 | SA8 | The two mechanics print **different labels for the same nine odds** — the chart reads Certain and Nearly Impossible, the check's table reads Has To Be and No Way — and the app showed the chart's labels in both | `oddsLabel(key, mechanic)` returns the label the active mechanic prints, and the odds chips follow the adventure's `fateMode` | Both label sets resolve for the same rank |
 
 ### Newcomer audit
@@ -1610,3 +1654,4 @@ tables are this app's own work and are marked as such (S6).
 | 2026-10-10 | Second redesign (U9–U17, A20): the roll as one dial, the result as a moment, Start scene as a clapper slate with an opening title card, the Case board as a cork pinboard without the Mission's duplicate verbs, swipe between pages, Gear in three drawers, Combat as one picture and one button, Create as pictures, her silhouette or his, and the wound drawn as a body | Asked again for a radical rethink, and for the four leftovers (gendered silhouettes, the opening card, a wound body, swiping); the user chose every recommendation. A20 is a rules fault the audit turned up: Fire Combat modifiers hard-coded in `src/` and offered on every roll, with an Untrained chip that could double the automatic penalty and range modifiers that could stack — now read from `FIRE_COMBAT_MODS`, offered only on Fire Combat, ranges exclusive. Fidelity otherwise: no rules data, `rules.js`, `derived.js` or fixture changed | 1622 checks green, including the contextual modifiers, the ladder stepper, the folded Details, the three Gear drawers, a swipe there and back, the wound figure's fill against the ladder, both silhouettes, the empty Combat state, the opening card appearing and leaving, no empty card on the Case board with explanations off, and Wrap up's three boundaries. axe-core clean on every route and the new dialogs in both themes bar `meta-viewport`; zero overflow at 320, 360, 390 and 1280px; zero console errors | `classified-v64` |
 | 2026-10-10 | Third pass (U18–U25): Training as the one place to learn, the encounter as a felt table of tappable tokens, the journal as a shareable case-file image, red string from each mystery to its entry, the agent's silhouette and stamp colour chosen at recruitment (`SCHEMA_VERSION` 14), shake to roll, a night-ops theme, and the Chaos needle swinging on a change | The eight ideas offered at the end of the second pass; the user took all of them. Rules fidelity: no rules data, `rules.js` or fixture changed; the table's token actions are the card's own calls, the case file prints the journal's own words, and shake only presses the dialog's Roll | 1646 checks green, including the token sheet acting on the encounter, the case file PNG growing with the journal, one string for one tied mystery, the needle's from and to, shake with the setting on and not with it off, the look saved and applied, and the night-ops theme. axe-core clean in light, dark and night ops with all four stamp colours on the Mission, Agent, Gear, Combat, Case board, Settings, Files, the roll and the result bar `meta-viewport`; zero overflow at 320–1280px; zero console errors | `classified-v65` |
 | 2026-10-10 | A *Make 2 Adjustments* is two adjustments (SA14): a further 7–10 or a repeat while resolving them is re-rolled, not doubled | Reported with a screenshot of five adjustments, one twice. Root cause: the loop added two dice for every 7–10 it met, not only the first, and never checked for repeats. The rule now lives in `data-solo.js` as `resolveSceneAdjustment()`. Rules fidelity: the printed table is unchanged | 1652 checks green, including the reported run reading as two changes | `classified-v66` |
+| 2026-10-12 | Story beats (§1.4 G1–G8, §3.20.7, SA15, `SCHEMA_VERSION` 15): the newest solo result on the Mission asks *What happens?* with a starter line, saves the player's line on the journal row, shows it large with the result as a footnote, and then offers the moves that fit the result; any beat can be written later from the Mission or the Case board; Copy all and the case file print the player's words. New `src/beat.js` | Reported: the app did not run like a computer game and the game–journal link was weak. Asked one question at a time; the answers were a narrative RPG, *I am never asked to write*, after every result, words first, a starter line, result leads to the next step, solo only, tap to edit. Rules fidelity: no rule data, `rules.js`, `derived.js` or fixture changed; no next move re-rolls, re-asks the same Fate question, or spends Hero Points outside the result dialog. SA15 root causes above | 1688 checks green, including the writer, its starter, Write it, words-first card, the No moves, a move opening the Fate dial, a check keeping its Quality, Skip, tap-to-write later, and notes not being beats. axe-core clean on the writer, the moves and the dialog in light, dark and night ops at 320 and 390px bar `meta-viewport`; zero overflow; zero console errors | `classified-v67` |

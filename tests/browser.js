@@ -3531,6 +3531,76 @@ export async function browserTests(t, { chromium, executablePath, baseURL }) {
       t.ok(!links.offTool.includes("Ask Fate"), "with solo off the topic is reference only");
       t.ok(/Hero Points/.test(links.styleTopic), "the campaign style links to the Hero Points rule it changes");
 
+      // Story beats (§3.20.7): the newest result asks what happened, takes the line, and leads on.
+      const beats = await page.evaluate(async () => {
+        const wait = ms => new Promise(r => setTimeout(r, ms));
+        const ui = await import("./src/ui.js");
+        const Store = await import("./src/store.js");
+        const settings = await import("./src/settings.js");
+        const router = await import("./src/router.js");
+        const out = {};
+        ui.closeAllModals(); await wait(60);
+        settings.set("solo", true); router.rebuildNav();
+        const c = Store.activeCharacter();
+        Store.createAdventure({ name: "Beat test", characterId: c.id });
+        Store.updateAdventure(a => {
+          a.scenePhase = "play"; a.briefing = { rows: {}, seededIds: [], seededBy: {}, writtenAt: Date.now() };
+          a.journal = [{ id: "jb1", ts: Date.now(), kind: "fate", text: "Is the guard asleep? — No", detail: "Fate Chart 71 vs 50" }];
+        });
+        router.navigate("mission"); await wait(300);
+        const writer = document.querySelector(".feed .beat-writer");
+        out.writer = !!writer;
+        out.starter = writer ? writer.querySelector("textarea").value : "";
+        writer.querySelector("textarea").value = "No. He is wide awake and staring at the door.";
+        [...writer.querySelectorAll("button")].find(b => b.textContent === "Write it").click(); await wait(250);
+        out.saved = (Store.activeAdventure().journal[0] || {}).story;
+        const first = document.querySelector(".feed .feed-card");
+        out.storyFirst = first && first.classList.contains("has-story") ? first.querySelector(".fc-story").textContent : "";
+        out.noWriter = !document.querySelector(".feed .beat-writer");
+        out.moves = [...document.querySelectorAll(".feed .next-moves .nm-btn")].map(b => b.textContent);
+        document.querySelector('.feed .nm-btn[data-verb="fate"]').click(); await wait(200);
+        out.fateOpened = (document.querySelector(".modal h2") || {}).textContent || "";
+        ui.closeAllModals(); await wait(60);
+        // A check keeps its Quality through the store, and a failure leads to its own moves.
+        Store.addRoll({ by: c.identity.name, characterId: c.id, label: "Stealth", roll: 88, quality: 5, baseChance: 15, df: 5, successChance: 75 });
+        await wait(250);
+        out.checkQuality = (Store.activeAdventure().journal[0] || {}).quality;
+        out.checkStarter = (document.querySelector(".feed .beat-writer textarea") || {}).value;
+        out.checkLine = (document.querySelector(".feed .feed-card .fc-text") || {}).textContent;
+        [...document.querySelectorAll(".feed .beat-writer button")].find(b => b.textContent === "Skip").click(); await wait(250);
+        out.skipMoves = [...document.querySelectorAll(".feed .next-moves .nm-btn")].map(b => b.textContent);
+        // Any beat can be written later by tapping it.
+        document.querySelectorAll(".feed .feed-card.is-beat")[0].click(); await wait(200);
+        const box = document.querySelector(".modal .beat-box");
+        out.laterModal = !!box;
+        box.value = "Gravel underfoot gives me away.";
+        [...document.querySelectorAll(".modal-foot .btn")].find(b => b.textContent === "Save").click(); await wait(250);
+        out.later = (Store.activeAdventure().journal[0] || {}).story;
+        // A note is bookkeeping, not a beat.
+        Store.updateAdventure(a => { a.journal.unshift({ id: "jn", ts: Date.now(), kind: "note", text: "Added to Threads: x", detail: "" }); });
+        await wait(250);
+        out.noteWriter = !!document.querySelector(".feed .beat-writer");
+        const Solo = await import("./src/solo.js");
+        out.png = (await Solo.caseFileImage(Store.activeAdventure())).length > 1000;
+        return out;
+      });
+      t.ok(beats.writer, "the newest result on the Mission asks what happened");
+      t.eq(beats.starter, "No. ", "with a starter line built from the answer");
+      t.eq(beats.saved, "No. He is wide awake and staring at the door.", "Write it saves the line on the journal row");
+      t.eq(beats.storyFirst, beats.saved, "and the card leads with the player's words");
+      t.ok(beats.noWriter, "the question is not asked twice");
+      t.deep(beats.moves, ["Try another way", "Ask something else", "Inspire me"], "after a No the moves fit it, and none re-asks the same question");
+      t.eq(beats.fateOpened, "Ask the oracle", "a move opens the procedure it names");
+      t.eq(beats.checkQuality, 5, "a check row keeps its Quality through the store");
+      t.eq(beats.checkStarter, "It doesn't work. ", "a failed check starts its own line");
+      t.eq(beats.checkLine, "Stealth", "a check card names the skill, not only the agent");
+      t.ok(beats.skipMoves.includes("Ask what it costs") && !beats.skipMoves.some(m => /re-?roll|again/i.test(m)),
+        "Skip still leads on, and a failure offers no re-roll");
+      t.ok(beats.laterModal, "any beat can be tapped to write later");
+      t.eq(beats.later, "Gravel underfoot gives me away.", "and the later line is saved");
+      t.ok(!beats.noteWriter, "bookkeeping notes are not beats");
+      t.ok(beats.png, "the case file still draws with written beats");
+
       t.eq(errors.length, 0, "zero JavaScript errors during the whole run" +
         (errors.length ? `: ${errors.slice(0, 3).join(" | ")}` : ""));
 

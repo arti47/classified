@@ -295,7 +295,13 @@ export function normalizeAdventure(a) {
           ts: Number(e.ts) || Date.now(),
           kind: e.kind || "note",
           text: e.text || "",
-          detail: e.detail || ""
+          detail: e.detail || "",
+          // A check carries its Quality and d100 for the feed's stamp (U5); a beat carries the
+          // player's own line (v15, §3.20.7). Older rows have none of them.
+          ...(e.quality != null ? { quality: Number(e.quality) } : {}),
+          ...(e.roll != null ? { roll: Number(e.roll) } : {}),
+          story: typeof e.story === "string" ? e.story : "",
+          skipped: !!e.skipped
         }))
       : []
   };

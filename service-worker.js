@@ -1,7 +1,7 @@
 /* service-worker.js — network-first with an offline app-shell fallback.
  * Bump CACHE_VERSION whenever any shipped file changes. */
 
-const CACHE_VERSION = "classified-v66";
+const CACHE_VERSION = "classified-v67";
 
 const APP_SHELL = [
   "./",
@@ -43,7 +43,8 @@ const APP_SHELL = [
   "./src/screens.js",
   "./src/router.js",
   "./src/mission.js",
-  "./src/onboard.js"
+  "./src/onboard.js",
+  "./src/beat.js"
 ];
 
 self.addEventListener("install", event => {

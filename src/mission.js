@@ -19,6 +19,7 @@ import * as S from "../data-solo.js";
 import { QUALITY_NAMES } from "../data.js";
 import { navigate } from "./router.js";
 import { appendHelp, offerSolo } from "./help.js";
+import { beatOutcome, beatWriter, openBeatWriter, nextMoves } from "./beat.js";
 
 const FEED_LEN = 30;
 
@@ -310,9 +311,35 @@ function soloFeed(adv) {
     feed.appendChild(el("div", { class: "feed-empty" }, art("typewriter"), el("span", { text: "Nothing has happened yet." })));
     return feed;
   }
-  for (const j of rows) feed.appendChild(feedCard(KIND_ICON[j.kind] || "words", j.text, j.detail, j.ts, j.kind,
-    j.quality ? QUALITY_NAMES[j.quality] : stampFor(j)));
+  const open = adv && !adv.completedAt;
+  rows.forEach((j, i) => {
+    const beat = open && !!beatOutcome(j);
+    feed.appendChild(feedCard(KIND_ICON[j.kind] || "words", j.text, j.detail, j.ts, j.kind,
+      j.quality ? QUALITY_NAMES[j.quality] : stampFor(j), { story: j.story, onWrite: beat ? () => openBeatWriter(j) : null }));
+    // The newest result asks what it meant, then offers the moves that fit (§3.20.7).
+    if (i === 0 && beat) {
+      if (!j.story && !j.skipped) feed.appendChild(beatWriter(j, { focus: Date.now() - j.ts < 15000 }));
+      else feed.appendChild(nextMoveRow(j));
+    }
+  });
   return feed;
+}
+
+/** The verbs a result leads to, as a row of buttons under it. Each opens an existing procedure. */
+function nextMoveRow(j) {
+  const moves = nextMoves(j);
+  const c = Store.activeCharacter();
+  const go = {
+    act: () => c && withRoller(m => m.openSkillPicker(c)),
+    fate: () => fateDial(Store.activeAdventure()),
+    words: () => wordsPicker(),
+    end: () => withSolo(m => m.endScene(Store.activeAdventure())),
+    hurt: () => c && withRoller(m => m.openTakeDamage(c))
+  };
+  return el("div", { class: "next-moves", role: "group", "aria-label": "What next?" },
+    el("span", { class: "nm-k", text: "Next" }),
+    ...moves.filter(mv => go[mv.verb]).map(mv => el("button", { class: "nm-btn", type: "button",
+      dataset: { verb: mv.verb }, onclick: go[mv.verb] }, mv.label)));
 }
 
 /* A Fate answer lands as a stamp: the engine writes it as the end of the line. */
@@ -322,14 +349,28 @@ function stampFor(j) {
   return m ? m[1].trim() : null;
 }
 
-function feedCard(ico, text, detail, ts, kind, stamp) {
+function feedCard(ico, text, detail, ts, kind, stamp, opts = {}) {
   const yes = stamp && /^(exceptional )?yes|superb|great|good|fair/i.test(stamp);
-  return el("div", { class: "feed-card k-" + (kind || "note") },
-    el("span", { class: "fc-ico" }, icon(ico)),
-    el("div", { class: "fc-body" },
-      el("div", { class: "fc-text", text: stamp ? text.replace(/\s*—\s*[^—]+$/, "").replace(/:\s*[^:]+$/, m => (kind === "check" ? "" : m)) : text }),
-      detail ? el("div", { class: "fc-detail", text: detail }) : null),
-    stamp ? el("span", { class: "fc-stamp " + (yes ? "is-yes" : "is-no"), text: stamp }) : null);
+  // The stamp carries the verdict, so the line drops it: a Fate answer ends "— Yes", a check is
+  // "Agent — Skill: Quality" and reads as the skill alone (the agent is the one playing).
+  const line = !stamp ? text
+    : kind === "check" ? text.replace(/^[^—]+—\s*/, "").replace(/:\s*[^:]+$/, "")
+    : text.replace(/\s*—\s*[^—]+$/, "");
+  // With the player's own line the card reads as the story: their words large, the result
+  // that prompted them as a footnote under it (§3.20.7).
+  const body = opts.story
+    ? el("div", { class: "fc-body" },
+        el("div", { class: "fc-story", text: opts.story }),
+        el("div", { class: "fc-detail", text: line + (stamp ? " — " + stamp : "") }))
+    : el("div", { class: "fc-body" },
+        el("div", { class: "fc-text", text: line }),
+        detail ? el("div", { class: "fc-detail", text: detail }) : null);
+  const kids = [el("span", { class: "fc-ico" }, icon(ico)), body,
+    stamp && !opts.story ? el("span", { class: "fc-stamp " + (yes ? "is-yes" : "is-no"), text: stamp }) : null];
+  return opts.onWrite
+    ? el("button", { class: "feed-card is-beat k-" + (kind || "note") + (opts.story ? " has-story" : ""), type: "button",
+        "aria-label": (opts.story ? "Edit what happened: " : "Write what happened: ") + line, onclick: opts.onWrite }, ...kids)
+    : el("div", { class: "feed-card k-" + (kind || "note") }, ...kids);
 }
 
 /* ---------------------------------------------------------------- table */
